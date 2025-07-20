@@ -8,6 +8,12 @@
 > 
 > This project was developed using AI assistance (Claude Code). Users should evaluate the code thoroughly before production use.
 
+> **⚠️ IMPORTANT: Bundler Compatibility Limitations**
+> 
+> This tool uses **Vite bundler** for development while PCF uses **webpack** for production builds. These have fundamental compatibility differences that may cause issues. Code that works in this harness may fail when built with PCF's webpack bundler.
+> 
+> **📖 [Read the full technical details in BUNDLER-COMPATIBILITY.md](./BUNDLER-COMPATIBILITY.md)**
+
 A modern Vite-based development harness for PowerApps Component Framework (PCF) components with hot module replacement and PowerApps-like environment simulation.
 
 ## ✨ Features
