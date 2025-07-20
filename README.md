@@ -27,36 +27,15 @@ A modern Vite-based development harness for PowerApps Component Framework (PCF) 
 
 ## 📦 Installation
 
+### 1. Install Package
+
 ```bash
 npm install pcf-vite-harness --save-dev
 ```
 
-### Optional Dependencies
+### 2. Create Development Files
 
-For Dataverse integration:
-```bash
-npm install dataverse-utilities --save-dev
-```
-
-## 🚀 Quick Start
-
-### 1. Create Development Files
-
-Create a `dev/` directory in your PCF project:
-
-```
-your-pcf-project/
-├── YourComponent/
-│   ├── index.ts          # Your PCF component
-│   └── ...
-├── dev/                  # New development directory
-│   ├── index.html
-│   ├── main.ts
-│   └── vite.config.ts
-└── package.json
-```
-
-### 2. Setup Files
+Create a `dev/` directory in your PCF project and copy these files:
 
 **dev/vite.config.ts:**
 ```typescript
@@ -101,15 +80,14 @@ initPCF(YourPCFComponent);
 </html>
 ```
 
-### 3. Add NPM Scripts
+### 3. Add NPM Script
 
 Add to your `package.json`:
 
 ```json
 {
   "scripts": {
-    "dev": "vite --config dev/vite.config.ts",
-    "dev:pcf": "pcf-start"
+    "dev:pcf": "vite --config dev/vite.config.ts"
   }
 }
 ```
@@ -117,7 +95,7 @@ Add to your `package.json`:
 ### 4. Start Development
 
 ```bash
-npm run dev
+npm run dev:pcf
 ```
 
 Your PCF component will open at `http://localhost:3000` with full HMR support!
