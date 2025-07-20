@@ -1,0 +1,176 @@
+/* PowerApps-like CSS classes and styling for PCF Vite Harness */
+
+/* Base flexbox utility classes */
+.flexbox {
+  display: flex;
+  width: 100%;
+  height: 100%;
+}
+
+/* PowerApps container classes (simplified versions) */
+.pa-g {
+  /* Grid/container */
+  flex-grow: 1;
+  width: 100%;
+  height: 100%;
+}
+
+.pa-ae,
+.pa-h,
+.pa-ht,
+.pa-cf,
+.pa-pb,
+.pa-du,
+.pa-bx,
+.pa-op,
+.pa-gm,
+.pa-no,
+.pa-qm,
+.pa-bf,
+.pa-pd,
+.pa-kr,
+.pa-bu,
+.pa-oe,
+.pa-qn,
+.pa-ct,
+.pa-j,
+.pa-hq,
+.pa-nk,
+.pa-nh,
+.pa-of,
+.pa-og,
+.pa-k,
+.pa-ol,
+.pa-ox {
+  /* Common PowerApps styling patterns */
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.pa-cf {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+}
+
+.pa-ct {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+
+.pa-h {
+  height: 100%;
+  width: 100%;
+}
+
+.pa-bx {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+}
+
+.webkitScroll {
+  -webkit-overflow-scrolling: touch;
+  overflow: auto;
+}
+
+.forceNewStackContext {
+  transform: translateZ(0);
+}
+
+/* Custom Control styling */
+.customControl {
+  position: relative;
+  overflow: hidden;
+}
+
+.pcf-component {
+  /* Specific styling for PCF components */
+  background-color: #ffffff;
+  border: 1px solid #d1d1d1;
+}
+
+/* DataSet container styling */
+[id*="DataSetHostContainer"] {
+  background-color: #faf9f8;
+}
+
+[id*="dataSetRoot"] {
+  background-color: transparent;
+}
+
+/* PowerApps color scheme */
+:root {
+  --pa-primary: #0078d4;
+  --pa-background: #faf9f8;
+  --pa-surface: #ffffff;
+  --pa-border: #d1d1d1;
+  --pa-text: #323130;
+  --pa-text-secondary: #605e5c;
+}
+
+/* Base body styling for PCF harness */
+.pcf-harness-body {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  height: 100%;
+  font-family:
+    "Segoe UI", "Segoe UI Web (West European)", "Segoe UI", -apple-system, BlinkMacSystemFont,
+    Roboto, "Helvetica Neue", sans-serif;
+  background-color: #f3f2f1;
+  overflow: hidden;
+}
+
+.pcf-harness-container {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+}
+
+/* Responsive behavior like PowerApps */
+@media (max-width: 768px) {
+  .customControl {
+    min-height: 400px;
+  }
+}
+
+/* Scrollbar styling to match PowerApps */
+.webkitScroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.webkitScroll::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.webkitScroll::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.webkitScroll::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Dev panel styling */
+.pcf-dev-panel {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background-color: white;
+  padding: 10px;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  font-size: 12px;
+  z-index: 1001;
+  font-family: "Segoe UI", monospace;
+}
+
+.pcf-dev-panel strong {
+  color: var(--pa-primary);
+}
