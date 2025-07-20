@@ -30,7 +30,11 @@ A modern Vite-based development harness for PowerApps Component Framework (PCF) 
 ### 1. Install Package
 
 ```bash
+# Install the harness
 npm install pcf-vite-harness --save-dev
+
+# Install required peer dependencies
+npm install vite react react-dom --save-dev
 ```
 
 ### 2. Create Development Files
