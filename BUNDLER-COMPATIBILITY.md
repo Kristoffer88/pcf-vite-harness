@@ -122,24 +122,46 @@ module.exports = { createMockContext }
 - Sandboxed execution environment
 - Legacy compatibility requirements
 
+## Real-World Error Examples
+
+**This error was encountered by an actual user testing the harness:**
+
+### ESBuild Native Module Error
+
+```
+✘ [ERROR] No loader is configured for ".node" files: ../pcf-vite-harness/node_modules/fsevents/fsevents.node
+
+    ../pcf-vite-harness/node_modules/fsevents/fsevents.js:13:23:
+      13 │ ..."./fsevents...
+         ╵    ~~~~~~~~~~~
+
+Error: Build failed with 1 error:
+../pcf-vite-harness/node_modules/fsevents/fsevents.js:13:23: ERROR: No loader is configured for ".node" files
+```
+
+**Root Cause**: ESBuild (used by Vite) cannot handle native Node.js modules (.node files). The `fsevents` package contains platform-specific native binaries for macOS file system watching, which creates an incompatible build chain.
+
+**Why This Matters**: This validates our core compatibility warning - code that works in Vite development may fail when integrated with actual PCF projects due to fundamental bundler differences.
+
 ## Specific Error Scenarios
 
 ### Build-Time Errors
 
-1. **Module Resolution Failure**
+1. **ESBuild Native Module Error** ⭐ *Real user error*
+   ```
+   ERROR: No loader is configured for ".node" files: fsevents.node
+   ```
+
+2. **Module Resolution Failure**
    ```
    Module not found: Error: Can't resolve 'module-name'
    ```
 
-2. **TypeScript Compilation Error**
+3. **TypeScript Compilation Error**
    ```
    Option 'bundler' can only be used when 'module' is set to 'es2015' or later
    ```
 
-3. **Dependency Size Limit**
-   ```
-   Bundle size exceeds PowerApps limit (>500kb)
-   ```
 
 ### Runtime Errors
 
@@ -196,6 +218,18 @@ module.exports = { createMockContext }
 
 ## Troubleshooting Common Issues
 
+### Issue: ESBuild Native Module Error ⭐ *Most Common*
+**Error**: `No loader is configured for ".node" files: fsevents.node`
+
+**Root Cause**: ESBuild cannot process native Node.js modules (.node files) that contain platform-specific binaries.
+
+**Solution**: 
+1. **Accept this limitation** - this error proves the fundamental incompatibility between Vite and PCF webpack
+2. **Use for development only** - don't attempt to integrate Vite-bundled code directly into PCF projects
+3. **Follow the recommended workflow**: Develop with Vite → Copy logic to PCF project → Build with PCF webpack
+
+**Why This Happens**: Vite uses ESBuild for fast bundling, but ESBuild doesn't support native modules. PCF's webpack can handle these files, but Vite cannot.
+
 ### Issue: TypeScript Module Resolution Errors
 **Solution**: 
 1. Check VSCode is updated to latest version
@@ -208,11 +242,6 @@ module.exports = { createMockContext }
 2. Avoid path-based imports from node_modules
 3. Test all imports with PCF webpack build
 
-### Issue: Bundle Size Exceeded
-**Solution**:
-1. Use tree-shaking compatible imports
-2. Avoid large UI libraries in PCF
-3. Consider code splitting strategies
 
 ### Issue: Runtime API Unavailable
 **Solution**:
