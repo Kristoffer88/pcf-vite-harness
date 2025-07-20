@@ -157,10 +157,6 @@ Error: Build failed with 1 error:
    Module not found: Error: Can't resolve 'module-name'
    ```
 
-3. **TypeScript Compilation Error**
-   ```
-   Option 'bundler' can only be used when 'module' is set to 'es2015' or later
-   ```
 
 
 ### Runtime Errors
