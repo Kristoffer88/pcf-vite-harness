@@ -432,7 +432,7 @@ initializePCFHarness({
       }
 
       if (!packageJson.dependencies['pcf-vite-harness']) {
-        packageJson.dependencies['pcf-vite-harness'] = '^1.0.7-beta.0'
+        packageJson.dependencies['pcf-vite-harness'] = '^1.0.7'
       }
 
       await writeFile(packageJsonPath, JSON.stringify(packageJson, null, 2), 'utf-8')
