@@ -68,21 +68,21 @@
   },
   "homepage": "https://github.com/kristoffer88/pcf-vite-harness#readme",
   "dependencies": {
-    "@vitejs/plugin-react": "^4.6.0",
+    "@vitejs/plugin-react": "^4.7.0",
     "commander": "^12.0.0",
     "glob": "^11.0.0",
     "inquirer": "^10.0.0",
     "nanospinner": "^1.1.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
-    "vite": "^6.3.5"
+    "vite": "^7.0.5"
   },
   "optionalDependencies": {
     "dataverse-utilities": "^1.0.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.1.2",
-    "@types/node": "^18.19.0",
+    "@types/node": "^20.19.9",
     "@types/powerapps-component-framework": "^1.3.18",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",

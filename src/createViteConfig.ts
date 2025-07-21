@@ -20,7 +20,11 @@ export async function createPCFViteConfig(options: PCFViteOptions = {}) {
     } = options
 
     let baseConfig = {
+      root: './dev', // Set root to dev directory for index.html resolution
       plugins: [react()],
+      optimizeDeps: { 
+        exclude: ['fsevents'] // Prevent ESBuild native module errors on macOS
+      },
       server: {
         port,
         open,

@@ -231,15 +231,33 @@ Found a bug or have a feature request? Please create an issue on GitHub.
 
 ## Known Issues
 
-### Why Vite 6 instead of Vite 7?
+### Built-in Workarounds
 
-PCF Vite Harness currently uses Vite 6 instead of the latest Vite 7 due to compatibility issues we encountered with Vite 7.0.5 during development. These issues caused import resolution failures in browser bundles.
+The harness includes several built-in workarounds for common compatibility issues:
 
-We will upgrade to Vite 7 once these compatibility issues are resolved in our implementation.
+#### ESBuild Native Module Fix (macOS)
+```typescript
+optimizeDeps: { 
+  exclude: ['fsevents'] // Already included in base config
+}
+```
+
+**Issue**: On macOS, `fsevents` (file system watching) contains native `.node` files that ESBuild cannot process, causing build errors.
+
+**Solution**: The harness automatically excludes `fsevents` from Vite's dependency optimization. You can use the same pattern for other native modules:
+
+```typescript
+// In your vite.config.ts if you encounter similar issues
+viteConfig: {
+  optimizeDeps: { 
+    exclude: ['another-native-module', 'problematic-package'] 
+  }
+}
+```
 
 ### Dependency Requirements
 
 - **Node.js**: 18 or higher
-- **@types/node**: 18.19.0 or higher (automatically handled by the CLI)
+- **@types/node**: 20.19.0 or higher (automatically handled by the CLI)
 
 If you encounter peer dependency conflicts during installation, they are usually resolved automatically during the setup process.
