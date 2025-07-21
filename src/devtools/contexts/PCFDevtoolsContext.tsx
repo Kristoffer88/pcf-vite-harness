@@ -113,7 +113,7 @@ export const PCFDevtoolsProvider: React.FC<PCFDevtoolsProviderProps> = ({
   }, [])
   
   const triggerInit = useCallback(() => {
-    if (!pcfComponentRef?.current || !pcfContainerRef?.current || !pcfClass || !currentContext) {
+    if (!pcfComponentRef || !pcfContainerRef?.current || !pcfClass || !currentContext) {
       console.warn('Cannot trigger init: missing component refs, class, or context')
       return
     }
@@ -122,6 +122,11 @@ export const PCFDevtoolsProvider: React.FC<PCFDevtoolsProviderProps> = ({
       // Destroy existing instance if it exists
       if (pcfComponentRef.current) {
         pcfComponentRef.current.destroy()
+      }
+      
+      // Clear the container to prevent duplication
+      if (pcfContainerRef.current) {
+        pcfContainerRef.current.innerHTML = ''
       }
       
       // Create new instance and initialize
@@ -173,14 +178,22 @@ export const PCFDevtoolsProvider: React.FC<PCFDevtoolsProviderProps> = ({
   }, [pcfComponentRef, currentContext, addContextUpdate])
   
   const triggerDestroyInit = useCallback(() => {
-    if (!pcfComponentRef?.current || !pcfContainerRef?.current || !pcfClass || !currentContext) {
+    if (!pcfComponentRef || !pcfContainerRef?.current || !pcfClass || !currentContext) {
       console.warn('Cannot trigger destroy->init: missing component refs, class, or context')
       return
     }
     
     try {
       // First destroy
-      pcfComponentRef.current.destroy()
+      if (pcfComponentRef.current) {
+        pcfComponentRef.current.destroy()
+      }
+      
+      // Clear the container to prevent duplication
+      if (pcfContainerRef.current) {
+        pcfContainerRef.current.innerHTML = ''
+      }
+      
       console.log('✅ PCF Component destroy() called')
       
       // Log destroy event
