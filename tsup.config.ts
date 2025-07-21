@@ -3,6 +3,7 @@ import { defineConfig } from 'tsup'
 export default defineConfig({
   entry: {
     index: 'src/index.ts',
+    'bin/pcf-vite-init': 'bin/pcf-vite-init.ts',
   },
   format: ['cjs', 'esm'],
   dts: {
@@ -42,6 +43,25 @@ export default defineConfig({
       }
     } catch (error) {
       console.warn('No templates directory found or copying failed:', error)
+    }
+
+    // Make CLI executable and add shebang
+    try {
+      const cliPath = 'dist/bin/pcf-vite-init.cjs'
+      const content = await fs.readFile(cliPath, 'utf-8')
+      
+      // Add shebang if not present
+      if (!content.startsWith('#!/usr/bin/env node')) {
+        const updatedContent = '#!/usr/bin/env node\n' + content
+        await fs.writeFile(cliPath, updatedContent, 'utf-8')
+      }
+      
+      // Make executable (on Unix systems)
+      if (process.platform !== 'win32') {
+        await fs.chmod(cliPath, 0o755)
+      }
+    } catch (error) {
+      console.warn('CLI post-processing failed:', error)
     }
   },
 })

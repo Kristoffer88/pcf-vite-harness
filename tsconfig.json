@@ -9,7 +9,6 @@
     "declarationMap": true,
     "emitDeclarationOnly": false,
     "outDir": "dist",
-    "rootDir": "src",
 
     /* Bundler mode */
     "moduleResolution": "bundler",
@@ -37,6 +36,6 @@
     "resolveJsonModule": true,
     "isolatedModules": true
   },
-  "include": ["src/**/*", "tests/**/*"],
+  "include": ["src/**/*", "bin/**/*", "tests/**/*"],
   "exclude": ["node_modules", "dist", "coverage", "*.config.*"]
 }

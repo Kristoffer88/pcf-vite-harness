@@ -27,82 +27,66 @@ A modern Vite-based development harness for PowerApps Component Framework (PCF) 
 
 ## 📦 Installation
 
-### 1. Install Package
+### Quick Start (Recommended)
 
-```bash
-# Install the harness
-npm install pcf-vite-harness --save-dev
+1. **Navigate to your PCF project directory**
+   ```bash
+   cd your-pcf-project
+   ```
 
-# Install required peer dependencies
-npm install vite react react-dom --save-dev
-```
+2. **Run the initializer**
+   ```bash
+   npx pcf-vite-init
+   ```
+   
+   The CLI will:
+   - 🔍 Auto-detect your PCF components
+   - ⚙️ Guide you through interactive configuration
+   - 📝 Generate all necessary development files
+   - 📦 Update your package.json with dev script
+   - ✅ All dependencies included - no manual installation needed!
 
-### 2. Create Development Files
-
-Create a `dev/` directory in your PCF project and copy these files:
-
-**dev/vite.config.ts:**
-```typescript
-import { createPCFViteConfig } from 'pcf-vite-harness';
-
-export default createPCFViteConfig({
-    port: 3000,
-    enableDataverse: true, // Optional: for Dataverse integration
-    viteConfig: {
-        resolve: {
-            alias: {
-                '@': '../YourComponent' // Path to your PCF component
-            }
-        }
-    }
-});
-```
-
-**dev/main.ts:**
-```typescript
-import { initPCF } from 'pcf-vite-harness';
-import 'pcf-vite-harness/styles/powerapps.css';
-import { YourPCFComponent } from '../YourComponent/index';
-
-// Simple initialization
-initPCF(YourPCFComponent);
-```
-
-**dev/index.html:**
-```html
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PCF Development</title>
-</head>
-<body>
-    <div id="pcf-container"></div>
-    <script type="module" src="./main.ts"></script>
-</body>
-</html>
-```
-
-### 3. Add NPM Script
-
-Add to your `package.json`:
-
-```json
-{
-  "scripts": {
-    "dev:pcf": "vite --config dev/vite.config.ts"
-  }
-}
-```
-
-### 4. Start Development
-
-```bash
-npm run dev:pcf
-```
+3. **Start development**
+   ```bash
+   npm run dev:pcf
+   ```
 
 Your PCF component will open at `http://localhost:3000` with full HMR support!
+
+### Manual Setup (Full Control)
+
+If you prefer manual setup or need explicit dependency control:
+
+```bash
+# Install the harness locally
+npm install pcf-vite-harness --save-dev
+```
+
+Then create the development files in a `dev/` directory. See the [templates directory](./templates/) for examples.
+
+## 🛠️ CLI Features
+
+The `pcf-vite-init` command provides:
+
+- **🔍 Auto-detection**: Automatically finds PCF components by scanning for `ControlManifest.xml` files
+- **📝 Smart Configuration**: Generates configuration files with correct paths and component imports
+- **⚙️ Interactive Setup**: Guided prompts for port configuration, Dataverse integration, etc.
+- **🔒 Safe Operation**: Asks before overwriting existing files
+- **📦 Package Integration**: Automatically adds npm scripts to your package.json
+
+### CLI Options
+
+```bash
+# Run in current directory
+pcf-vite-init
+
+# The CLI will prompt for:
+# - Component selection (if multiple found)
+# - Development server port (default: 3000)
+# - HMR WebSocket port (default: 3001)
+# - Browser auto-open preference
+# - Dataverse integration setup
+```
 
 ## 🔧 Advanced Configuration
 
@@ -244,3 +228,18 @@ MIT License - see LICENSE file for details.
 ## 🐛 Issues
 
 Found a bug or have a feature request? Please create an issue on GitHub.
+
+## Known Issues
+
+### Why Vite 6 instead of Vite 7?
+
+PCF Vite Harness currently uses Vite 6 instead of the latest Vite 7 due to compatibility issues we encountered with Vite 7.0.5 during development. These issues caused import resolution failures in browser bundles.
+
+We will upgrade to Vite 7 once these compatibility issues are resolved in our implementation.
+
+### Dependency Requirements
+
+- **Node.js**: 18 or higher
+- **@types/node**: 18.19.0 or higher (automatically handled by the CLI)
+
+If you encounter peer dependency conflicts during installation, they are usually resolved automatically during the setup process.
