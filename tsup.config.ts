@@ -17,7 +17,14 @@ export default defineConfig({
   target: 'es2022',
   outDir: 'dist',
   tsconfig: './tsconfig.json',
-  external: ['react', 'react-dom', 'vite', '@vitejs/plugin-react', 'dataverse-utilities', 'react/jsx-runtime'],
+  external: [
+    'react',
+    'react-dom',
+    'vite',
+    '@vitejs/plugin-react',
+    'dataverse-utilities',
+    'react/jsx-runtime',
+  ],
   // Copy styles and templates to dist
   onSuccess: async () => {
     const fs = await import('node:fs/promises')
@@ -49,13 +56,13 @@ export default defineConfig({
     try {
       const cliPath = 'dist/bin/pcf-vite-init.cjs'
       const content = await fs.readFile(cliPath, 'utf-8')
-      
+
       // Add shebang if not present
       if (!content.startsWith('#!/usr/bin/env node')) {
         const updatedContent = '#!/usr/bin/env node\n' + content
         await fs.writeFile(cliPath, updatedContent, 'utf-8')
       }
-      
+
       // Make executable (on Unix systems)
       if (process.platform !== 'win32') {
         await fs.chmod(cliPath, 0o755)
