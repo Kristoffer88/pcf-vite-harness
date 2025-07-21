@@ -29,6 +29,9 @@ export const PCFDevtoolsPanel: React.FC<PCFDevtoolsPanelProps> = ({
     currentContext,
     clearWebApiRequests,
     clearContextUpdates,
+    triggerInit,
+    triggerUpdate,
+    triggerDestroyInit,
   } = usePCFDevtools()
   
   const systemTheme = useSystemTheme()
@@ -185,10 +188,10 @@ export const PCFDevtoolsPanel: React.FC<PCFDevtoolsPanelProps> = ({
   }
   
   const tabs = [
-    { id: 'overview', label: 'Overview' },
+    { id: 'lifecycle', label: 'Lifecycle' },
     { id: 'webapi', label: 'WebAPI' },
     { id: 'context', label: 'Context' },
-    { id: 'lifecycle', label: 'Lifecycle' },
+    { id: 'overview', label: 'Overview' },
   ] as const
   
   const renderTabContent = () => {
@@ -315,42 +318,84 @@ export const PCFDevtoolsPanel: React.FC<PCFDevtoolsPanelProps> = ({
       case 'lifecycle':
         return (
           <div>
+            <h3>PCF Component Lifecycle</h3>
+            
             <div style={panelStyles.toolbar}>
-              <span>Lifecycle Events: {contextUpdates.length}</span>
+              <span>Control your PCF component lifecycle</span>
             </div>
             
-            {contextUpdates.length > 0 ? (
-              <div>
-                {contextUpdates.map((update) => (
-                  <div key={update.id} style={panelStyles.requestItem}>
-                    <div style={panelStyles.requestHeader}>
-                      <span style={panelStyles.requestMethod}>{update.property}</span>
-                      <span style={panelStyles.requestDetails}>
-                        {formatTimestamp(update.timestamp)}
-                      </span>
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: tokens.size['3'],
+              marginBottom: tokens.size['4']
+            }}>
+              <button
+                style={{
+                  ...panelStyles.clearButton,
+                  backgroundColor: colors.active,
+                  color: 'white',
+                  fontWeight: tokens.font.weight['2'],
+                  padding: `${tokens.size['3']} ${tokens.size['4']}`,
+                }}
+                onClick={triggerInit}
+              >
+                🔄 Trigger init()
+              </button>
+              
+              <button
+                style={{
+                  ...panelStyles.clearButton,
+                  backgroundColor: colors.active,
+                  color: 'white',
+                  fontWeight: tokens.font.weight['2'],
+                  padding: `${tokens.size['3']} ${tokens.size['4']}`,
+                }}
+                onClick={triggerUpdate}
+              >
+                🔁 Trigger updateView()
+              </button>
+              
+              <button
+                style={{
+                  ...panelStyles.clearButton,
+                  backgroundColor: colors.danger,
+                  color: 'white',
+                  fontWeight: tokens.font.weight['2'],
+                  padding: `${tokens.size['3']} ${tokens.size['4']}`,
+                }}
+                onClick={triggerDestroyInit}
+              >
+                🔥 Trigger destroy() → init()
+              </button>
+            </div>
+            
+            <div style={{ borderTop: `1px solid ${colors.inputBorder}`, paddingTop: tokens.size['3'] }}>
+              <h4>Recent Lifecycle Events</h4>
+              {contextUpdates.length > 0 ? (
+                <div>
+                  {contextUpdates.slice(0, 5).map((update) => (
+                    <div key={update.id} style={panelStyles.requestItem}>
+                      <div style={panelStyles.requestHeader}>
+                        <span style={panelStyles.requestMethod}>{update.property}</span>
+                        <span style={panelStyles.requestDetails}>
+                          {formatTimestamp(update.timestamp)}
+                        </span>
+                      </div>
                     </div>
-                    {update.oldValue !== undefined && (
-                      <Explorer
-                        label="Old Value"
-                        value={update.oldValue}
-                        theme={effectiveTheme}
-                      />
-                    )}
-                    {update.newValue !== undefined && (
-                      <Explorer
-                        label="New Value"
-                        value={update.newValue}
-                        theme={effectiveTheme}
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div style={panelStyles.emptyState}>
-                No lifecycle events recorded yet
-              </div>
-            )}
+                  ))}
+                  {contextUpdates.length > 5 && (
+                    <div style={{ ...panelStyles.emptyState, fontSize: tokens.font.size['3'] }}>
+                      ... and {contextUpdates.length - 5} more (see Context tab for full history)
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div style={panelStyles.emptyState}>
+                  No lifecycle events recorded yet
+                </div>
+              )}
+            </div>
           </div>
         )
       

@@ -37,4 +37,4 @@ export const PCF_STYLES = '../styles/powerapps.css'
 /**
  * Version of the PCF Vite Harness
  */
-export const VERSION = '1.1.0-beta.1'
+export const VERSION = '1.1.0-beta.2'

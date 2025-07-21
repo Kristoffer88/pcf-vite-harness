@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { PCFDevtools, PCFDevtoolsProvider } from './devtools'
+import { PCFDevtools, PCFDevtoolsProvider, usePCFDevtools } from './devtools'
 import { WebApiMonitorWrapper } from './devtools/components/WebApiMonitorWrapper'
 
 interface PowerAppsContainerProps {
@@ -10,7 +10,8 @@ interface PowerAppsContainerProps {
   devtoolsPosition?: 'bottom-left' | 'bottom-right' | 'top-left' | 'top-right'
 }
 
-export const PowerAppsContainer: React.FC<PowerAppsContainerProps> = ({
+// Inner component that can use the usePCFDevtools hook
+const PowerAppsContainerInner: React.FC<PowerAppsContainerProps> = ({
   context,
   pcfClass,
   className = '',
@@ -20,6 +21,9 @@ export const PowerAppsContainer: React.FC<PowerAppsContainerProps> = ({
   const containerRef = React.useRef<HTMLDivElement>(null)
   const pcfComponentRef = React.useRef<ComponentFramework.StandardControl<any, any> | null>(null)
   const [monitoredContext, setMonitoredContext] = React.useState<ComponentFramework.Context<any>>(context)
+  
+  // Get DevTools context functions if we're inside the provider
+  const devtools = showDevPanel ? usePCFDevtools() : null
 
   const initializePCFComponent = React.useCallback((ctx: ComponentFramework.Context<any>) => {
     if (containerRef.current && !pcfComponentRef.current) {
@@ -32,8 +36,14 @@ export const PowerAppsContainer: React.FC<PowerAppsContainerProps> = ({
         containerRef.current
       )
       pcfComponentRef.current.updateView(ctx)
+      
+      // Register refs with devtools context if available
+      if (devtools) {
+        devtools.setPCFRefs(pcfComponentRef, containerRef, pcfClass)
+        devtools.setCurrentContext(ctx)
+      }
     }
-  }, [pcfClass])
+  }, [pcfClass, devtools])
 
   React.useEffect(() => {
     return () => {
@@ -168,18 +178,23 @@ export const PowerAppsContainer: React.FC<PowerAppsContainerProps> = ({
     </div>
   )
 
-  if (!showDevPanel) {
-    return renderPCFContainer()
+  return renderPCFContainer()
+}
+
+// Main component that sets up the devtools provider
+export const PowerAppsContainer: React.FC<PowerAppsContainerProps> = (props) => {
+  if (!props.showDevPanel) {
+    return <PowerAppsContainerInner {...props} />
   }
 
   return (
     <PCFDevtools
-      context={context}
+      context={props.context}
       initialIsOpen={false}
-      position={devtoolsPosition}
+      position={props.devtoolsPosition}
       initialTheme="system"
     >
-      {renderPCFContainer()}
+      <PowerAppsContainerInner {...props} />
     </PCFDevtools>
   )
 }
