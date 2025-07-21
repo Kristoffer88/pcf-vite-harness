@@ -8,6 +8,13 @@ interface PowerAppsContainerProps {
   className?: string
   showDevPanel?: boolean
   devtoolsPosition?: 'bottom-left' | 'bottom-right' | 'top-left' | 'top-right'
+  manifestInfo?: {
+    namespace: string
+    constructor: string
+    version: string
+    displayName?: string
+    description?: string
+  }
 }
 
 // Inner component that can use the usePCFDevtools hook
@@ -17,6 +24,7 @@ const PowerAppsContainerInner: React.FC<PowerAppsContainerProps> = ({
   className = '',
   showDevPanel = true,
   devtoolsPosition = 'bottom-right',
+  manifestInfo,
 }) => {
   const containerRef = React.useRef<HTMLDivElement>(null)
   const pcfComponentRef = React.useRef<ComponentFramework.StandardControl<any, any> | null>(null)
@@ -197,6 +205,7 @@ export const PowerAppsContainer: React.FC<PowerAppsContainerProps> = props => {
       initialIsOpen={false}
       position={props.devtoolsPosition}
       initialTheme="system"
+      manifestInfo={props.manifestInfo}
     >
       <PowerAppsContainerInner {...props} />
     </PCFDevtools>

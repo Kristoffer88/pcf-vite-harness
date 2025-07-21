@@ -25,13 +25,11 @@ function createDefaultWebAPI(): ComponentFramework.WebApi {
   return {
     retrieveMultipleRecords: async (
       entityLogicalName: string,
-      options?: string,
-      maxPageSize?: number
+      options?: string
     ): Promise<ComponentFramework.WebApi.RetrieveMultipleResponse> => {
       try {
         console.log(`🔄 retrieveMultipleRecords called for ${entityLogicalName}`, {
           options,
-          maxPageSize,
         })
 
         // Get metadata to find collection name
@@ -43,10 +41,6 @@ function createDefaultWebAPI(): ComponentFramework.WebApi {
           url += options.startsWith('?') ? options : `?${options}`
         }
 
-        if (maxPageSize) {
-          const separator = url.includes('?') ? '&' : '?'
-          url += `${separator}$top=${maxPageSize}`
-        }
 
         const response = await fetch(url)
         if (!response.ok) {

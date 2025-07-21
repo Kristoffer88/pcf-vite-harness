@@ -45,6 +45,7 @@ export const PCFDevtoolsPanel: React.FC<PCFDevtoolsPanelProps> = ({
     enhanceDatasets,
     triggerEnhancedUpdate,
     clearDatasetDiscovery,
+    manifestInfo,
   } = usePCFDevtools()
 
   const systemTheme = useSystemTheme()
@@ -435,13 +436,14 @@ export const PCFDevtoolsPanel: React.FC<PCFDevtoolsPanelProps> = ({
                   padding: `${tokens.size['3']} ${tokens.size['4']}`,
                 }}
                 onClick={() => {
-                  // Mock manifest for demo - in real scenario this would come from the PCF component
-                  const mockManifest = {
+                  // Use manifestInfo from context if available, otherwise fallback to mock
+                  const manifest = manifestInfo || {
                     namespace: 'Sample',
                     constructor: 'DatasetControl',
                     version: '1.0.0',
                   }
-                  discoverPCFControls(mockManifest)
+                  console.log('🔍 Starting PCF control discovery with manifest:', manifest)
+                  discoverPCFControls(manifest)
                 }}
                 disabled={datasetDiscovery.isDiscovering}
               >

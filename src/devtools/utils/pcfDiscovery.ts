@@ -97,14 +97,16 @@ export function parseFormXmlForPCF(formXml: string): PCFControlInfo[] {
     const nameAttr = control.getAttribute('name') || ''
     const formFactor = control.getAttribute('formFactor') || '0'
 
-    // Parse "pum_Projectum.PowerRoadmap" format
+    // Parse namespace.constructor format (e.g., "MyNamespace.MyControl")
     let namespace = ''
     let constructor = ''
 
     if (nameAttr.includes('.')) {
       const parts = nameAttr.split('.')
-      // Handle "pum_Projectum.PowerRoadmap" - remove pum_ prefix if present
-      namespace = parts[0].replace('pum_', '')
+      // Handle various namespace patterns - remove common prefixes if present
+      const rawNamespace = parts[0] || ''
+      // Remove common prefixes like publisher prefixes (e.g., "pub_", "new_", etc.)
+      namespace = rawNamespace.replace(/^[a-z]+_/, '') || rawNamespace
       constructor = parts[1] || ''
     } else if (nameAttr) {
       constructor = nameAttr
@@ -185,29 +187,39 @@ export async function findPCFOnForms(
   manifest: PCFManifest,
   entityTypeCode?: number
 ): Promise<FormPCFMatch[]> {
+  console.log('🔎 Starting PCF discovery with manifest:', manifest, 'entityTypeCode:', entityTypeCode)
   let url = `/api/data/v9.2/systemforms?$select=formid,name,objecttypecode,formxml&$filter=contains(formxml,'customControl') or contains(formxml,'customcontroldefinition')`
 
   if (entityTypeCode) {
     url += ` and objecttypecode eq ${entityTypeCode}`
   }
 
+  console.log('🌐 Fetching forms with URL:', url)
   const response = await fetch(url)
   if (!response.ok) {
     throw new Error(`Failed to fetch forms: ${response.status}`)
   }
 
   const data = await response.json()
+  console.log(`📊 Found ${data.value?.length || 0} forms with custom controls`)
   const matches: FormPCFMatch[] = []
 
   for (const form of data.value) {
+    console.log(`🔍 Analyzing form: ${form.name} (${form.formid})`)
     const pcfControls = parseFormXmlForPCF(form.formxml)
+    console.log(`   Found ${pcfControls.length} PCF controls:`, pcfControls.map(c => `${c.namespace}.${c.constructor}`))
 
     const matchingControls = pcfControls.filter(
       control =>
         control.namespace === manifest.namespace && control.constructor === manifest.constructor
     )
+    
+    if (pcfControls.length > 0 && matchingControls.length === 0) {
+      console.log(`   ❌ No matches for ${manifest.namespace}.${manifest.constructor}`)
+    }
 
     if (matchingControls.length > 0) {
+      console.log(`   ✅ Found ${matchingControls.length} matching controls!`)
       matches.push({
         formId: form.formid,
         formName: form.name,

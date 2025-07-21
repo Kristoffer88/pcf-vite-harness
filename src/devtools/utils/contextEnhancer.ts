@@ -97,7 +97,7 @@ export async function enhanceDatasetContext(
           datasetInfo,
           controlsFound,
           webAPI,
-          { maxRecords: maxRecordsPerDataset }
+          {}
         )
 
         if (enhancementResult.success && enhancementResult.enhancedContext) {
@@ -178,10 +178,7 @@ export async function enhanceDatasetWithQuery(
     // Build and execute query
     const query = buildDatasetQuery(matchingControl, datasetInfo.entityLogicalName)
 
-    // Override max records if specified
-    if (options.maxRecords) {
-      query.maxPageSize = options.maxRecords
-    }
+    // No page size limit - retrieve all records
 
     const queryResult = await executeDatasetQuery(query, webAPI)
 

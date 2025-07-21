@@ -19,6 +19,18 @@ export {
 export { initializePCFHarness, initPCF } from './initializePCFHarness.js'
 // Core components
 export { PowerAppsContainer } from './PowerAppsContainer.js'
+// Utility functions
+export { 
+  extractManifestFromXml, 
+  extractManifestFromBuiltXml, 
+  createTestProjectManifest,
+  autoDetectManifest,
+  extractManifestFromComponentClass
+} from './utils/manifestExtractor.js'
+export {
+  readManifestFromFileSystem,
+  detectManifestInfo
+} from './utils/manifestReader.js'
 
 // Type definitions
 export type {

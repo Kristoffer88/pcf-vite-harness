@@ -9,7 +9,6 @@ export interface DatasetQuery {
   entityLogicalName: string
   viewId?: string
   odataQuery: string
-  maxPageSize?: number
   relationshipName?: string
   isRelatedQuery: boolean
 }
@@ -55,11 +54,7 @@ export function buildDatasetQuery(
   // Add view-based filtering if viewId is available
   if (dataSet.viewId) {
     // Note: In real implementation, you'd need to fetch the view definition
-    // and convert it to OData filter. For now, we'll use a basic select.
-    queryParams.push('$select=*')
-  } else {
-    // Default select all
-    queryParams.push('$select=*')
+    // and convert it to OData filter. For now, we'll skip select (defaults to all).
   }
 
   // Add relationship-based filtering for related data
@@ -68,8 +63,6 @@ export function buildDatasetQuery(
     queryParams.push(`$filter=${dataSet.relationshipName} ne null`)
   }
 
-  // Default page size
-  queryParams.push('$top=50')
 
   // Order by primary name attribute (best effort)
   queryParams.push('$orderby=createdon desc')
@@ -80,7 +73,6 @@ export function buildDatasetQuery(
     entityLogicalName: targetEntity,
     viewId: dataSet.viewId,
     odataQuery,
-    maxPageSize: 50,
     relationshipName: dataSet.relationshipName,
     isRelatedQuery: Boolean(dataSet.relationshipName?.trim()),
   }
@@ -98,8 +90,7 @@ export async function executeDatasetQuery(
 
     const result = await webAPI.retrieveMultipleRecords(
       query.entityLogicalName,
-      query.odataQuery,
-      query.maxPageSize
+      query.odataQuery
     )
 
     console.log(`✅ Query executed successfully: ${result.entities?.length || 0} records`)

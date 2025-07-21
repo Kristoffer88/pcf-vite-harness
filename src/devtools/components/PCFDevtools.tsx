@@ -143,6 +143,17 @@ export interface PCFDevtoolsProps {
   context?: ComponentFramework.Context<any>
 
   /**
+   * PCF manifest information for devtools
+   */
+  manifestInfo?: {
+    namespace: string
+    constructor: string
+    version: string
+    displayName?: string
+    description?: string
+  }
+
+  /**
    * Children to render inside the devtools provider
    */
   children?: React.ReactNode
@@ -154,12 +165,13 @@ export const PCFDevtools: React.FC<PCFDevtoolsProps> = ({
   toggleButtonProps = true,
   initialTheme = 'system',
   context,
+  manifestInfo,
   children,
 }) => {
   const showToggle = toggleButtonProps !== false
 
   return (
-    <PCFDevtoolsProvider initialOpen={initialIsOpen} initialTheme={initialTheme}>
+    <PCFDevtoolsProvider initialOpen={initialIsOpen} initialTheme={initialTheme} manifestInfo={manifestInfo}>
       <PCFContextMonitor context={context} />
       {children}
       <PCFDevtoolsInner showToggle={showToggle} initialOpen={initialIsOpen} position={position} />

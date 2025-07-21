@@ -10,18 +10,14 @@ export default createPCFViteConfig({
   // Open browser automatically
   open: true,
 
-  // Enable Dataverse integration (requires dataverse-utilities)
+  // Enable Dataverse integration
   enableDataverse: true,
-
-  // Dataverse URL (can also be set via VITE_DATAVERSE_URL env var)
-  // dataverseUrl: 'https://yourorg.crm.dynamics.com/',
 
   // Additional Vite configuration
   viteConfig: {
-    // Add any additional Vite configuration here
     resolve: {
       alias: {
-        '@': '../dataset', // Adjust path to your PCF component
+        '@': '../dataset',
       },
     },
   },

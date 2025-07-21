@@ -1,38 +1,40 @@
-import { initPCF } from 'pcf-vite-harness'
+import { initializePCFHarness } from 'pcf-vite-harness'
 import 'pcf-vite-harness/styles/powerapps.css'
 
 // Import your PCF component
 import { field } from '../field/index'
 
-// Initialize the PCF harness
-initPCF(field)
-
-// Or use the advanced initialization for more control:
-/*
-import { initializePCFHarness } from 'pcf-vite-harness';
-
+// Initialize the PCF harness with auto-detected manifest info
 initializePCFHarness({
-    pcfClass: field,
-    containerId: 'pcf-container',
-    contextOptions: {
-        displayName: 'Your Name',
-        userName: 'you@company.com',
-        // Override webAPI methods for custom testing
-        webAPI: {
-            // Example: Mock retrieveMultipleRecords with test data
-            retrieveMultipleRecords: async (entityLogicalName, options) => {
-                console.log(`Mock retrieveMultipleRecords for ${entityLogicalName}`)
-                return {
-                    entities: [
-                        { id: '123', name: 'Test Record 1' },
-                        { id: '456', name: 'Test Record 2' }
-                    ]
-                }
-            },
-            // The default implementations will handle other methods
-            // unless you override them here
-        }
-    },
-    showDevPanel: true
-});
+  pcfClass: field,
+  containerId: 'pcf-container',
+  showDevPanel: true,
+  // Auto-detected manifest info from field/ControlManifest.Input.xml
+  manifestInfo: {
+    namespace: 'test',
+    constructor: 'field',
+    version: '1.0',
+    displayName: 'field',
+    description: 'field description',
+  },
+})
+
+// For additional configuration options:
+/*
+initializePCFHarness({
+  pcfClass: field,
+  containerId: 'pcf-container',
+  contextOptions: {
+    displayName: 'Your Name',
+    userName: 'you@company.com',
+    // Override webAPI methods for custom testing
+    webAPI: {
+      retrieveMultipleRecords: async (entityLogicalName, options) => {
+        console.log(`Mock data for ${entityLogicalName}`)
+        return { entities: [] }
+      }
+    }
+  },
+  showDevPanel: true
+})
 */

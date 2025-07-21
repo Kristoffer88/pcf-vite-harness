@@ -2,6 +2,7 @@ import * as React from 'react'
 import { createRoot } from 'react-dom/client'
 import { createMockContext } from './createMockContext'
 import { PowerAppsContainer } from './PowerAppsContainer'
+import { detectManifestInfo } from './utils/manifestReader'
 
 export interface PCFHarnessOptions<TInputs, TOutputs> {
   /** The PCF component class to render */
@@ -23,6 +24,14 @@ export interface PCFHarnessOptions<TInputs, TOutputs> {
   showDevPanel?: boolean
   /** Custom context instead of mock */
   customContext?: ComponentFramework.Context<TInputs>
+  /** PCF manifest information for devtools */
+  manifestInfo?: {
+    namespace: string
+    constructor: string
+    version: string
+    displayName?: string
+    description?: string
+  }
 }
 
 /**
@@ -38,6 +47,7 @@ export function initializePCFHarness<TInputs, TOutputs>(
     className,
     showDevPanel = true,
     customContext,
+    manifestInfo,
   } = options
 
   const container = document.getElementById(containerId)
@@ -48,16 +58,21 @@ export function initializePCFHarness<TInputs, TOutputs>(
   const context = customContext || createMockContext<TInputs>(contextOptions)
   const root = createRoot(container)
 
+  // Auto-detect manifest info if not provided using file system detection
+  const finalManifestInfo = manifestInfo || detectManifestInfo(pcfClass)
+
   root.render(
     React.createElement(PowerAppsContainer, {
       context,
       pcfClass,
       className,
       showDevPanel,
+      manifestInfo: finalManifestInfo,
     })
   )
 
   console.log(`PCF harness initialized with ${pcfClass.name} component`)
+  console.log(`Using manifest:`, finalManifestInfo)
 }
 
 /**

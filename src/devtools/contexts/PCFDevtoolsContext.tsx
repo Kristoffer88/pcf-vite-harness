@@ -34,6 +34,15 @@ interface PCFDevtoolsState {
   // Dataset Discovery State
   datasetDiscovery: DatasetDiscoveryState
   lastEnhancementResult?: EnhancementResult
+
+  // Manifest Information
+  manifestInfo?: {
+    namespace: string
+    constructor: string
+    version: string
+    displayName?: string
+    description?: string
+  }
 }
 
 interface PCFDevtoolsActions {
@@ -78,12 +87,20 @@ interface PCFDevtoolsProviderProps {
   children: ReactNode
   initialOpen?: boolean
   initialTheme?: 'light' | 'dark' | 'system'
+  manifestInfo?: {
+    namespace: string
+    constructor: string
+    version: string
+    displayName?: string
+    description?: string
+  }
 }
 
 export const PCFDevtoolsProvider: React.FC<PCFDevtoolsProviderProps> = ({
   children,
   initialOpen = false,
   initialTheme = 'system',
+  manifestInfo,
 }) => {
   // UI State
   const [isOpen, setIsOpen] = useState(initialOpen)
@@ -370,6 +387,7 @@ export const PCFDevtoolsProvider: React.FC<PCFDevtoolsProviderProps> = ({
     pcfClass,
     datasetDiscovery,
     lastEnhancementResult,
+    manifestInfo,
 
     // Actions
     setIsOpen,
