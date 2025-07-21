@@ -68,8 +68,8 @@ class PCFViteInitializer {
       // Step 5: Update package.json
       await this.updatePackageJson();
 
-      // Step 6: Install Vite dependency
-      await this.installViteDependency();
+      // Step 6: Install dependencies
+      await this.installDependencies();
 
       console.log('\n✅ PCF Vite Harness initialized successfully!');
       console.log('\n📝 Next steps:');
@@ -406,6 +406,15 @@ initializePCFHarness({
         packageJson.scripts['dev:pcf'] = 'vite --config dev/vite.config.ts';
       }
 
+      // Add pcf-vite-harness dependency if it doesn't exist
+      if (!packageJson.dependencies) {
+        packageJson.dependencies = {};
+      }
+      
+      if (!packageJson.dependencies['pcf-vite-harness']) {
+        packageJson.dependencies['pcf-vite-harness'] = '^1.0.5';
+      }
+
       await writeFile(packageJsonPath, JSON.stringify(packageJson, null, 2), 'utf-8');
       spinner.success('package.json updated');
     } catch (error) {
@@ -414,7 +423,7 @@ initializePCFHarness({
     }
   }
 
-  private async installViteDependency(): Promise<void> {
+  private async installDependencies(): Promise<void> {
     const spinner = createSpinner('📦 Installing dependencies...').start();
     
     try {
@@ -425,23 +434,22 @@ initializePCFHarness({
       if (isYarn || isPnpm) {
         spinner.warn('Non-npm package manager detected');
         console.log(`\n⚠️  Detected ${isYarn ? 'Yarn' : 'pnpm'} - manual installation required:`);
-        console.log(`   Please run: ${isYarn ? 'yarn add -D' : 'pnpm add -D'} vite pcf-vite-harness\n`);
+        console.log(`   Please run: ${isYarn ? 'yarn install' : 'pnpm install'}\n`);
         return;
       }
       
-      // Use npm for PCF projects (most common)
+      // Run npm install to install all dependencies (including pcf-vite-harness which brings vite)
       const execOptions: ExecOptions = { 
         cwd: this.projectRoot,
         timeout: 120000 // 2 minute timeout
-        // shell is automatically handled by exec()
       };
-      await execAsync('npm install --save-dev vite pcf-vite-harness', execOptions);
+      await execAsync('npm install', execOptions);
       
-      spinner.success('Dependencies installed (Vite + pcf-vite-harness)');
+      spinner.success('Dependencies installed successfully');
     } catch (error) {
       spinner.error('Failed to install dependencies');
       console.log('\n⚠️  Manual installation required:');
-      console.log('   Please run: npm install --save-dev vite pcf-vite-harness\n');
+      console.log('   Please run: npm install\n');
       // Don't throw error, let the process continue
     }
   }
