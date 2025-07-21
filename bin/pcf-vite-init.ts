@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
-import { dirname, join, resolve, relative, basename } from 'node:path';
+import { dirname, join, resolve, relative, basename, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { readFile, writeFile, mkdir, access, copyFile } from 'node:fs/promises';
-import { exec } from 'node:child_process';
+import { exec, ExecOptions } from 'node:child_process';
 import { promisify } from 'node:util';
 import { glob } from 'glob';
 import inquirer from 'inquirer';
@@ -311,7 +312,7 @@ export default createPCFViteConfig({
   }
 
   private async generateMainFile(devDir: string, component: PCFComponent, config: CLIConfig): Promise<void> {
-    const importPath = relative(join(this.projectRoot, 'dev'), join(component.path, 'index')).replace(/\\/g, '/');
+    const importPath = relative(join(this.projectRoot, 'dev'), join(component.path, 'index')).split(sep).join('/');
     
     // Try to detect the actual component class name from the manifest
     let componentClassName: string;
@@ -373,7 +374,7 @@ initializePCFHarness({
   }
 
   private async copyEnvExample(devDir: string): Promise<void> {
-    const templatePath = join(dirname(new URL(import.meta.url).pathname), '..', 'templates', '.env.example');
+    const templatePath = join(dirname(fileURLToPath(import.meta.url)), '..', 'templates', '.env.example');
     const targetPath = join(devDir, '.env.example');
     await copyFile(templatePath, targetPath);
   }
@@ -429,10 +430,12 @@ initializePCFHarness({
       }
       
       // Use npm for PCF projects (most common)
-      await execAsync('npm install --save-dev vite pcf-vite-harness', { 
+      const execOptions: ExecOptions = { 
         cwd: this.projectRoot,
         timeout: 120000 // 2 minute timeout
-      });
+        // shell is automatically handled by exec()
+      };
+      await execAsync('npm install --save-dev vite pcf-vite-harness', execOptions);
       
       spinner.success('Dependencies installed (Vite + pcf-vite-harness)');
     } catch (error) {
