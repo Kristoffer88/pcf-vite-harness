@@ -1,11 +1,12 @@
-import react from '@vitejs/plugin-react'
-import { defineConfig, loadEnv, type UserConfig } from 'vite'
 import type { PCFViteOptions } from './types/index.js'
 
 /**
  * Creates a Vite configuration optimized for PCF development
  */
-export function createPCFViteConfig(options: PCFViteOptions = {}) {
+export async function createPCFViteConfig(options: PCFViteOptions = {}) {
+  const { defineConfig, loadEnv } = await import('vite')
+  const react = (await import('@vitejs/plugin-react')).default
+  
   return defineConfig(({ mode }) => {
     const env = loadEnv(mode, process.cwd(), '')
 
@@ -18,7 +19,7 @@ export function createPCFViteConfig(options: PCFViteOptions = {}) {
       viteConfig = {},
     } = options
 
-    let baseConfig: UserConfig = {
+    let baseConfig = {
       plugins: [react()],
       server: {
         port,
