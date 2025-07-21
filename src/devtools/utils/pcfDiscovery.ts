@@ -97,14 +97,15 @@ export function parseFormXmlForPCF(formXml: string): PCFControlInfo[] {
     const nameAttr = control.getAttribute('name') || ''
     const formFactor = control.getAttribute('formFactor') || '0'
     
-    // Parse "pum_Projectum.PowerRoadmap" format
+    // Parse "publisher_Namespace.Constructor" format (e.g., "contoso_MyNamespace.MyControl")
     let namespace = ''
     let constructor = ''
     
     if (nameAttr.includes('.')) {
       const parts = nameAttr.split('.')
-      // Handle "pum_Projectum.PowerRoadmap" - remove pum_ prefix if present
-      namespace = parts[0]?.replace('pum_', '') || ''
+      // Handle "publisher_Namespace.Constructor" format - remove publisher prefix if present
+      const namespacePart = parts[0] || ''
+      namespace = namespacePart.includes('_') ? namespacePart.split('_').slice(1).join('_') : namespacePart
       constructor = parts[1] || ''
     } else if (nameAttr) {
       constructor = nameAttr
