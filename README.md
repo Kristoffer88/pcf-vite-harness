@@ -36,7 +36,7 @@ A modern Vite-based development harness for PowerApps Component Framework (PCF) 
 
 2. **Run the initializer**
    ```bash
-   npx pcf-vite-init
+   npx pcf-vite-harness
    ```
    
    The CLI will:
@@ -66,7 +66,7 @@ Then create the development files in a `dev/` directory. See the [templates dire
 
 ## 🛠️ CLI Features
 
-The `pcf-vite-init` command provides:
+The `pcf-vite-harness` command provides:
 
 - **🔍 Auto-detection**: Automatically finds PCF components by scanning for `ControlManifest.xml` files
 - **📝 Smart Configuration**: Generates configuration files with correct paths and component imports
@@ -78,7 +78,7 @@ The `pcf-vite-init` command provides:
 
 ```bash
 # Run in current directory
-pcf-vite-init
+pcf-vite-harness
 
 # The CLI will prompt for:
 # - Component selection (if multiple found)

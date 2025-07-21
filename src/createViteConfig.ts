@@ -40,12 +40,19 @@ export async function createPCFViteConfig(options: PCFViteOptions = {}) {
     }
 
     // Add dataverse-utilities integration if enabled and available
-    if (enableDataverse && dataverseUrl) {
-      try {
-        const { createDataverseConfig } = require('dataverse-utilities/vite')
-        const dataverseConfig = createDataverseConfig({
-          dataverseUrl,
-        })
+    if (enableDataverse) {
+      if (!dataverseUrl) {
+        console.warn(
+          '⚠️  Dataverse integration is enabled but VITE_DATAVERSE_URL environment variable is not set.\n' +
+          '   Please set VITE_DATAVERSE_URL in your .env file or pass dataverseUrl in the config options.\n' +
+          '   Example: VITE_DATAVERSE_URL=https://yourorg.crm.dynamics.com/'
+        )
+      } else {
+        try {
+          const { createDataverseConfig } = require('dataverse-utilities/vite')
+          const dataverseConfig = createDataverseConfig({
+            dataverseUrl,
+          })
 
         baseConfig = {
           ...dataverseConfig,
@@ -56,11 +63,12 @@ export async function createPCFViteConfig(options: PCFViteOptions = {}) {
             ...(dataverseConfig.server || {}),
           },
         }
-      } catch (error) {
-        console.warn(
-          'dataverse-utilities not found. Install it for Dataverse integration:',
-          (error as Error).message
-        )
+        } catch (error) {
+          console.warn(
+            'dataverse-utilities not found. Install it for Dataverse integration:',
+            (error as Error).message
+          )
+        }
       }
     }
 
