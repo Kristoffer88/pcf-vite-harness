@@ -2,24 +2,17 @@
  * Context Enhancer - Orchestrates PCF discovery and dataset enhancement
  */
 
-import type { PCFManifest, PCFControlInfo, FormPCFMatch } from './pcfDiscovery'
-import type { DatasetInfo, DatasetAnalysisResult } from './datasetAnalyzer'
-import type { DatasetQuery, QueryResult, EnhancedDatasetResult } from './datasetQueryBuilder'
-
-import { 
-  findPCFOnForms, 
-  analyzePCFSubgridConfig 
-} from './pcfDiscovery'
-import { 
-  detectDatasetParameters, 
-  analyzeDatasetStructure 
-} from './datasetAnalyzer'
-import { 
-  buildDatasetQuery, 
-  executeDatasetQuery, 
-  mergeDatasetResults, 
-  createEnhancedContext 
+import type { DatasetAnalysisResult, DatasetInfo } from './datasetAnalyzer'
+import { analyzeDatasetStructure, detectDatasetParameters } from './datasetAnalyzer'
+import type { DatasetQuery, EnhancedDatasetResult, QueryResult } from './datasetQueryBuilder'
+import {
+  buildDatasetQuery,
+  createEnhancedContext,
+  executeDatasetQuery,
+  mergeDatasetResults,
 } from './datasetQueryBuilder'
+import type { FormPCFMatch, PCFControlInfo, PCFManifest } from './pcfDiscovery'
+import { analyzePCFSubgridConfig, findPCFOnForms } from './pcfDiscovery'
 
 export interface DatasetEnhancementOptions {
   maxRecordsPerDataset?: number
@@ -54,10 +47,7 @@ export async function enhanceDatasetContext(
   webAPI: ComponentFramework.WebApi,
   options: DatasetEnhancementOptions = {}
 ): Promise<EnhancementResult> {
-  const {
-    maxRecordsPerDataset = 50,
-    enableFormDiscovery = true
-  } = options
+  const { maxRecordsPerDataset = 50, enableFormDiscovery = true } = options
 
   console.log('🔍 Starting dataset context enhancement', { manifest, options })
 
@@ -70,7 +60,7 @@ export async function enhanceDatasetContext(
   try {
     // Step 1: Analyze existing datasets in context
     const datasetAnalysis = detectDatasetParameters(context)
-    
+
     if (!datasetAnalysis.hasDatasets) {
       console.log('📝 No datasets found in context')
       return {
@@ -79,7 +69,7 @@ export async function enhanceDatasetContext(
         datasetsEnhanced: 0,
         errors: ['No datasets found in PCF context'],
         discoveredForms,
-        controlsFound
+        controlsFound,
       }
     }
 
@@ -90,7 +80,7 @@ export async function enhanceDatasetContext(
       try {
         discoveredForms = await findPCFOnForms(manifest)
         controlsFound = discoveredForms.flatMap(form => form.controls)
-        
+
         console.log(`🔍 Discovered ${discoveredForms.length} forms with PCF controls`)
       } catch (error) {
         const errorMsg = `Form discovery failed: ${error instanceof Error ? error.message : error}`
@@ -124,7 +114,9 @@ export async function enhanceDatasetContext(
       }
     }
 
-    console.log(`🎉 Dataset enhancement complete: ${datasetsEnhanced}/${datasetAnalysis.datasets.length} enhanced`)
+    console.log(
+      `🎉 Dataset enhancement complete: ${datasetsEnhanced}/${datasetAnalysis.datasets.length} enhanced`
+    )
 
     return {
       success: datasetsEnhanced > 0 || errors.length === 0,
@@ -132,20 +124,19 @@ export async function enhanceDatasetContext(
       datasetsEnhanced,
       errors,
       discoveredForms,
-      controlsFound
+      controlsFound,
     }
-
   } catch (error) {
     const errorMsg = `Dataset enhancement failed: ${error instanceof Error ? error.message : error}`
     console.error(errorMsg)
-    
+
     return {
       success: false,
       enhancedContext: context,
       datasetsEnhanced: 0,
       errors: [errorMsg],
       discoveredForms,
-      controlsFound
+      controlsFound,
     }
   }
 }
@@ -170,7 +161,7 @@ export async function enhanceDatasetWithQuery(
   try {
     // Find matching control for this dataset
     const matchingControl = findMatchingControlForDataset(datasetInfo, controlsFound)
-    
+
     if (!matchingControl) {
       // Skip enhancement if no matching control found
       console.log(`⏭️  No matching control found for dataset: ${datasetInfo.parameterKey}`)
@@ -178,7 +169,7 @@ export async function enhanceDatasetWithQuery(
         success: true,
         enhancedContext: context,
         errors: [],
-        queryExecuted: false
+        queryExecuted: false,
       }
     }
 
@@ -186,7 +177,7 @@ export async function enhanceDatasetWithQuery(
 
     // Build and execute query
     const query = buildDatasetQuery(matchingControl, datasetInfo.entityLogicalName)
-    
+
     // Override max records if specified
     if (options.maxRecords) {
       query.maxPageSize = options.maxRecords
@@ -206,19 +197,14 @@ export async function enhanceDatasetWithQuery(
       query.entityLogicalName
     )
 
-    const enhancedContext = createEnhancedContext(
-      context,
-      datasetInfo.parameterKey,
-      enhancedResult
-    )
+    const enhancedContext = createEnhancedContext(context, datasetInfo.parameterKey, enhancedResult)
 
     return {
       success: true,
       enhancedContext,
       errors: [],
-      queryExecuted: true
+      queryExecuted: true,
     }
-
   } catch (error) {
     const errorMsg = `Failed to enhance dataset ${datasetInfo.parameterKey}: ${error instanceof Error ? error.message : error}`
     errors.push(errorMsg)
@@ -241,8 +227,8 @@ function findMatchingControlForDataset(
   }
 
   // Priority 1: Match by dataset name
-  let matchingControl = datasetControls.find(control => 
-    control.dataSet?.name === datasetInfo.parameterKey
+  let matchingControl = datasetControls.find(
+    control => control.dataSet?.name === datasetInfo.parameterKey
   )
 
   if (matchingControl) {
@@ -251,8 +237,8 @@ function findMatchingControlForDataset(
 
   // Priority 2: Match by entity logical name
   if (datasetInfo.entityLogicalName) {
-    matchingControl = datasetControls.find(control => 
-      control.dataSet?.targetEntityType === datasetInfo.entityLogicalName
+    matchingControl = datasetControls.find(
+      control => control.dataSet?.targetEntityType === datasetInfo.entityLogicalName
     )
   }
 
@@ -294,7 +280,7 @@ export function createDatasetDiscoveryState(): DatasetDiscoveryState {
     isDiscovering: false,
     discoveredForms: [],
     controlsFound: [],
-    lastDiscovery: undefined
+    lastDiscovery: undefined,
   }
 }
 
@@ -308,7 +294,8 @@ export function updateDatasetDiscoveryState(
   return {
     ...currentState,
     ...updates,
-    lastDiscovery: updates.discoveredForms || updates.controlsFound ? new Date() : currentState.lastDiscovery
+    lastDiscovery:
+      updates.discoveredForms || updates.controlsFound ? new Date() : currentState.lastDiscovery,
   }
 }
 
@@ -329,29 +316,27 @@ export function getEnhancementSummary(result: EnhancementResult): {
     status = 'warning'
   }
 
-  const title = success 
-    ? `Enhanced ${datasetsEnhanced} dataset(s)` 
-    : 'Enhancement failed'
+  const title = success ? `Enhanced ${datasetsEnhanced} dataset(s)` : 'Enhancement failed'
 
   const details = [
-    { 
-      label: 'Datasets Enhanced', 
+    {
+      label: 'Datasets Enhanced',
       value: datasetsEnhanced.toString(),
-      status: (datasetsEnhanced > 0 ? 'success' : 'warning') as 'success' | 'warning'
+      status: (datasetsEnhanced > 0 ? 'success' : 'warning') as 'success' | 'warning',
     },
-    { 
-      label: 'Forms Discovered', 
-      value: (discoveredForms?.length || 0).toString() 
+    {
+      label: 'Forms Discovered',
+      value: (discoveredForms?.length || 0).toString(),
     },
-    { 
-      label: 'Controls Found', 
-      value: (controlsFound?.length || 0).toString() 
+    {
+      label: 'Controls Found',
+      value: (controlsFound?.length || 0).toString(),
     },
-    { 
-      label: 'Errors', 
+    {
+      label: 'Errors',
       value: errors.length.toString(),
-      status: (errors.length > 0 ? 'error' : 'success') as 'error' | 'success'
-    }
+      status: (errors.length > 0 ? 'error' : 'success') as 'error' | 'success',
+    },
   ]
 
   return { title, status, details }

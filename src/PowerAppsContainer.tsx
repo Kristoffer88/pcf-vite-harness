@@ -20,30 +20,34 @@ const PowerAppsContainerInner: React.FC<PowerAppsContainerProps> = ({
 }) => {
   const containerRef = React.useRef<HTMLDivElement>(null)
   const pcfComponentRef = React.useRef<ComponentFramework.StandardControl<any, any> | null>(null)
-  const [monitoredContext, setMonitoredContext] = React.useState<ComponentFramework.Context<any>>(context)
-  
+  const [monitoredContext, setMonitoredContext] =
+    React.useState<ComponentFramework.Context<any>>(context)
+
   // Get DevTools context functions if we're inside the provider
   const devtools = showDevPanel ? usePCFDevtools() : null
 
-  const initializePCFComponent = React.useCallback((ctx: ComponentFramework.Context<any>) => {
-    if (containerRef.current && !pcfComponentRef.current) {
-      // Initialize PCF component with monitored context
-      pcfComponentRef.current = new pcfClass()
-      pcfComponentRef.current.init(
-        ctx,
-        () => console.log('PCF notifyOutputChanged called'),
-        {},
-        containerRef.current
-      )
-      pcfComponentRef.current.updateView(ctx)
-      
-      // Register refs with devtools context if available
-      if (devtools) {
-        devtools.setPCFRefs(pcfComponentRef, containerRef, pcfClass)
-        devtools.setCurrentContext(ctx)
+  const initializePCFComponent = React.useCallback(
+    (ctx: ComponentFramework.Context<any>) => {
+      if (containerRef.current && !pcfComponentRef.current) {
+        // Initialize PCF component with monitored context
+        pcfComponentRef.current = new pcfClass()
+        pcfComponentRef.current.init(
+          ctx,
+          () => console.log('PCF notifyOutputChanged called'),
+          {},
+          containerRef.current
+        )
+        pcfComponentRef.current.updateView(ctx)
+
+        // Register refs with devtools context if available
+        if (devtools) {
+          devtools.setPCFRefs(pcfComponentRef, containerRef, pcfClass)
+          devtools.setCurrentContext(ctx)
+        }
       }
-    }
-  }, [pcfClass, devtools])
+    },
+    [pcfClass, devtools]
+  )
 
   React.useEffect(() => {
     return () => {
@@ -124,11 +128,11 @@ const PowerAppsContainerInner: React.FC<PowerAppsContainerProps> = ({
                               {/* PCF Component Container with WebAPI Monitoring */}
                               {showDevPanel ? (
                                 <WebApiMonitorWrapper context={context}>
-                                  {(monitoredCtx) => {
+                                  {monitoredCtx => {
                                     React.useEffect(() => {
                                       initializePCFComponent(monitoredCtx)
                                     }, [monitoredCtx])
-                                    
+
                                     return (
                                       <div
                                         className="customControl pcf-component flexbox"
@@ -148,7 +152,7 @@ const PowerAppsContainerInner: React.FC<PowerAppsContainerProps> = ({
                                   React.useEffect(() => {
                                     initializePCFComponent(context)
                                   }, [context])
-                                  
+
                                   return (
                                     <div
                                       className="customControl pcf-component flexbox"
@@ -182,7 +186,7 @@ const PowerAppsContainerInner: React.FC<PowerAppsContainerProps> = ({
 }
 
 // Main component that sets up the devtools provider
-export const PowerAppsContainer: React.FC<PowerAppsContainerProps> = (props) => {
+export const PowerAppsContainer: React.FC<PowerAppsContainerProps> = props => {
   if (!props.showDevPanel) {
     return <PowerAppsContainerInner {...props} />
   }

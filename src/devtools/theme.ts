@@ -213,5 +213,5 @@ export const darkTheme = {
   activeAlt: tokens.colors.blue['500'],
 }
 
-export const getThemeColors = (theme: 'light' | 'dark') => 
+export const getThemeColors = (theme: 'light' | 'dark') =>
   theme === 'dark' ? darkTheme : lightTheme

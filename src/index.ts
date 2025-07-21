@@ -7,19 +7,18 @@
 
 export { createMockContext } from './createMockContext.js'
 export { createPCFViteConfig } from './createViteConfig.js'
-export { initializePCFHarness, initPCF } from './initializePCFHarness.js'
-// Core components
-export { PowerAppsContainer } from './PowerAppsContainer.js'
-
 // Devtools
 export {
+  getThemeColors,
   PCFDevtools,
   PCFDevtoolsPanel_Embedded,
   PCFDevtoolsProvider,
-  usePCFDevtools,
   tokens as devtoolsTokens,
-  getThemeColors,
+  usePCFDevtools,
 } from './devtools/index.js'
+export { initializePCFHarness, initPCF } from './initializePCFHarness.js'
+// Core components
+export { PowerAppsContainer } from './PowerAppsContainer.js'
 
 // Type definitions
 export type {

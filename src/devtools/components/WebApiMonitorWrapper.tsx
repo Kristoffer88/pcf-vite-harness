@@ -1,7 +1,8 @@
 // WebAPI Monitor Wrapper - Provides monitoring capabilities to PCF context
 // This component wraps the context to inject WebAPI monitoring
 
-import React, { useMemo } from 'react'
+import type React from 'react'
+import { useMemo } from 'react'
 import { usePCFDevtools } from '../contexts/PCFDevtoolsContext'
 import { WebApiMonitor } from '../utils/webApiMonitor'
 
@@ -10,17 +11,17 @@ interface WebApiMonitorWrapperProps {
   context: ComponentFramework.Context<any>
 }
 
-export const WebApiMonitorWrapper: React.FC<WebApiMonitorWrapperProps> = ({ 
-  children, 
-  context 
+export const WebApiMonitorWrapper: React.FC<WebApiMonitorWrapperProps> = ({
+  children,
+  context,
 }) => {
   const { addWebApiRequest, updateWebApiRequest } = usePCFDevtools()
-  
+
   const monitoredContext = useMemo(() => {
     if (!context?.webAPI) return context
-    
+
     const monitor = new WebApiMonitor({
-      onRequest: (request) => {
+      onRequest: request => {
         addWebApiRequest(request)
       },
       onResponse: (requestId, response, duration) => {
@@ -38,12 +39,12 @@ export const WebApiMonitorWrapper: React.FC<WebApiMonitorWrapperProps> = ({
         })
       },
     })
-    
+
     return {
       ...context,
       webAPI: monitor.wrapWebApi(context.webAPI),
     }
   }, [context, addWebApiRequest, updateWebApiRequest])
-  
+
   return <>{children(monitoredContext)}</>
 }

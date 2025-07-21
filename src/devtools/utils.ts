@@ -1,7 +1,7 @@
 // Adapted from TanStack Query DevTools utils.tsx
 // Original: https://github.com/TanStack/query/blob/main/packages/query-devtools/src/utils.tsx
 
-import { webApiStatusColors, type WebApiMethod } from './constants'
+import { type WebApiMethod, webApiStatusColors } from './constants'
 
 // PCF-specific types
 export interface WebApiRequest {
@@ -68,20 +68,20 @@ export const updateNestedProperty = (
   }
 
   const [key, ...restPath] = path
-  
+
   if (Array.isArray(obj)) {
     const newArray = [...obj]
     newArray[key as number] = updateNestedProperty(newArray[key as number], restPath, updater)
     return newArray
   }
-  
+
   if (obj && typeof obj === 'object') {
     return {
       ...obj,
-      [key as string]: updateNestedProperty(obj[key as string], restPath, updater)
+      [key as string]: updateNestedProperty(obj[key as string], restPath, updater),
     }
   }
-  
+
   return obj
 }
 
@@ -89,7 +89,7 @@ export const deleteNestedProperty = (obj: any, path: (string | number)[]): any =
   if (path.length === 0) {
     return undefined
   }
-  
+
   if (path.length === 1) {
     const [key] = path
     if (Array.isArray(obj)) {
@@ -97,30 +97,30 @@ export const deleteNestedProperty = (obj: any, path: (string | number)[]): any =
       newArray.splice(key as number, 1)
       return newArray
     }
-    
+
     if (obj && typeof obj === 'object') {
       const { [key as string]: _, ...rest } = obj
       return rest
     }
-    
+
     return obj
   }
-  
+
   const [key, ...restPath] = path
-  
+
   if (Array.isArray(obj)) {
     const newArray = [...obj]
     newArray[key as number] = deleteNestedProperty(newArray[key as number], restPath)
     return newArray
   }
-  
+
   if (obj && typeof obj === 'object') {
     return {
       ...obj,
-      [key as string]: deleteNestedProperty(obj[key as string], restPath)
+      [key as string]: deleteNestedProperty(obj[key as string], restPath),
     }
   }
-  
+
   return obj
 }
 
@@ -161,12 +161,9 @@ export const copyToClipboard = (text: string): void => {
   }
 }
 
-export const sortWebApiRequests = (
-  requests: WebApiRequest[],
-  sortBy: string
-): WebApiRequest[] => {
+export const sortWebApiRequests = (requests: WebApiRequest[], sortBy: string): WebApiRequest[] => {
   const sorted = [...requests]
-  
+
   switch (sortBy) {
     case 'Status > Last Updated':
       return sorted.sort((a, b) => {

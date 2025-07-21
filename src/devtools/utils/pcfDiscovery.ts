@@ -30,7 +30,7 @@ export interface PCFControlInfo {
     filteredViewIds?: string[]
   }
   // Other parameters
-  parameters?: Record<string, any>
+  parameters?: Record<string, unknown>
 }
 
 export interface FormPCFMatch {
@@ -160,8 +160,8 @@ function getElementText(parent: Element, tagName: string): string | undefined {
 /**
  * Extract all parameters from parameters element
  */
-function extractParameters(parametersElement: Element): Record<string, any> {
-  const params: Record<string, any> = {}
+function extractParameters(parametersElement: Element): Record<string, unknown> {
+  const params: Record<string, unknown> = {}
 
   parametersElement.childNodes.forEach(node => {
     if (node.nodeType === Node.ELEMENT_NODE) {

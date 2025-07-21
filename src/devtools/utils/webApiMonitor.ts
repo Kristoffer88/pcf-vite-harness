@@ -11,28 +11,28 @@ interface WebApiMonitorCallbacks {
 
 export class WebApiMonitor {
   private callbacks: WebApiMonitorCallbacks = {}
-  
+
   constructor(callbacks: WebApiMonitorCallbacks) {
     this.callbacks = callbacks
   }
-  
+
   wrapWebApi(webApi: ComponentFramework.WebApi): ComponentFramework.WebApi {
     return {
       ...webApi,
       retrieveMultipleRecords: this.wrapMethod(
         webApi.retrieveMultipleRecords.bind(webApi),
         'GET',
-        (entityLogicalName, options) => this.buildUrl('retrieveMultiple', entityLogicalName, options)
+        (entityLogicalName, options) =>
+          this.buildUrl('retrieveMultiple', entityLogicalName, options)
       ),
       retrieveRecord: this.wrapMethod(
         webApi.retrieveRecord.bind(webApi),
         'GET',
-        (entityLogicalName, id, options) => this.buildUrl('retrieve', entityLogicalName, options, id)
+        (entityLogicalName, id, options) =>
+          this.buildUrl('retrieve', entityLogicalName, options, id)
       ),
-      createRecord: this.wrapMethod(
-        webApi.createRecord.bind(webApi),
-        'POST',
-        (entityLogicalName) => this.buildUrl('create', entityLogicalName)
+      createRecord: this.wrapMethod(webApi.createRecord.bind(webApi), 'POST', entityLogicalName =>
+        this.buildUrl('create', entityLogicalName)
       ),
       updateRecord: this.wrapMethod(
         webApi.updateRecord.bind(webApi),
@@ -46,7 +46,7 @@ export class WebApiMonitor {
       ),
     }
   }
-  
+
   private wrapMethod<T extends (...args: any[]) => Promise<any>>(
     method: T,
     httpMethod: 'GET' | 'POST' | 'PATCH' | 'DELETE',
@@ -57,7 +57,7 @@ export class WebApiMonitor {
       const startTime = Date.now()
       const url = urlBuilder(...args)
       const entityLogicalName = args[0] as string
-      
+
       const request: WebApiRequest = {
         id: requestId,
         method: httpMethod,
@@ -66,29 +66,29 @@ export class WebApiMonitor {
         status: 'pending',
         entityLogicalName,
       }
-      
+
       this.callbacks.onRequest?.(request)
-      
+
       try {
         const result = await method(...args)
         const endTime = Date.now()
         const duration = endTime - startTime
-        
+
         this.callbacks.onResponse?.(requestId, result, duration)
-        
+
         return result
       } catch (error) {
         const endTime = Date.now()
         const duration = endTime - startTime
         const errorMessage = error instanceof Error ? error.message : String(error)
-        
+
         this.callbacks.onError?.(requestId, errorMessage, duration)
-        
+
         throw error
       }
     }) as T
   }
-  
+
   private buildUrl(
     operation: string,
     entityLogicalName: string,
@@ -96,19 +96,19 @@ export class WebApiMonitor {
     id?: string
   ): string {
     let url = `/api/data/v9.2/${entityLogicalName}`
-    
+
     if (id) {
       url += `(${id})`
     }
-    
+
     if (operation === 'retrieveMultiple') {
       url += 's' // pluralize for collection
     }
-    
+
     if (options) {
       url += options.startsWith('?') ? options : `?${options}`
     }
-    
+
     return url
   }
 }
@@ -119,7 +119,7 @@ export const useMonitoredWebApi = (
   callbacks: WebApiMonitorCallbacks
 ): ComponentFramework.WebApi => {
   const monitor = React.useMemo(() => new WebApiMonitor(callbacks), [callbacks])
-  
+
   return React.useMemo(() => monitor.wrapWebApi(webApi), [monitor, webApi])
 }
 

@@ -28,7 +28,7 @@ export function detectDatasetParameters(
   context: ComponentFramework.Context<any>
 ): DatasetAnalysisResult {
   const datasets: DatasetInfo[] = []
-  
+
   if (!context.parameters) {
     return { hasDatasets: false, datasets: [] }
   }
@@ -36,7 +36,7 @@ export function detectDatasetParameters(
   // Scan all parameters for dataset types
   Object.keys(context.parameters).forEach(key => {
     const param = context.parameters[key]
-    
+
     // Check if parameter has dataset characteristics
     if (isDatasetParameter(param)) {
       const datasetInfo = extractDatasetMetadata(key, param)
@@ -50,7 +50,7 @@ export function detectDatasetParameters(
   return {
     hasDatasets: datasets.length > 0,
     datasets,
-    primaryDataset
+    primaryDataset,
   }
 }
 
@@ -78,7 +78,7 @@ export function extractDatasetMetadata(
   const records = dataset.records || {}
   const recordCount = Object.keys(records).length
   const columns = dataset.columns || []
-  
+
   return {
     parameterKey,
     dataset,
@@ -87,18 +87,20 @@ export function extractDatasetMetadata(
     recordCount,
     viewId: dataset.getViewId?.(),
     columns: columns.map(col => col.name || col.displayName || ''),
-    entityLogicalName: extractEntityLogicalName(dataset)
+    entityLogicalName: extractEntityLogicalName(dataset),
   }
 }
 
 /**
  * Extract entity logical name from dataset (best effort)
  */
-function extractEntityLogicalName(dataset: ComponentFramework.PropertyTypes.DataSet): string | undefined {
+function extractEntityLogicalName(
+  dataset: ComponentFramework.PropertyTypes.DataSet
+): string | undefined {
   // Try to get from first record's entity reference
   const records = dataset.records || {}
   const firstRecordId = Object.keys(records)[0]
-  
+
   if (firstRecordId) {
     const firstRecord = records[firstRecordId]
     if (firstRecord) {
@@ -134,7 +136,7 @@ function findPrimaryDataset(datasets: DatasetInfo[]): DatasetInfo | undefined {
   if (dataDataset) return dataDataset
 
   // Priority 2: Dataset with most records
-  const datasetWithMostRecords = datasets.reduce((prev, current) => 
+  const datasetWithMostRecords = datasets.reduce((prev, current) =>
     current.recordCount > prev.recordCount ? current : prev
   )
 
@@ -157,13 +159,13 @@ export function analyzeDatasetStructure(
   }>
 } {
   const datasetAnalysis = detectDatasetParameters(context)
-  
+
   // For now, return empty arrays for controls since we need form discovery
   // This will be populated when we integrate with form discovery
   return {
     datasetAnalysis,
     compatibleControls: [],
-    recommendedMappings: []
+    recommendedMappings: [],
   }
 }
 
@@ -182,12 +184,12 @@ export function compareDatasetStates(
   changes: string[]
 } {
   const changes: string[] = []
-  
+
   // Check record count changes
   const oldRecordCount = Object.keys(oldDataset.records || {}).length
   const newRecordCount = Object.keys(newDataset.records || {}).length
   const recordCountChanged = oldRecordCount !== newRecordCount
-  
+
   if (recordCountChanged) {
     changes.push(`Record count: ${oldRecordCount} → ${newRecordCount}`)
   }
@@ -196,7 +198,7 @@ export function compareDatasetStates(
   const oldViewId = oldDataset.getViewId?.()
   const newViewId = newDataset.getViewId?.()
   const viewIdChanged = oldViewId !== newViewId
-  
+
   if (viewIdChanged) {
     changes.push(`View ID: ${oldViewId} → ${newViewId}`)
   }
@@ -205,7 +207,7 @@ export function compareDatasetStates(
   const oldColumns = (oldDataset.columns || []).map(c => c.name).join(',')
   const newColumns = (newDataset.columns || []).map(c => c.name).join(',')
   const columnsChanged = oldColumns !== newColumns
-  
+
   if (columnsChanged) {
     changes.push(`Columns changed`)
   }
@@ -213,12 +215,11 @@ export function compareDatasetStates(
   // Check paging changes
   const oldPaging = oldDataset.paging
   const newPaging = newDataset.paging
-  const pagingChanged = (
+  const pagingChanged =
     oldPaging?.totalResultCount !== newPaging?.totalResultCount ||
     oldPaging?.hasNextPage !== newPaging?.hasNextPage ||
     oldPaging?.hasPreviousPage !== newPaging?.hasPreviousPage
-  )
-  
+
   if (pagingChanged) {
     changes.push(`Paging state changed`)
   }
@@ -229,7 +230,7 @@ export function compareDatasetStates(
     viewIdChanged,
     columnsChanged,
     pagingChanged,
-    changes
+    changes,
   }
 }
 
@@ -242,7 +243,7 @@ export function getDatasetSummary(datasetInfo: DatasetInfo): {
   details: Array<{ label: string; value: string }>
 } {
   const { parameterKey, recordCount, viewId, columns, entityLogicalName } = datasetInfo
-  
+
   return {
     title: `Dataset: ${parameterKey}`,
     subtitle: `${recordCount} records • ${columns.length} columns`,
@@ -251,7 +252,7 @@ export function getDatasetSummary(datasetInfo: DatasetInfo): {
       { label: 'View ID', value: viewId || 'None' },
       { label: 'Record Count', value: recordCount.toString() },
       { label: 'Columns', value: columns.join(', ') || 'None' },
-      { label: 'Has Data', value: recordCount > 0 ? 'Yes' : 'No' }
-    ]
+      { label: 'Has Data', value: recordCount > 0 ? 'Yes' : 'No' },
+    ],
   }
 }

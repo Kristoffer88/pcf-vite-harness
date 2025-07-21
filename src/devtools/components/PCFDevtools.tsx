@@ -3,8 +3,8 @@
 
 import React from 'react'
 import { PCFDevtoolsProvider, usePCFDevtools } from '../contexts/PCFDevtoolsContext'
+import { getThemeColors, tokens } from '../theme'
 import { PCFDevtoolsPanel } from './PCFDevtoolsPanel'
-import { tokens, getThemeColors } from '../theme'
 
 interface PCFDevtoolsToggleProps {
   onToggle: () => void
@@ -14,7 +14,7 @@ interface PCFDevtoolsToggleProps {
 
 const PCFDevtoolsToggle: React.FC<PCFDevtoolsToggleProps> = ({ onToggle, isOpen, theme }) => {
   const colors = getThemeColors(theme)
-  
+
   const toggleStyles = {
     position: 'fixed' as const,
     bottom: '20px',
@@ -35,7 +35,7 @@ const PCFDevtoolsToggle: React.FC<PCFDevtoolsToggleProps> = ({ onToggle, isOpen,
     zIndex: tokens.zIndices['4'],
     transition: 'all 0.2s ease',
   }
-  
+
   return (
     <button
       style={toggleStyles}
@@ -59,29 +59,29 @@ const PCFDevtoolsInner: React.FC<PCFDevtoolsInnerProps> = ({
   position = 'bottom-right',
 }) => {
   const { isOpen, setIsOpen, theme } = usePCFDevtools()
-  
+
   // Use system theme detection for the toggle when theme is 'system'
-  const [systemTheme, setSystemTheme] = React.useState<'light' | 'dark'>(() => 
+  const [systemTheme, setSystemTheme] = React.useState<'light' | 'dark'>(() =>
     window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
   )
-  
+
   React.useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-    
+
     const handleChange = (e: MediaQueryListEvent) => {
       setSystemTheme(e.matches ? 'dark' : 'light')
     }
-    
+
     mediaQuery.addEventListener('change', handleChange)
     return () => mediaQuery.removeEventListener('change', handleChange)
   }, [])
-  
+
   const effectiveTheme = theme === 'system' ? systemTheme : theme
-  
+
   const getPositionStyles = () => {
     const baseSize = '400px'
     const offset = '20px'
-    
+
     switch (position) {
       case 'bottom-left':
         return { bottom: offset, left: offset, right: 'auto', top: 'auto' }
@@ -95,7 +95,7 @@ const PCFDevtoolsInner: React.FC<PCFDevtoolsInnerProps> = ({
         return { bottom: offset, right: offset, left: 'auto', top: 'auto' }
     }
   }
-  
+
   return (
     <>
       {showToggle && (
@@ -105,7 +105,7 @@ const PCFDevtoolsInner: React.FC<PCFDevtoolsInnerProps> = ({
           theme={effectiveTheme}
         />
       )}
-      
+
       {isOpen && (
         <PCFDevtoolsPanel
           onClose={showToggle ? () => setIsOpen(false) : undefined}
@@ -121,27 +121,27 @@ export interface PCFDevtoolsProps {
    * Set this true if you want the dev tools to default to being open
    */
   initialIsOpen?: boolean
-  
+
   /**
    * Use this to render the devtools in a different position
    */
   position?: 'bottom-left' | 'bottom-right' | 'top-left' | 'top-right'
-  
+
   /**
    * Set this true if you do not want the toggle button to show
    */
   toggleButtonProps?: boolean | { style?: React.CSSProperties; className?: string }
-  
+
   /**
    * The initial theme for the devtools. Defaults to 'system'
    */
   initialTheme?: 'light' | 'dark' | 'system'
-  
+
   /**
    * Context to monitor for changes
    */
   context?: ComponentFramework.Context<any>
-  
+
   /**
    * Children to render inside the devtools provider
    */
@@ -157,19 +157,12 @@ export const PCFDevtools: React.FC<PCFDevtoolsProps> = ({
   children,
 }) => {
   const showToggle = toggleButtonProps !== false
-  
+
   return (
-    <PCFDevtoolsProvider
-      initialOpen={initialIsOpen}
-      initialTheme={initialTheme}
-    >
+    <PCFDevtoolsProvider initialOpen={initialIsOpen} initialTheme={initialTheme}>
       <PCFContextMonitor context={context} />
       {children}
-      <PCFDevtoolsInner
-        showToggle={showToggle}
-        initialOpen={initialIsOpen}
-        position={position}
-      />
+      <PCFDevtoolsInner showToggle={showToggle} initialOpen={initialIsOpen} position={position} />
     </PCFDevtoolsProvider>
   )
 }
@@ -182,11 +175,11 @@ interface PCFContextMonitorProps {
 const PCFContextMonitor: React.FC<PCFContextMonitorProps> = ({ context }) => {
   const { setCurrentContext, addContextUpdate } = usePCFDevtools()
   const prevContextRef = React.useRef<ComponentFramework.Context<any> | undefined>(undefined)
-  
+
   React.useEffect(() => {
     if (context) {
       setCurrentContext(context)
-      
+
       // Track context changes
       if (prevContextRef.current && prevContextRef.current !== context) {
         addContextUpdate({
@@ -197,11 +190,11 @@ const PCFContextMonitor: React.FC<PCFContextMonitorProps> = ({ context }) => {
           newValue: context,
         })
       }
-      
+
       prevContextRef.current = context
     }
   }, [context, setCurrentContext, addContextUpdate])
-  
+
   return null
 }
 

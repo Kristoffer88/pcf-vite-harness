@@ -2,8 +2,8 @@
  * Dataset Query Builder - Functional utilities for building and executing dataset queries
  */
 
-import type { PCFControlInfo } from './pcfDiscovery'
 import type { DatasetInfo } from './datasetAnalyzer'
+import type { PCFControlInfo } from './pcfDiscovery'
 
 export interface DatasetQuery {
   entityLogicalName: string
@@ -38,7 +38,7 @@ export function buildDatasetQuery(
   entityLogicalName?: string
 ): DatasetQuery {
   const { dataSet } = controlInfo
-  
+
   if (!dataSet) {
     throw new Error('Control does not have dataset configuration')
   }
@@ -82,7 +82,7 @@ export function buildDatasetQuery(
     odataQuery,
     maxPageSize: 50,
     relationshipName: dataSet.relationshipName,
-    isRelatedQuery: Boolean(dataSet.relationshipName?.trim())
+    isRelatedQuery: Boolean(dataSet.relationshipName?.trim()),
   }
 }
 
@@ -108,15 +108,15 @@ export async function executeDatasetQuery(
       entities: result.entities || [],
       totalCount: result.entities?.length || 0,
       nextLink: result.nextLink,
-      success: true
+      success: true,
     }
   } catch (error) {
     console.error(`❌ Dataset query failed:`, error)
-    
+
     return {
       entities: [],
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
     }
   }
 }
@@ -130,7 +130,7 @@ export function convertEntitiesToDatasetRecords(
 ): any[] {
   return entities.map((entity, index) => {
     const recordId = extractPrimaryId(entity, entityLogicalName)
-    
+
     return {
       getRecordId: () => recordId,
       getFormattedValue: (columnName: string) => {
@@ -139,7 +139,7 @@ export function convertEntitiesToDatasetRecords(
         if (entity[formattedKey]) {
           return entity[formattedKey]
         }
-        
+
         // Fallback to raw value
         return entity[columnName]?.toString() || ''
       },
@@ -147,8 +147,8 @@ export function convertEntitiesToDatasetRecords(
       getNamedReference: () => ({
         id: { guid: recordId },
         name: extractPrimaryName(entity, entityLogicalName),
-        entityType: entityLogicalName
-      })
+        entityType: entityLogicalName,
+      }),
     }
   })
 }
@@ -156,13 +156,16 @@ export function convertEntitiesToDatasetRecords(
 /**
  * Extract primary ID from entity (best effort)
  */
-function extractPrimaryId(entity: ComponentFramework.WebApi.Entity, entityLogicalName: string): string {
+function extractPrimaryId(
+  entity: ComponentFramework.WebApi.Entity,
+  entityLogicalName: string
+): string {
   // Try standard patterns
   const primaryIdPatterns = [
     `${entityLogicalName}id`,
     `${entityLogicalName.toLowerCase()}id`,
     'id',
-    Object.keys(entity).find(key => key.endsWith('id') && !key.includes('@'))
+    Object.keys(entity).find(key => key.endsWith('id') && !key.includes('@')),
   ]
 
   for (const pattern of primaryIdPatterns) {
@@ -172,10 +175,8 @@ function extractPrimaryId(entity: ComponentFramework.WebApi.Entity, entityLogica
   }
 
   // Fallback to first property that looks like an ID
-  const idKey = Object.keys(entity).find(key => 
-    key.toLowerCase().includes('id') && 
-    !key.includes('@') && 
-    typeof entity[key] === 'string'
+  const idKey = Object.keys(entity).find(
+    key => key.toLowerCase().includes('id') && !key.includes('@') && typeof entity[key] === 'string'
   )
 
   return idKey ? entity[idKey].toString().replace(/[{}]/g, '') : `temp-${Math.random()}`
@@ -184,7 +185,10 @@ function extractPrimaryId(entity: ComponentFramework.WebApi.Entity, entityLogica
 /**
  * Extract primary name from entity (best effort)
  */
-function extractPrimaryName(entity: ComponentFramework.WebApi.Entity, entityLogicalName: string): string {
+function extractPrimaryName(
+  entity: ComponentFramework.WebApi.Entity,
+  entityLogicalName: string
+): string {
   // Try common name patterns
   const namePatterns = [
     'name',
@@ -192,7 +196,7 @@ function extractPrimaryName(entity: ComponentFramework.WebApi.Entity, entityLogi
     'fullname',
     'title',
     'subject',
-    'displayname'
+    'displayname',
   ]
 
   for (const pattern of namePatterns) {
@@ -202,10 +206,9 @@ function extractPrimaryName(entity: ComponentFramework.WebApi.Entity, entityLogi
   }
 
   // Fallback to first string property
-  const stringKey = Object.keys(entity).find(key => 
-    !key.includes('@') && 
-    !key.toLowerCase().includes('id') &&
-    typeof entity[key] === 'string'
+  const stringKey = Object.keys(entity).find(
+    key =>
+      !key.includes('@') && !key.toLowerCase().includes('id') && typeof entity[key] === 'string'
   )
 
   return stringKey ? entity[stringKey].toString() : 'Unknown'
@@ -226,9 +229,9 @@ export function createDatasetColumnsFromEntities(
   if (!firstEntity) {
     return existingColumns || []
   }
-  
+
   const columnNames = Object.keys(firstEntity).filter(key => !key.includes('@'))
-  
+
   return columnNames.map((columnName, index) => ({
     name: columnName,
     displayName: formatColumnDisplayName(columnName),
@@ -236,7 +239,7 @@ export function createDatasetColumnsFromEntities(
     alias: columnName,
     order: index,
     isPrimary: columnName.toLowerCase().includes('id'),
-    visualSizeFactor: 1
+    visualSizeFactor: 1,
   }))
 }
 
@@ -282,13 +285,13 @@ export function mergeDatasetResults(
       queryResult,
       mergedRecords: [],
       newRecordCount: 0,
-      columnsUpdated: false
+      columnsUpdated: false,
     }
   }
 
   // Convert entities to dataset records
   const newRecords = convertEntitiesToDatasetRecords(queryResult.entities, entityLogicalName)
-  
+
   // Create or update columns
   const newColumns = createDatasetColumnsFromEntities(queryResult.entities, existingDataset.columns)
   const columnsUpdated = newColumns.length !== (existingDataset.columns || []).length
@@ -298,7 +301,7 @@ export function mergeDatasetResults(
     queryResult,
     mergedRecords: newRecords,
     newRecordCount: newRecords.length,
-    columnsUpdated
+    columnsUpdated,
   }
 }
 
@@ -337,9 +340,9 @@ export function createEnhancedContext<T>(
       loadNextPage: () => {},
       loadExactPage: () => {},
       reset: () => {},
-      setPageSize: () => {}
+      setPageSize: () => {},
     },
-    loading: false
+    loading: false,
   }
 
   // Create enhanced context
@@ -347,11 +350,13 @@ export function createEnhancedContext<T>(
     ...originalContext,
     parameters: {
       ...originalContext.parameters,
-      [datasetKey]: enhancedDataset
-    }
+      [datasetKey]: enhancedDataset,
+    },
   }
 
-  console.log(`✅ Enhanced context created with ${enhancedResult.newRecordCount} records for ${datasetKey}`)
+  console.log(
+    `✅ Enhanced context created with ${enhancedResult.newRecordCount} records for ${datasetKey}`
+  )
 
   return enhancedContext
 }

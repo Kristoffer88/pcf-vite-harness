@@ -1,12 +1,19 @@
 // PCF Devtools Panel - Adapted from TanStack Query DevTools DevtoolsPanelComponent.tsx
 // Original: https://github.com/TanStack/query/blob/main/packages/query-devtools/src/DevtoolsPanelComponent.tsx
 
-import React, { useState } from 'react'
-import { usePCFDevtools, useSystemTheme } from '../contexts/PCFDevtoolsContext'
-import { Explorer } from './Explorer'
-import { tokens, getThemeColors } from '../theme'
-import { formatDuration, formatTimestamp, getWebApiStatusColor, getWebApiStatusLabel, sortWebApiRequests } from '../utils'
+import type React from 'react'
+import { useState } from 'react'
 import type { PCFDevtoolsTab } from '../constants'
+import { usePCFDevtools, useSystemTheme } from '../contexts/PCFDevtoolsContext'
+import { getThemeColors, tokens } from '../theme'
+import {
+  formatDuration,
+  formatTimestamp,
+  getWebApiStatusColor,
+  getWebApiStatusLabel,
+  sortWebApiRequests,
+} from '../utils'
+import { Explorer } from './Explorer'
 
 interface PCFDevtoolsPanelProps {
   onClose?: () => void
@@ -39,14 +46,14 @@ export const PCFDevtoolsPanel: React.FC<PCFDevtoolsPanelProps> = ({
     triggerEnhancedUpdate,
     clearDatasetDiscovery,
   } = usePCFDevtools()
-  
+
   const systemTheme = useSystemTheme()
   const effectiveTheme = theme === 'system' ? systemTheme : theme
   const colors = getThemeColors(effectiveTheme)
-  
+
   const [sortBy, setSortBy] = useState('Status > Last Updated')
   const sortedRequests = sortWebApiRequests(webApiRequests, sortBy)
-  
+
   const panelStyles = {
     container: {
       position: 'fixed' as const,
@@ -192,7 +199,7 @@ export const PCFDevtoolsPanel: React.FC<PCFDevtoolsPanelProps> = ({
       fontStyle: 'italic',
     },
   }
-  
+
   const tabs = [
     { id: 'lifecycle', label: 'Lifecycle' },
     { id: 'webapi', label: 'WebAPI' },
@@ -200,7 +207,7 @@ export const PCFDevtoolsPanel: React.FC<PCFDevtoolsPanelProps> = ({
     { id: 'datasets', label: 'Datasets' },
     { id: 'overview', label: 'Overview' },
   ] as const
-  
+
   const renderTabContent = () => {
     switch (activeTab) {
       case 'overview':
@@ -220,7 +227,7 @@ export const PCFDevtoolsPanel: React.FC<PCFDevtoolsPanelProps> = ({
             )}
           </div>
         )
-      
+
       case 'webapi':
         return (
           <div>
@@ -230,7 +237,7 @@ export const PCFDevtoolsPanel: React.FC<PCFDevtoolsPanelProps> = ({
                 <select
                   style={panelStyles.sortSelect}
                   value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
+                  onChange={e => setSortBy(e.target.value)}
                 >
                   <option>Status {'>'} Last Updated</option>
                   <option>Last Updated</option>
@@ -238,22 +245,19 @@ export const PCFDevtoolsPanel: React.FC<PCFDevtoolsPanelProps> = ({
                   <option>URL</option>
                 </select>
               </div>
-              <button
-                style={panelStyles.clearButton}
-                onClick={clearWebApiRequests}
-              >
+              <button style={panelStyles.clearButton} onClick={clearWebApiRequests}>
                 Clear All ({webApiRequests.length})
               </button>
             </div>
-            
+
             {sortedRequests.length > 0 ? (
               <div>
-                {sortedRequests.map((request) => (
+                {sortedRequests.map(request => (
                   <div key={request.id} style={panelStyles.requestItem}>
                     <div style={panelStyles.requestHeader}>
                       <div>
                         <span style={panelStyles.requestMethod}>{request.method}</span>
-                        <span style={{...panelStyles.requestUrl, marginLeft: tokens.size['2']}}>
+                        <span style={{ ...panelStyles.requestUrl, marginLeft: tokens.size['2'] }}>
                           {request.url}
                         </span>
                       </div>
@@ -271,11 +275,7 @@ export const PCFDevtoolsPanel: React.FC<PCFDevtoolsPanelProps> = ({
                       {request.entityLogicalName && ` • ${request.entityLogicalName}`}
                     </div>
                     {request.response && (
-                      <Explorer
-                        label="Response"
-                        value={request.response}
-                        theme={effectiveTheme}
-                      />
+                      <Explorer label="Response" value={request.response} theme={effectiveTheme} />
                     )}
                     {request.error && (
                       <div style={{ color: colors.danger, marginTop: tokens.size['2'] }}>
@@ -286,26 +286,21 @@ export const PCFDevtoolsPanel: React.FC<PCFDevtoolsPanelProps> = ({
                 ))}
               </div>
             ) : (
-              <div style={panelStyles.emptyState}>
-                No WebAPI requests captured yet
-              </div>
+              <div style={panelStyles.emptyState}>No WebAPI requests captured yet</div>
             )}
           </div>
         )
-      
+
       case 'context':
         return (
           <div>
             <div style={panelStyles.toolbar}>
               <span>Context Updates: {contextUpdates.length}</span>
-              <button
-                style={panelStyles.clearButton}
-                onClick={clearContextUpdates}
-              >
+              <button style={panelStyles.clearButton} onClick={clearContextUpdates}>
                 Clear History
               </button>
             </div>
-            
+
             {currentContext ? (
               <Explorer
                 label="PCF Context"
@@ -315,28 +310,28 @@ export const PCFDevtoolsPanel: React.FC<PCFDevtoolsPanelProps> = ({
                 editable={false}
               />
             ) : (
-              <div style={panelStyles.emptyState}>
-                No PCF context available
-              </div>
+              <div style={panelStyles.emptyState}>No PCF context available</div>
             )}
           </div>
         )
-      
+
       case 'lifecycle':
         return (
           <div>
             <h3>PCF Component Lifecycle</h3>
-            
+
             <div style={panelStyles.toolbar}>
               <span>Control your PCF component lifecycle</span>
             </div>
-            
-            <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: tokens.size['3'],
-              marginBottom: tokens.size['4']
-            }}>
+
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: tokens.size['3'],
+                marginBottom: tokens.size['4'],
+              }}
+            >
               <button
                 style={{
                   ...panelStyles.clearButton,
@@ -349,7 +344,7 @@ export const PCFDevtoolsPanel: React.FC<PCFDevtoolsPanelProps> = ({
               >
                 🔄 Trigger init()
               </button>
-              
+
               <button
                 style={{
                   ...panelStyles.clearButton,
@@ -362,7 +357,7 @@ export const PCFDevtoolsPanel: React.FC<PCFDevtoolsPanelProps> = ({
               >
                 🔁 Trigger updateView()
               </button>
-              
+
               <button
                 style={{
                   ...panelStyles.clearButton,
@@ -376,12 +371,14 @@ export const PCFDevtoolsPanel: React.FC<PCFDevtoolsPanelProps> = ({
                 🔥 Trigger destroy() → init()
               </button>
             </div>
-            
-            <div style={{ borderTop: `1px solid ${colors.inputBorder}`, paddingTop: tokens.size['3'] }}>
+
+            <div
+              style={{ borderTop: `1px solid ${colors.inputBorder}`, paddingTop: tokens.size['3'] }}
+            >
               <h4>Recent Lifecycle Events</h4>
               {contextUpdates.length > 0 ? (
                 <div>
-                  {contextUpdates.slice(0, 5).map((update) => (
+                  {contextUpdates.slice(0, 5).map(update => (
                     <div key={update.id} style={panelStyles.requestItem}>
                       <div style={panelStyles.requestHeader}>
                         <span style={panelStyles.requestMethod}>{update.property}</span>
@@ -398,41 +395,37 @@ export const PCFDevtoolsPanel: React.FC<PCFDevtoolsPanelProps> = ({
                   )}
                 </div>
               ) : (
-                <div style={panelStyles.emptyState}>
-                  No lifecycle events recorded yet
-                </div>
+                <div style={panelStyles.emptyState}>No lifecycle events recorded yet</div>
               )}
             </div>
           </div>
         )
-      
+
       case 'datasets':
         return (
           <div>
             <h3>Dataset Discovery & Enhancement</h3>
-            
+
             <div style={panelStyles.toolbar}>
               <span>
-                {datasetDiscovery.isDiscovering 
-                  ? 'Discovering PCF controls...' 
-                  : `Found ${datasetDiscovery.controlsFound.length} dataset controls`
-                }
+                {datasetDiscovery.isDiscovering
+                  ? 'Discovering PCF controls...'
+                  : `Found ${datasetDiscovery.controlsFound.length} dataset controls`}
               </span>
-              <button
-                style={panelStyles.clearButton}
-                onClick={clearDatasetDiscovery}
-              >
+              <button style={panelStyles.clearButton} onClick={clearDatasetDiscovery}>
                 Clear Discovery
               </button>
             </div>
-            
+
             {/* Discovery Controls */}
-            <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: tokens.size['3'],
-              marginBottom: tokens.size['4']
-            }}>
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: tokens.size['3'],
+                marginBottom: tokens.size['4'],
+              }}
+            >
               <button
                 style={{
                   ...panelStyles.clearButton,
@@ -446,7 +439,7 @@ export const PCFDevtoolsPanel: React.FC<PCFDevtoolsPanelProps> = ({
                   const mockManifest = {
                     namespace: 'Sample',
                     constructor: 'DatasetControl',
-                    version: '1.0.0'
+                    version: '1.0.0',
                   }
                   discoverPCFControls(mockManifest)
                 }}
@@ -454,7 +447,7 @@ export const PCFDevtoolsPanel: React.FC<PCFDevtoolsPanelProps> = ({
               >
                 🔍 Discover PCF Controls on Forms
               </button>
-              
+
               <button
                 style={{
                   ...panelStyles.clearButton,
@@ -472,7 +465,7 @@ export const PCFDevtoolsPanel: React.FC<PCFDevtoolsPanelProps> = ({
               >
                 🚀 Enhance Datasets with Query Data
               </button>
-              
+
               <button
                 style={{
                   ...panelStyles.clearButton,
@@ -487,12 +480,17 @@ export const PCFDevtoolsPanel: React.FC<PCFDevtoolsPanelProps> = ({
                 🔁 Trigger Enhanced updateView()
               </button>
             </div>
-            
+
             {/* Discovery Results */}
             {datasetDiscovery.discoveredForms.length > 0 && (
-              <div style={{ borderTop: `1px solid ${colors.inputBorder}`, paddingTop: tokens.size['3'] }}>
+              <div
+                style={{
+                  borderTop: `1px solid ${colors.inputBorder}`,
+                  paddingTop: tokens.size['3'],
+                }}
+              >
                 <h4>Discovered Forms</h4>
-                {datasetDiscovery.discoveredForms.map((form) => (
+                {datasetDiscovery.discoveredForms.map(form => (
                   <div key={form.formId} style={panelStyles.requestItem}>
                     <div style={panelStyles.requestHeader}>
                       <span style={panelStyles.requestMethod}>{form.formName}</span>
@@ -500,13 +498,16 @@ export const PCFDevtoolsPanel: React.FC<PCFDevtoolsPanelProps> = ({
                         {form.controls.length} control(s)
                       </span>
                     </div>
-                    {form.controls.map((control) => (
-                      <div key={control.controlId} style={{
-                        marginLeft: tokens.size['4'],
-                        fontSize: tokens.font.size['3'],
-                        color: colors.grayAlt,
-                        fontFamily: tokens.font.family.mono,
-                      }}>
+                    {form.controls.map(control => (
+                      <div
+                        key={control.controlId}
+                        style={{
+                          marginLeft: tokens.size['4'],
+                          fontSize: tokens.font.size['3'],
+                          color: colors.grayAlt,
+                          fontFamily: tokens.font.family.mono,
+                        }}
+                      >
                         {control.namespace}.{control.constructor}
                         {control.dataSet && (
                           <span style={{ color: colors.active, marginLeft: tokens.size['2'] }}>
@@ -519,17 +520,26 @@ export const PCFDevtoolsPanel: React.FC<PCFDevtoolsPanelProps> = ({
                 ))}
               </div>
             )}
-            
+
             {/* Enhancement Results */}
             {lastEnhancementResult && (
-              <div style={{ borderTop: `1px solid ${colors.inputBorder}`, paddingTop: tokens.size['3'] }}>
+              <div
+                style={{
+                  borderTop: `1px solid ${colors.inputBorder}`,
+                  paddingTop: tokens.size['3'],
+                }}
+              >
                 <h4>Last Enhancement Result</h4>
                 <div style={panelStyles.requestItem}>
                   <div style={panelStyles.requestHeader}>
-                    <span style={{
-                      ...panelStyles.statusBadge,
-                      backgroundColor: lastEnhancementResult.success ? colors.active : colors.danger,
-                    }}>
+                    <span
+                      style={{
+                        ...panelStyles.statusBadge,
+                        backgroundColor: lastEnhancementResult.success
+                          ? colors.active
+                          : colors.danger,
+                      }}
+                    >
                       {lastEnhancementResult.success ? 'Success' : 'Failed'}
                     </span>
                     <span style={panelStyles.requestDetails}>
@@ -544,10 +554,15 @@ export const PCFDevtoolsPanel: React.FC<PCFDevtoolsPanelProps> = ({
                 </div>
               </div>
             )}
-            
+
             {/* Current Context Dataset Info */}
             {currentContext && (
-              <div style={{ borderTop: `1px solid ${colors.inputBorder}`, paddingTop: tokens.size['3'] }}>
+              <div
+                style={{
+                  borderTop: `1px solid ${colors.inputBorder}`,
+                  paddingTop: tokens.size['3'],
+                }}
+              >
                 <h4>Current Context Datasets</h4>
                 <Explorer
                   label="Dataset Parameters"
@@ -558,7 +573,7 @@ export const PCFDevtoolsPanel: React.FC<PCFDevtoolsPanelProps> = ({
                         recordCount: Object.keys(param.records || {}).length,
                         columnCount: (param.columns || []).length,
                         hasData: Object.keys(param.records || {}).length > 0,
-                        viewId: param.getViewId?.()
+                        viewId: param.getViewId?.(),
                       }
                     }
                     return acc
@@ -570,12 +585,12 @@ export const PCFDevtoolsPanel: React.FC<PCFDevtoolsPanelProps> = ({
             )}
           </div>
         )
-      
+
       default:
         return <div>Unknown tab</div>
     }
   }
-  
+
   return (
     <div className={className} style={panelStyles.container}>
       <div style={panelStyles.header}>
@@ -584,7 +599,7 @@ export const PCFDevtoolsPanel: React.FC<PCFDevtoolsPanelProps> = ({
           <select
             style={panelStyles.themeSelect}
             value={theme}
-            onChange={(e) => setTheme(e.target.value as 'light' | 'dark' | 'system')}
+            onChange={e => setTheme(e.target.value as 'light' | 'dark' | 'system')}
           >
             <option value="system">System</option>
             <option value="light">Light</option>
@@ -597,9 +612,9 @@ export const PCFDevtoolsPanel: React.FC<PCFDevtoolsPanelProps> = ({
           )}
         </div>
       </div>
-      
+
       <div style={panelStyles.tabsContainer}>
-        {tabs.map((tab) => (
+        {tabs.map(tab => (
           <button
             key={tab.id}
             style={{
@@ -612,10 +627,8 @@ export const PCFDevtoolsPanel: React.FC<PCFDevtoolsPanelProps> = ({
           </button>
         ))}
       </div>
-      
-      <div style={panelStyles.content}>
-        {renderTabContent()}
-      </div>
+
+      <div style={panelStyles.content}>{renderTabContent()}</div>
     </div>
   )
 }

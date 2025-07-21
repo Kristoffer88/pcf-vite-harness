@@ -21,34 +21,19 @@ export const defaultSize = {
 
 export const defaultThemePreference = 'system' as const
 
-export const sortingOptions = [
-  'Status > Last Updated',
-  'Query Hash',
-  'Last Updated',
-] as const
+export const sortingOptions = ['Status > Last Updated', 'Query Hash', 'Last Updated'] as const
 
 // PCF-specific constants
-export const pcfDevtoolsTabs = [
-  'overview',
-  'webapi',
-  'context',
-  'lifecycle',
-  'datasets',
-] as const
+export const pcfDevtoolsTabs = ['overview', 'webapi', 'context', 'lifecycle', 'datasets'] as const
 
-export type PCFDevtoolsTab = typeof pcfDevtoolsTabs[number]
+export type PCFDevtoolsTab = (typeof pcfDevtoolsTabs)[number]
 
-export const webApiMethods = [
-  'GET',
-  'POST',
-  'PATCH',
-  'DELETE',
-] as const
+export const webApiMethods = ['GET', 'POST', 'PATCH', 'DELETE'] as const
 
-export type WebApiMethod = typeof webApiMethods[number]
+export type WebApiMethod = (typeof webApiMethods)[number]
 
 export const webApiStatusColors = {
   pending: '#f59e0b', // yellow-500
   success: '#10b981', // green-500
-  error: '#ef4444',   // red-500
+  error: '#ef4444', // red-500
 } as const

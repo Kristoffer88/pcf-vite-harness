@@ -1,22 +1,22 @@
-import eslintjs from "@eslint/js";
-import microsoftPowerApps from "@microsoft/eslint-plugin-power-apps";
-import pluginPromise from "eslint-plugin-promise";
-import globals from "globals";
-import typescriptEslint from "typescript-eslint";
+import eslintjs from '@eslint/js'
+import microsoftPowerApps from '@microsoft/eslint-plugin-power-apps'
+import pluginPromise from 'eslint-plugin-promise'
+import globals from 'globals'
+import typescriptEslint from 'typescript-eslint'
 
 /** @type {import('eslint').Linter.Config[]} */
 export default [
   {
-    ignores: ["**/generated/"],
+    ignores: ['**/generated/'],
   },
   eslintjs.configs.recommended,
   ...typescriptEslint.configs.recommended,
   ...typescriptEslint.configs.stylistic,
-  pluginPromise.configs["flat/recommended"],
+  pluginPromise.configs['flat/recommended'],
   microsoftPowerApps.configs.paCheckerHosted,
   {
     plugins: {
-      "@microsoft/power-apps": microsoftPowerApps,
+      '@microsoft/power-apps': microsoftPowerApps,
     },
 
     languageOptions: {
@@ -26,14 +26,14 @@ export default [
       },
       parserOptions: {
         ecmaVersion: 2020,
-        sourceType: "module",
+        sourceType: 'module',
         projectService: true,
         tsconfigRootDir: import.meta.dirname,
       },
     },
 
     rules: {
-      "@typescript-eslint/no-unused-vars": "off",
+      '@typescript-eslint/no-unused-vars': 'off',
     },
   },
-];
+]

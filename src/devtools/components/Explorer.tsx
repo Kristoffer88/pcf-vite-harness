@@ -1,9 +1,10 @@
 // PCF Data Explorer - Adapted from TanStack Query DevTools Explorer.tsx
 // Original: https://github.com/TanStack/query/blob/main/packages/query-devtools/src/Explorer.tsx
 
-import React, { useState, useMemo } from 'react'
-import { getDataType, isExpandable, copyToClipboard } from '../utils'
+import type React from 'react'
+import { useMemo, useState } from 'react'
 import { tokens } from '../theme'
+import { copyToClipboard, getDataType, isExpandable } from '../utils'
 
 interface ExplorerProps {
   label: string
@@ -32,17 +33,17 @@ export const Explorer: React.FC<ExplorerProps> = ({
   const [editing, setEditing] = useState(false)
   const [editValue, setEditValue] = useState('')
   const [chunkedIndex, setChunkedIndex] = useState(0)
-  
+
   const dataType = getDataType(value)
   const canExpand = isExpandable(value)
   const currentPath = [...path, label]
-  
+
   // Calculate chunked entries for large arrays/objects
   const chunkedEntries = useMemo(() => {
     if (!canExpand) return []
-    
+
     let entries: Array<[string | number, any]> = []
-    
+
     if (Array.isArray(value)) {
       entries = value.map((item, index) => [index, item])
     } else if (value && typeof value === 'object') {
@@ -52,16 +53,16 @@ export const Explorer: React.FC<ExplorerProps> = ({
     } else if (value instanceof Set) {
       entries = Array.from(value.values()).map((item, index) => [index, item])
     }
-    
+
     // Chunk large datasets
     const chunks = []
     for (let i = 0; i < entries.length; i += CHUNK_SIZE) {
       chunks.push(entries.slice(i, i + CHUNK_SIZE))
     }
-    
+
     return chunks
   }, [value, canExpand])
-  
+
   const handleEdit = () => {
     if (editing) {
       try {
@@ -75,29 +76,27 @@ export const Explorer: React.FC<ExplorerProps> = ({
         } else {
           parsedValue = JSON.parse(editValue)
         }
-        
+
         onEdit?.(currentPath, parsedValue)
         setEditing(false)
       } catch (err) {
         console.error('Failed to parse edit value:', err)
       }
     } else {
-      setEditValue(
-        typeof value === 'string' ? value : JSON.stringify(value, null, 2)
-      )
+      setEditValue(typeof value === 'string' ? value : JSON.stringify(value, null, 2))
       setEditing(true)
     }
   }
-  
+
   const handleCopy = () => {
     const textToCopy = typeof value === 'string' ? value : JSON.stringify(value, null, 2)
     copyToClipboard(textToCopy)
   }
-  
+
   const handleDelete = () => {
     onDelete?.(currentPath)
   }
-  
+
   const styles = {
     container: {
       fontFamily: tokens.font.family.mono,
@@ -171,49 +170,57 @@ export const Explorer: React.FC<ExplorerProps> = ({
       fontStyle: 'italic',
     },
   }
-  
+
   const renderValue = () => {
     if (editing) {
       return (
         <textarea
           style={styles.editInput}
           value={editValue}
-          onChange={(e) => setEditValue(e.target.value)}
+          onChange={e => setEditValue(e.target.value)}
           rows={typeof value === 'string' ? 1 : 3}
         />
       )
     }
-    
+
     if (value === null) return <span style={styles.typeLabel}>null</span>
     if (value === undefined) return <span style={styles.typeLabel}>undefined</span>
-    
+
     if (typeof value === 'string') {
       return <span>"{value}"</span>
     }
-    
+
     if (typeof value === 'number' || typeof value === 'boolean') {
-      return <span style={{ color: theme === 'dark' ? tokens.colors.green['400'] : tokens.colors.green['600'] }}>
-        {String(value)}
-      </span>
+      return (
+        <span
+          style={{
+            color: theme === 'dark' ? tokens.colors.green['400'] : tokens.colors.green['600'],
+          }}
+        >
+          {String(value)}
+        </span>
+      )
     }
-    
+
     if (canExpand) {
-      const count = Array.isArray(value) 
+      const count = Array.isArray(value)
         ? value.length
-        : value instanceof Map 
+        : value instanceof Map
           ? value.size
-          : value instanceof Set 
+          : value instanceof Set
             ? value.size
             : Object.keys(value).length
-            
-      return <span style={styles.typeLabel}>
-        {dataType} ({count} {count === 1 ? 'item' : 'items'})
-      </span>
+
+      return (
+        <span style={styles.typeLabel}>
+          {dataType} ({count} {count === 1 ? 'item' : 'items'})
+        </span>
+      )
     }
-    
+
     return <span>{String(value)}</span>
   }
-  
+
   return (
     <div style={styles.container}>
       <div style={styles.row}>
@@ -224,13 +231,11 @@ export const Explorer: React.FC<ExplorerProps> = ({
         >
           {canExpand ? (expanded ? '▼' : '▶') : ' '}
         </button>
-        
+
         <span style={styles.label}>{label}:</span>
-        
-        <div style={styles.value}>
-          {renderValue()}
-        </div>
-        
+
+        <div style={styles.value}>{renderValue()}</div>
+
         {editable && (
           <div style={styles.actions}>
             {editing ? (
@@ -260,26 +265,27 @@ export const Explorer: React.FC<ExplorerProps> = ({
           </div>
         )}
       </div>
-      
+
       {expanded && canExpand && (
         <div style={styles.nested}>
           {chunkedEntries.map((chunk, chunkIndex) => (
             <div key={chunkIndex}>
-              {chunkIndex === chunkedIndex && chunk.map(([key, val]) => (
-                <Explorer
-                  key={String(key)}
-                  label={String(key)}
-                  value={val}
-                  editable={editable}
-                  onEdit={onEdit}
-                  onDelete={onDelete}
-                  theme={theme}
-                  path={currentPath}
-                />
-              ))}
+              {chunkIndex === chunkedIndex &&
+                chunk.map(([key, val]) => (
+                  <Explorer
+                    key={String(key)}
+                    label={String(key)}
+                    value={val}
+                    editable={editable}
+                    onEdit={onEdit}
+                    onDelete={onDelete}
+                    theme={theme}
+                    path={currentPath}
+                  />
+                ))}
             </div>
           ))}
-          
+
           {chunkedEntries.length > 1 && (
             <div style={styles.row}>
               <span style={styles.typeLabel}>
@@ -295,7 +301,9 @@ export const Explorer: React.FC<ExplorerProps> = ({
                 </button>
                 <button
                   style={styles.actionButton}
-                  onClick={() => setChunkedIndex(Math.min(chunkedEntries.length - 1, chunkedIndex + 1))}
+                  onClick={() =>
+                    setChunkedIndex(Math.min(chunkedEntries.length - 1, chunkedIndex + 1))
+                  }
                   disabled={chunkedIndex === chunkedEntries.length - 1}
                 >
                   Next
