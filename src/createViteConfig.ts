@@ -42,8 +42,8 @@ export async function createPCFViteConfig(options: PCFViteOptions = {}) {
     // Add dataverse-utilities integration if enabled and available
     if (enableDataverse) {
       if (!dataverseUrl) {
-        console.warn(
-          '⚠️  Dataverse integration is enabled but VITE_DATAVERSE_URL environment variable is not set.\n' +
+        throw new Error(
+          '❌ Dataverse integration is enabled but VITE_DATAVERSE_URL environment variable is not set.\n' +
           '   Please set VITE_DATAVERSE_URL in your .env file or pass dataverseUrl in the config options.\n' +
           '   Example: VITE_DATAVERSE_URL=https://yourorg.crm.dynamics.com/'
         )
