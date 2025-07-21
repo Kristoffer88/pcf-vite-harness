@@ -1,4 +1,220 @@
 /**
+ * Helper function to format GUID strings properly
+ */
+function formatGuid(guid: string): string {
+  return guid.replace(/[{}]/g, '')
+}
+
+/**
+ * Helper function to get entity metadata from Dataverse
+ */
+async function getEntityMetadata(entityLogicalName: string): Promise<any> {
+  const response = await fetch(
+    `/api/data/v9.2/EntityDefinitions(LogicalName='${entityLogicalName}')`
+  )
+  if (!response.ok) {
+    throw new Error(`Failed to get metadata for ${entityLogicalName}: ${response.status}`)
+  }
+  return response.json()
+}
+
+/**
+ * Default webAPI implementation with proxy support
+ */
+function createDefaultWebAPI(): ComponentFramework.WebApi {
+  return {
+    retrieveMultipleRecords: async (
+      entityLogicalName: string,
+      options?: string,
+      maxPageSize?: number
+    ): Promise<ComponentFramework.WebApi.RetrieveMultipleResponse> => {
+      try {
+        console.log(`🔄 retrieveMultipleRecords called for ${entityLogicalName}`, {
+          options,
+          maxPageSize,
+        })
+
+        // Get metadata to find collection name
+        const metadata = await getEntityMetadata(entityLogicalName)
+        const collectionName = metadata.LogicalCollectionName
+        let url = `/api/data/v9.2/${collectionName}`
+
+        if (options) {
+          url += options.startsWith('?') ? options : `?${options}`
+        }
+
+        if (maxPageSize) {
+          const separator = url.includes('?') ? '&' : '?'
+          url += `${separator}$top=${maxPageSize}`
+        }
+
+        const response = await fetch(url)
+        if (!response.ok) {
+          const errorText = await response.text()
+          console.error(`API Error Response:`, errorText)
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
+
+        const result = await response.json()
+        console.log(`✅ Retrieved ${result.value?.length || 0} records for ${entityLogicalName}`)
+
+        // Transform OData response to PCF WebAPI format
+        if (result.value && !result.entities) {
+          return {
+            entities: result.value,
+            nextLink: result['@odata.nextLink'],
+          }
+        }
+
+        return result
+      } catch (error) {
+        console.error(`Error retrieving multiple records for ${entityLogicalName}:`, error)
+        throw error
+      }
+    },
+
+    retrieveRecord: async (
+      entityLogicalName: string,
+      id: string,
+      options?: string
+    ): Promise<ComponentFramework.WebApi.Entity> => {
+      try {
+        // Get metadata to find collection name
+        const metadata = await getEntityMetadata(entityLogicalName)
+        const collectionName = metadata.LogicalCollectionName
+        let url = `/api/data/v9.2/${collectionName}(${id})`
+
+        if (options) {
+          url += options.startsWith('?') ? options : `?${options}`
+        }
+
+        const response = await fetch(url)
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
+
+        const result = await response.json()
+        console.log(`✅ Retrieved record ${id} for ${entityLogicalName}`)
+        return result
+      } catch (error) {
+        console.error(`Error retrieving record ${id} for ${entityLogicalName}:`, error)
+        throw error
+      }
+    },
+
+    createRecord: async (
+      entityLogicalName: string,
+      data: ComponentFramework.WebApi.Entity
+    ): Promise<ComponentFramework.LookupValue> => {
+      try {
+        // Get metadata to find collection name and primary attributes
+        const metadata = await getEntityMetadata(entityLogicalName)
+        const collectionName = metadata.LogicalCollectionName
+        const url = `/api/data/v9.2/${collectionName}`
+
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Prefer: 'return=representation',
+          },
+          body: JSON.stringify(data),
+        })
+
+        if (!response.ok) {
+          const errorText = await response.text()
+          console.error(`Create Error Response:`, errorText)
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
+
+        const result = await response.json()
+        const primaryIdAttribute =
+          metadata.PrimaryIdAttribute || `${entityLogicalName.toLowerCase()}id`
+
+        console.log(`✅ Created record for ${entityLogicalName}`)
+        return {
+          id: formatGuid(result[primaryIdAttribute]),
+          name: result[metadata.PrimaryNameAttribute] || '',
+          entityType: entityLogicalName,
+        }
+      } catch (error) {
+        console.error(`Error creating record for ${entityLogicalName}:`, error)
+        throw error
+      }
+    },
+
+    updateRecord: async (
+      entityLogicalName: string,
+      id: string,
+      data: ComponentFramework.WebApi.Entity
+    ): Promise<ComponentFramework.LookupValue> => {
+      try {
+        // Get metadata to find collection name
+        const metadata = await getEntityMetadata(entityLogicalName)
+        const collectionName = metadata.LogicalCollectionName
+        const url = `/api/data/v9.2/${collectionName}(${id})`
+
+        const response = await fetch(url, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(data),
+        })
+
+        if (!response.ok) {
+          const errorText = await response.text()
+          console.error(`Update Error Response:`, errorText)
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
+
+        console.log(`✅ Updated record ${id} for ${entityLogicalName}`)
+        return {
+          id: formatGuid(id),
+          name: '', // For updates, we don't have the name without additional fetch
+          entityType: entityLogicalName,
+        }
+      } catch (error) {
+        console.error(`Error updating record ${id} for ${entityLogicalName}:`, error)
+        throw error
+      }
+    },
+
+    deleteRecord: async (
+      entityLogicalName: string,
+      id: string
+    ): Promise<ComponentFramework.LookupValue> => {
+      try {
+        // Get metadata to find collection name
+        const metadata = await getEntityMetadata(entityLogicalName)
+        const collectionName = metadata.LogicalCollectionName
+        const url = `/api/data/v9.2/${collectionName}(${id})`
+
+        const response = await fetch(url, {
+          method: 'DELETE',
+        })
+
+        if (!response.ok) {
+          const errorText = await response.text()
+          console.error(`Delete Error Response:`, errorText)
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
+
+        console.log(`✅ Deleted record ${id} for ${entityLogicalName}`)
+        return {
+          id: formatGuid(id),
+          name: '', // For deletes, we don't have the name without additional fetch
+          entityType: entityLogicalName,
+        }
+      } catch (error) {
+        console.error(`Error deleting record ${id} for ${entityLogicalName}:`, error)
+        throw error
+      }
+    },
+  }
+}
+
+/**
  * Creates a mock PCF context with realistic PowerApps data
  */
 export function createMockContext<TInputs>(options?: {
@@ -8,6 +224,7 @@ export function createMockContext<TInputs>(options?: {
   userName?: string
   userId?: string
   datasetOptions?: Partial<ComponentFramework.PropertyTypes.DataSet>
+  webAPI?: Partial<ComponentFramework.WebApi>
 }): ComponentFramework.Context<TInputs> {
   const {
     controlId = `id-${crypto.randomUUID()}`,
@@ -16,6 +233,7 @@ export function createMockContext<TInputs>(options?: {
     userName = 'devuser@contoso.com',
     userId = 'dev-user-id',
     datasetOptions = {},
+    webAPI: customWebAPI = {},
   } = options || {}
 
   const mockDataSet = {
@@ -163,11 +381,8 @@ export function createMockContext<TInputs>(options?: {
       lookupObjects: () => Promise.resolve([]),
     },
     webAPI: {
-      createRecord: () => Promise.resolve({} as any),
-      deleteRecord: () => Promise.resolve({} as any),
-      retrieveMultipleRecords: () => Promise.resolve({} as any),
-      retrieveRecord: () => Promise.resolve({} as any),
-      updateRecord: () => Promise.resolve({} as any),
+      ...createDefaultWebAPI(),
+      ...customWebAPI,
     },
   } as any as ComponentFramework.Context<TInputs>
 }

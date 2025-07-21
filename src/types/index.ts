@@ -30,6 +30,8 @@ export interface MockContextOptions {
   userId?: string
   /** Custom dataset options */
   datasetOptions?: Partial<ComponentFramework.PropertyTypes.DataSet>
+  /** Override webAPI methods with custom implementations */
+  webAPI?: Partial<ComponentFramework.WebApi>
 }
 
 export interface PCFViteOptions {
