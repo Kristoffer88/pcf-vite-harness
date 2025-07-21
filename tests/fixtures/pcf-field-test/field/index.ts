@@ -1,17 +1,24 @@
 import { IInputs, IOutputs } from "./generated/ManifestTypes";
 
+interface SystemUser {
+    systemuserid: string;
+    fullname: string;
+    domainname: string;
+    internalemailaddress: string;
+}
+
 export class field implements ComponentFramework.StandardControl<IInputs, IOutputs> {
-    private _context: ComponentFramework.Context<IInputs>;
     private _container: HTMLDivElement;
-    private _notifyOutputChanged: () => void;
-    private _input: HTMLInputElement;
-    private _currentValue: string;
+    private _context: ComponentFramework.Context<IInputs>;
+    private _loadingElement: HTMLDivElement;
+    private _usersContainer: HTMLDivElement;
+    private _refreshButton: HTMLButtonElement;
 
     /**
      * Empty constructor.
      */
     constructor() {
-        this._currentValue = "";
+        // Empty
     }
 
     /**
@@ -28,200 +35,122 @@ export class field implements ComponentFramework.StandardControl<IInputs, IOutpu
         state: ComponentFramework.Dictionary,
         container: HTMLDivElement
     ): void {
-        this._context = context;
         this._container = container;
-        this._notifyOutputChanged = notifyOutputChanged;
+        this._context = context;
 
         // Create main container
-        const mainContainer = document.createElement("div");
-        mainContainer.style.padding = "20px";
-        mainContainer.style.fontFamily = "Segoe UI, Tahoma, Geneva, Verdana, sans-serif";
-        mainContainer.style.maxWidth = "600px";
-
-        // Title
-        const title = document.createElement("h2");
-        title.textContent = "PCF Field Test Component (Real Integration)";
-        title.style.color = "#2c5aa0";
-        title.style.marginBottom = "20px";
-        mainContainer.appendChild(title);
-
-        // Field information section
-        const fieldInfo = document.createElement("div");
-        fieldInfo.style.marginBottom = "25px";
-        fieldInfo.style.padding = "15px";
-        fieldInfo.style.backgroundColor = "#f8f9fa";
-        fieldInfo.style.border = "1px solid #dee2e6";
-        fieldInfo.style.borderRadius = "5px";
-        
-        const infoTitle = document.createElement("h3");
-        infoTitle.textContent = "Field Information";
-        infoTitle.style.marginTop = "0";
-        infoTitle.style.marginBottom = "15px";
-        fieldInfo.appendChild(infoTitle);
-
-        // Field properties display
-        const propsDiv = document.createElement("div");
-        propsDiv.innerHTML = `
-            <div style="margin-bottom: 10px;"><strong>Field Name:</strong> ${context.parameters.sampleProperty?.attributes?.LogicalName || 'sampleProperty'}</div>
-            <div style="margin-bottom: 10px;"><strong>Required:</strong> ${context.parameters.sampleProperty?.attributes?.RequiredLevel || 'None'}</div>
-            <div style="margin-bottom: 10px;"><strong>Max Length:</strong> ${context.parameters.sampleProperty?.attributes?.MaxLength || 'Unlimited'}</div>
-            <div style="margin-bottom: 10px;"><strong>Integration:</strong> <span style="color: #28a745;">Real Dataverse API</span></div>
+        this._container.innerHTML = `
+            <div style="padding: 20px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                    <h2 style="color: #323130; margin: 0;">System Users Field</h2>
+                    <button id="refresh-btn" style="
+                        background: #0078d4; 
+                        color: white; 
+                        border: none; 
+                        padding: 6px 12px; 
+                        border-radius: 4px; 
+                        cursor: pointer;
+                        font-size: 12px;
+                    ">Refresh</button>
+                </div>
+                <div id="loading" style="display: block; color: #605e5c;">Loading system users...</div>
+                <div id="users-container" style="display: none;"></div>
+            </div>
         `;
-        fieldInfo.appendChild(propsDiv);
-        mainContainer.appendChild(fieldInfo);
 
-        // Input section
-        const inputSection = document.createElement("div");
-        inputSection.style.marginBottom = "25px";
+        this._loadingElement = this._container.querySelector('#loading') as HTMLDivElement;
+        this._usersContainer = this._container.querySelector('#users-container') as HTMLDivElement;
+        this._refreshButton = this._container.querySelector('#refresh-btn') as HTMLButtonElement;
 
-        const inputLabel = document.createElement("label");
-        inputLabel.textContent = "Field Value (syncs with Dataverse):";
-        inputLabel.style.display = "block";
-        inputLabel.style.marginBottom = "10px";
-        inputLabel.style.fontWeight = "bold";
-        inputLabel.style.color = "#2c5aa0";
-        inputSection.appendChild(inputLabel);
-
-        // Enhanced text input
-        this._input = document.createElement("input");
-        this._input.type = "text";
-        this._input.style.width = "100%";
-        this._input.style.padding = "12px";
-        this._input.style.border = "2px solid #dee2e6";
-        this._input.style.borderRadius = "5px";
-        this._input.style.fontSize = "14px";
-        this._input.style.fontFamily = "inherit";
-        this._input.style.transition = "border-color 0.2s ease";
-
-        // Input focus/blur effects
-        this._input.addEventListener("focus", () => {
-            this._input.style.borderColor = "#2c5aa0";
-            this._input.style.outline = "none";
-            this._input.style.boxShadow = "0 0 0 2px rgba(44, 90, 160, 0.1)";
+        // Add refresh button event listener
+        this._refreshButton.addEventListener('click', () => {
+            this.loadSystemUsers();
         });
 
-        this._input.addEventListener("blur", () => {
-            this._input.style.borderColor = "#dee2e6";
-            this._input.style.boxShadow = "none";
-        });
+        // Load system users
+        this.loadSystemUsers();
+    }
 
-        // Handle input changes
-        this._input.addEventListener("input", () => {
-            this._currentValue = this._input.value;
-            this._notifyOutputChanged();
-            console.log('Field value changed:', this._currentValue);
-            // In real integration, this would trigger save to Dataverse
-        });
+    private async loadSystemUsers(): Promise<void> {
+        this._loadingElement.style.display = 'block';
+        this._usersContainer.style.display = 'none';
+        this._refreshButton.disabled = true;
+        this._refreshButton.textContent = 'Loading...';
 
-        inputSection.appendChild(this._input);
-        mainContainer.appendChild(inputSection);
+        try {
+            const response = await this._context.webAPI.retrieveMultipleRecords(
+                'systemuser',
+                '?$select=systemuserid,fullname,domainname,internalemailaddress&$top=5&$orderby=createdon desc'
+            );
 
-        // Action buttons
-        const buttonsSection = document.createElement("div");
-        buttonsSection.style.display = "flex";
-        buttonsSection.style.gap = "10px";
-        buttonsSection.style.marginBottom = "25px";
+            this.renderSystemUsers(response.entities as SystemUser[]);
+        } catch (error) {
+            console.error('Error loading system users:', error);
+            this._loadingElement.innerHTML = `
+                <div style="color: #a80000; padding: 10px; background: #fed9cc; border-radius: 4px;">
+                    <strong>Error:</strong> Failed to load system users. ${error}
+                </div>
+            `;
+        } finally {
+            this._refreshButton.disabled = false;
+            this._refreshButton.textContent = 'Refresh';
+        }
+    }
 
-        // Save button (simulates Dataverse save)
-        const saveButton = document.createElement("button");
-        saveButton.textContent = "Save to Dataverse";
-        saveButton.style.padding = "10px 20px";
-        saveButton.style.backgroundColor = "#28a745";
-        saveButton.style.color = "white";
-        saveButton.style.border = "none";
-        saveButton.style.borderRadius = "5px";
-        saveButton.style.cursor = "pointer";
-        saveButton.style.fontFamily = "inherit";
+    private renderSystemUsers(users: SystemUser[]): void {
+        this._loadingElement.style.display = 'none';
+        this._usersContainer.style.display = 'block';
+
+        let html = '<div style="display: grid; gap: 8px;">';
         
-        saveButton.addEventListener("click", async () => {
-            console.log('Saving to Dataverse:', this._currentValue);
-            // In real implementation with dataverse-utilities:
-            // const response = await fetch('/api/data/v9.2/accounts(record-id)', {
-            //     method: 'PATCH',
-            //     headers: { 'Content-Type': 'application/json' },
-            //     body: JSON.stringify({ [fieldName]: this._currentValue })
-            // });
-            
-            saveButton.textContent = "Saving...";
-            saveButton.disabled = true;
-            
-            setTimeout(() => {
-                saveButton.textContent = "✓ Saved";
-                setTimeout(() => {
-                    saveButton.textContent = "Save to Dataverse";
-                    saveButton.disabled = false;
-                }, 1000);
-            }, 1000);
+        users.forEach((user, index) => {
+            html += `
+                <div style="
+                    background: #f8f9fa; 
+                    padding: 12px; 
+                    border-radius: 4px;
+                    border: 1px solid #e1e5e9;
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                ">
+                    <div style="
+                        width: 32px; 
+                        height: 32px; 
+                        background: #0078d4; 
+                        border-radius: 50%; 
+                        display: flex; 
+                        align-items: center; 
+                        justify-content: center;
+                        color: white;
+                        font-weight: 600;
+                        font-size: 12px;
+                    ">
+                        ${index + 1}
+                    </div>
+                    <div style="flex: 1;">
+                        <div style="font-weight: 600; color: #323130; margin-bottom: 2px;">
+                            ${user.fullname || 'Unknown User'}
+                        </div>
+                        <div style="font-size: 12px; color: #605e5c;">
+                            ${user.internalemailaddress || user.domainname || 'No email'}
+                        </div>
+                    </div>
+                    <div style="font-size: 10px; color: #8a8886; font-family: monospace;">
+                        ${user.systemuserid?.substring(0, 8) || 'N/A'}...
+                    </div>
+                </div>
+            `;
         });
-        
-        buttonsSection.appendChild(saveButton);
 
-        // Load button (simulates Dataverse load)
-        const loadButton = document.createElement("button");
-        loadButton.textContent = "Load from Dataverse";
-        loadButton.style.padding = "10px 20px";
-        loadButton.style.backgroundColor = "#17a2b8";
-        loadButton.style.color = "white";
-        loadButton.style.border = "none";
-        loadButton.style.borderRadius = "5px";
-        loadButton.style.cursor = "pointer";
-        loadButton.style.fontFamily = "inherit";
-        
-        loadButton.addEventListener("click", async () => {
-            console.log('Loading from Dataverse...');
-            // In real implementation:
-            // const response = await fetch('/api/data/v9.2/accounts(record-id)?$select=fieldname');
-            // const data = await response.json();
-            
-            loadButton.textContent = "Loading...";
-            loadButton.disabled = true;
-            
-            setTimeout(() => {
-                // Simulate loaded value
-                const simulatedValue = `Loaded Value ${Date.now()}`;
-                this._input.value = simulatedValue;
-                this._currentValue = simulatedValue;
-                this._notifyOutputChanged();
-                
-                loadButton.textContent = "✓ Loaded";
-                setTimeout(() => {
-                    loadButton.textContent = "Load from Dataverse";
-                    loadButton.disabled = false;
-                }, 1000);
-            }, 1000);
-        });
-        
-        buttonsSection.appendChild(loadButton);
-
-        mainContainer.appendChild(buttonsSection);
-
-        // Integration status
-        const statusSection = document.createElement("div");
-        statusSection.style.padding = "15px";
-        statusSection.style.backgroundColor = "#d4edda";
-        statusSection.style.border = "1px solid #c3e6cb";
-        statusSection.style.borderRadius = "5px";
-        statusSection.style.color = "#155724";
-
-        const statusTitle = document.createElement("h4");
-        statusTitle.textContent = "Integration Status";
-        statusTitle.style.margin = "0 0 10px 0";
-        statusSection.appendChild(statusTitle);
-
-        const statusText = document.createElement("div");
-        statusText.innerHTML = `
-            <div>✓ PCF Vite Harness: Active</div>
-            <div>✓ Dataverse Utilities: Ready</div>
-            <div>✓ Real-time sync: Enabled</div>
+        html += '</div>';
+        html += `
+            <div style="margin-top: 12px; padding: 8px 12px; background: #f0f8ff; border-radius: 4px; font-size: 11px; color: #605e5c; border-left: 3px solid #0078d4;">
+                <strong>WebAPI Call:</strong> Retrieved ${users.length} most recent system users
+            </div>
         `;
-        statusSection.appendChild(statusText);
 
-        mainContainer.appendChild(statusSection);
-
-        this._container.appendChild(mainContainer);
-        
-        // Initialize with current value
-        this.updateView(context);
+        this._usersContainer.innerHTML = html;
     }
 
     /**
@@ -230,13 +159,6 @@ export class field implements ComponentFramework.StandardControl<IInputs, IOutpu
      */
     public updateView(context: ComponentFramework.Context<IInputs>): void {
         this._context = context;
-        
-        // Update input value if it changed from external source
-        const incomingValue = context.parameters.sampleProperty.raw || "";
-        if (incomingValue !== this._currentValue && this._input) {
-            this._currentValue = incomingValue;
-            this._input.value = this._currentValue;
-        }
     }
 
     /**
@@ -244,9 +166,7 @@ export class field implements ComponentFramework.StandardControl<IInputs, IOutpu
      * @returns an object based on nomenclature defined in manifest, expecting object[s] for property marked as "bound" or "output"
      */
     public getOutputs(): IOutputs {
-        return {
-            sampleProperty: this._currentValue
-        };
+        return {};
     }
 
     /**
@@ -254,11 +174,6 @@ export class field implements ComponentFramework.StandardControl<IInputs, IOutpu
      * i.e. cancelling any pending remote calls, removing listeners, etc.
      */
     public destroy(): void {
-        // Clean up event listeners
-        if (this._input) {
-            this._input.removeEventListener("input", () => {});
-            this._input.removeEventListener("focus", () => {});
-            this._input.removeEventListener("blur", () => {});
-        }
+        // Add code to cleanup control if necessary
     }
 }

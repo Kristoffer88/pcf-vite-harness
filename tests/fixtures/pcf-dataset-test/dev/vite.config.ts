@@ -10,7 +10,7 @@ export default createPCFViteConfig({
   // Open browser automatically
   open: true,
 
-  // Enable Dataverse integration for real data
+  // Enable Dataverse integration (requires dataverse-utilities)
   enableDataverse: true,
 
   // Dataverse URL (can also be set via VITE_DATAVERSE_URL env var)
@@ -18,9 +18,10 @@ export default createPCFViteConfig({
 
   // Additional Vite configuration
   viteConfig: {
+    // Add any additional Vite configuration here
     resolve: {
       alias: {
-        '@': '../dataset',
+        '@': '../dataset', // Adjust path to your PCF component
       },
     },
   },

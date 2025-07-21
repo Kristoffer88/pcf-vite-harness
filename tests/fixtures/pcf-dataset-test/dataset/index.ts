@@ -2,10 +2,18 @@ import { IInputs, IOutputs } from "./generated/ManifestTypes";
 import DataSetInterfaces = ComponentFramework.PropertyHelper.DataSetApi;
 type DataSet = ComponentFramework.PropertyTypes.DataSet;
 
+interface SystemUser {
+    systemuserid: string;
+    fullname: string;
+    domainname: string;
+    businessunitid: string;
+}
+
 export class dataset implements ComponentFramework.StandardControl<IInputs, IOutputs> {
-    private _context: ComponentFramework.Context<IInputs>;
     private _container: HTMLDivElement;
-    private _notifyOutputChanged: () => void;
+    private _context: ComponentFramework.Context<IInputs>;
+    private _loadingElement: HTMLDivElement;
+    private _usersContainer: HTMLDivElement;
 
     /**
      * Empty constructor.
@@ -28,162 +36,76 @@ export class dataset implements ComponentFramework.StandardControl<IInputs, IOut
         state: ComponentFramework.Dictionary,
         container: HTMLDivElement
     ): void {
-        this._context = context;
         this._container = container;
-        this._notifyOutputChanged = notifyOutputChanged;
+        this._context = context;
 
         // Create main container
-        const mainContainer = document.createElement("div");
-        mainContainer.style.padding = "20px";
-        mainContainer.style.fontFamily = "Segoe UI, Tahoma, Geneva, Verdana, sans-serif";
-
-        // Title
-        const title = document.createElement("h2");
-        title.textContent = "PCF Dataset Test Component (Real Dataverse)";
-        title.style.color = "#2c5aa0";
-        title.style.marginBottom = "20px";
-        mainContainer.appendChild(title);
-
-        // Dataset info
-        const datasetInfo = document.createElement("div");
-        datasetInfo.style.marginBottom = "20px";
-        datasetInfo.style.padding = "15px";
-        datasetInfo.style.backgroundColor = "#f8f9fa";
-        datasetInfo.style.border = "1px solid #dee2e6";
-        datasetInfo.style.borderRadius = "5px";
-        
-        const infoTitle = document.createElement("h3");
-        infoTitle.textContent = "Dataset Information";
-        infoTitle.style.marginTop = "0";
-        datasetInfo.appendChild(infoTitle);
-
-        mainContainer.appendChild(datasetInfo);
-
-        // Records container
-        const recordsContainer = document.createElement("div");
-        recordsContainer.id = "records-container";
-        recordsContainer.style.border = "1px solid #dee2e6";
-        recordsContainer.style.borderRadius = "5px";
-        recordsContainer.style.minHeight = "200px";
-        recordsContainer.style.padding = "15px";
-        
-        mainContainer.appendChild(recordsContainer);
-
-        this._container.appendChild(mainContainer);
-        
-        // Initial render
-        this.renderDataset();
-    }
-
-    private renderDataset(): void {
-        const recordsContainer = this._container.querySelector("#records-container") as HTMLDivElement;
-        if (!recordsContainer) return;
-
-        const dataset = this._context.parameters.sampleDataSet;
-        
-        if (dataset.loading) {
-            recordsContainer.innerHTML = "<p>Loading dataset...</p>";
-            return;
-        }
-
-        // Clear previous content
-        recordsContainer.innerHTML = "";
-
-        // Dataset statistics
-        const statsDiv = document.createElement("div");
-        statsDiv.style.marginBottom = "15px";
-        statsDiv.style.padding = "10px";
-        statsDiv.style.backgroundColor = "#e7f3ff";
-        statsDiv.style.borderRadius = "3px";
-        
-        const totalRecords = dataset.sortedRecordIds.length;
-        const hasNextPage = dataset.paging.hasNextPage;
-        const hasPrevPage = dataset.paging.hasPreviousPage;
-        
-        statsDiv.innerHTML = `
-            <strong>Records:</strong> ${totalRecords} | 
-            <strong>Has Next:</strong> ${hasNextPage} | 
-            <strong>Has Previous:</strong> ${hasPrevPage}
+        this._container.innerHTML = `
+            <div style="padding: 20px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                <h2 style="color: #323130; margin-bottom: 16px;">System Users Dataset</h2>
+                <div id="loading" style="display: block; color: #605e5c;">Loading system users...</div>
+                <div id="users-container" style="display: none;"></div>
+            </div>
         `;
-        recordsContainer.appendChild(statsDiv);
 
-        // Column headers
-        if (dataset.columns.length > 0) {
-            const headersDiv = document.createElement("div");
-            headersDiv.style.display = "grid";
-            headersDiv.style.gridTemplateColumns = `repeat(${Math.min(dataset.columns.length, 4)}, 1fr)`;
-            headersDiv.style.gap = "10px";
-            headersDiv.style.padding = "10px";
-            headersDiv.style.backgroundColor = "#f8f9fa";
-            headersDiv.style.fontWeight = "bold";
-            headersDiv.style.borderBottom = "2px solid #2c5aa0";
-            headersDiv.style.marginBottom = "10px";
+        this._loadingElement = this._container.querySelector('#loading') as HTMLDivElement;
+        this._usersContainer = this._container.querySelector('#users-container') as HTMLDivElement;
 
-            // Show first 4 columns
-            dataset.columns.slice(0, 4).forEach(column => {
-                const headerCell = document.createElement("div");
-                headerCell.textContent = column.displayName;
-                headersDiv.appendChild(headerCell);
-            });
-            recordsContainer.appendChild(headersDiv);
+        // Load system users
+        this.loadSystemUsers();
+    }
 
-            // Records
-            dataset.sortedRecordIds.forEach((recordId, index) => {
-                const record = dataset.records[recordId];
-                
-                const recordDiv = document.createElement("div");
-                recordDiv.style.display = "grid";
-                recordDiv.style.gridTemplateColumns = `repeat(${Math.min(dataset.columns.length, 4)}, 1fr)`;
-                recordDiv.style.gap = "10px";
-                recordDiv.style.padding = "10px";
-                recordDiv.style.backgroundColor = index % 2 === 0 ? "#ffffff" : "#f8f9fa";
-                recordDiv.style.border = "1px solid #dee2e6";
-                recordDiv.style.marginBottom = "5px";
-                recordDiv.style.cursor = "pointer";
-                
-                recordDiv.addEventListener("click", () => {
-                    dataset.setSelectedRecordIds([recordId]);
-                    this._notifyOutputChanged();
-                    alert(`Record selected: ${record.getNamedReference().name || recordId}`);
-                });
+    private async loadSystemUsers(): Promise<void> {
+        try {
+            const response = await this._context.webAPI.retrieveMultipleRecords(
+                'systemuser',
+                '?$select=systemuserid,fullname,domainname,businessunitid&$top=5&$orderby=fullname'
+            );
 
-                // Add first 4 column values
-                dataset.columns.slice(0, 4).forEach(column => {
-                    const cellDiv = document.createElement("div");
-                    const cellValue = record.getValue(column.name);
-                    cellDiv.textContent = this.formatCellValue(cellValue);
-                    cellDiv.style.padding = "5px";
-                    recordDiv.appendChild(cellDiv);
-                });
-
-                recordsContainer.appendChild(recordDiv);
-            });
-        }
-
-        if (totalRecords === 0) {
-            const noDataDiv = document.createElement("div");
-            noDataDiv.textContent = "No records to display";
-            noDataDiv.style.textAlign = "center";
-            noDataDiv.style.color = "#6c757d";
-            noDataDiv.style.padding = "40px";
-            recordsContainer.appendChild(noDataDiv);
+            this.renderSystemUsers(response.entities as SystemUser[]);
+        } catch (error) {
+            console.error('Error loading system users:', error);
+            this._loadingElement.innerHTML = `
+                <div style="color: #a80000; padding: 10px; background: #fed9cc; border-radius: 4px;">
+                    <strong>Error:</strong> Failed to load system users. ${error}
+                </div>
+            `;
         }
     }
 
-    private formatCellValue(value: string | number | boolean | Date | null | undefined): string {
-        if (value === null || value === undefined) {
-            return "";
-        }
+    private renderSystemUsers(users: SystemUser[]): void {
+        this._loadingElement.style.display = 'none';
+        this._usersContainer.style.display = 'block';
+
+        let html = '<div style="display: grid; gap: 12px;">';
         
-        if (value instanceof Date) {
-            return value.toLocaleDateString();
-        }
-        
-        if (typeof value === "boolean") {
-            return value ? "Yes" : "No";
-        }
-        
-        return String(value);
+        users.forEach((user, index) => {
+            html += `
+                <div style="
+                    background: #f3f2f1; 
+                    padding: 16px; 
+                    border-radius: 6px;
+                    border-left: 4px solid #0078d4;
+                ">
+                    <div style="font-weight: 600; color: #323130; margin-bottom: 4px;">
+                        ${index + 1}. ${user.fullname || 'N/A'}
+                    </div>
+                    <div style="font-size: 12px; color: #605e5c;">
+                        <div>Domain: ${user.domainname || 'N/A'}</div>
+                        <div>ID: ${user.systemuserid || 'N/A'}</div>
+                    </div>
+                </div>
+            `;
+        });
+
+        html += '</div>';
+        html += `
+            <div style="margin-top: 16px; padding: 12px; background: #e6f3ff; border-radius: 4px; font-size: 12px; color: #605e5c;">
+                <strong>Network Call:</strong> Retrieved ${users.length} system users from Dataverse
+            </div>
+        `;
+
+        this._usersContainer.innerHTML = html;
     }
 
     /**
@@ -192,9 +114,6 @@ export class dataset implements ComponentFramework.StandardControl<IInputs, IOut
      */
     public updateView(context: ComponentFramework.Context<IInputs>): void {
         this._context = context;
-        
-        // Re-render dataset when data changes
-        this.renderDataset();
     }
 
     /**
