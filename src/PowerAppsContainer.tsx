@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { PCFDevtools } from './devtools'
+import { PCFDevtools, PCFDevtoolsProvider } from './devtools'
 import { WebApiMonitorWrapper } from './devtools/components/WebApiMonitorWrapper'
 
 interface PowerAppsContainerProps {
@@ -44,30 +44,19 @@ export const PowerAppsContainer: React.FC<PowerAppsContainerProps> = ({
     }
   }, [])
 
-  return (
-    <>
-      {/* PCF Devtools Provider */}
-      {showDevPanel && (
-        <PCFDevtools
-          context={context}
-          initialIsOpen={false}
-          position={devtoolsPosition}
-          initialTheme="system"
-        />
-      )}
-      
-      <div
-        id="tab-section2"
-        className={`pa-g pa-ae pa-h pa-ht pa-cf pa-pb pa-du pa-bx webkitScroll flexbox ${className}`}
-        style={{
-          height: '100vh',
-          width: '100vw',
-          overflow: 'auto',
-          backgroundColor: '#f3f2f1',
-          fontFamily:
-            '"Segoe UI", "Segoe UI Web (West European)", "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", sans-serif',
-        }}
-      >
+  const renderPCFContainer = () => (
+    <div
+      id="tab-section2"
+      className={`pa-g pa-ae pa-h pa-ht pa-cf pa-pb pa-du pa-bx webkitScroll flexbox ${className}`}
+      style={{
+        height: '100vh',
+        width: '100vw',
+        overflow: 'auto',
+        backgroundColor: '#f3f2f1',
+        fontFamily:
+          '"Segoe UI", "Segoe UI Web (West European)", "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", sans-serif',
+      }}
+    >
       <div className="pa-op pa-gm flexbox" style={{ height: '100%', width: '100%' }}>
         <div
           id="id-875"
@@ -176,7 +165,21 @@ export const PowerAppsContainer: React.FC<PowerAppsContainerProps> = ({
           </div>
         </div>
       </div>
-      </div>
-    </>
+    </div>
+  )
+
+  if (!showDevPanel) {
+    return renderPCFContainer()
+  }
+
+  return (
+    <PCFDevtools
+      context={context}
+      initialIsOpen={false}
+      position={devtoolsPosition}
+      initialTheme="system"
+    >
+      {renderPCFContainer()}
+    </PCFDevtools>
   )
 }
