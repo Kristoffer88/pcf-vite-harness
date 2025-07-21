@@ -11,6 +11,16 @@ export { initializePCFHarness, initPCF } from './initializePCFHarness.js'
 // Core components
 export { PowerAppsContainer } from './PowerAppsContainer.js'
 
+// Devtools
+export {
+  PCFDevtools,
+  PCFDevtoolsPanel_Embedded,
+  PCFDevtoolsProvider,
+  usePCFDevtools,
+  tokens as devtoolsTokens,
+  getThemeColors,
+} from './devtools/index.js'
+
 // Type definitions
 export type {
   HarnessEnvironment,
@@ -27,4 +37,4 @@ export const PCF_STYLES = '../styles/powerapps.css'
 /**
  * Version of the PCF Vite Harness
  */
-export const VERSION = '1.0.0'
+export const VERSION = '1.1.0-beta.0'

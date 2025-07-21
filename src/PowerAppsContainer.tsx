@@ -1,10 +1,13 @@
 import * as React from 'react'
+import { PCFDevtools } from './devtools'
+import { WebApiMonitorWrapper } from './devtools/components/WebApiMonitorWrapper'
 
 interface PowerAppsContainerProps {
   context: ComponentFramework.Context<any>
   pcfClass: new () => ComponentFramework.StandardControl<any, any>
   className?: string
   showDevPanel?: boolean
+  devtoolsPosition?: 'bottom-left' | 'bottom-right' | 'top-left' | 'top-right'
 }
 
 export const PowerAppsContainer: React.FC<PowerAppsContainerProps> = ({
@@ -12,44 +15,59 @@ export const PowerAppsContainer: React.FC<PowerAppsContainerProps> = ({
   pcfClass,
   className = '',
   showDevPanel = true,
+  devtoolsPosition = 'bottom-right',
 }) => {
   const containerRef = React.useRef<HTMLDivElement>(null)
   const pcfComponentRef = React.useRef<ComponentFramework.StandardControl<any, any> | null>(null)
+  const [monitoredContext, setMonitoredContext] = React.useState<ComponentFramework.Context<any>>(context)
 
-  React.useEffect(() => {
+  const initializePCFComponent = React.useCallback((ctx: ComponentFramework.Context<any>) => {
     if (containerRef.current && !pcfComponentRef.current) {
-      // Initialize PCF component just like PowerApps does
+      // Initialize PCF component with monitored context
       pcfComponentRef.current = new pcfClass()
       pcfComponentRef.current.init(
-        context,
+        ctx,
         () => console.log('PCF notifyOutputChanged called'),
         {},
         containerRef.current
       )
-      pcfComponentRef.current.updateView(context)
+      pcfComponentRef.current.updateView(ctx)
     }
+  }, [pcfClass])
 
+  React.useEffect(() => {
     return () => {
       if (pcfComponentRef.current) {
         pcfComponentRef.current.destroy()
         pcfComponentRef.current = null
       }
     }
-  }, [context, pcfClass])
+  }, [])
 
   return (
-    <div
-      id="tab-section2"
-      className={`pa-g pa-ae pa-h pa-ht pa-cf pa-pb pa-du pa-bx webkitScroll flexbox ${className}`}
-      style={{
-        height: '100vh',
-        width: '100vw',
-        overflow: 'auto',
-        backgroundColor: '#f3f2f1',
-        fontFamily:
-          '"Segoe UI", "Segoe UI Web (West European)", "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", sans-serif',
-      }}
-    >
+    <>
+      {/* PCF Devtools Provider */}
+      {showDevPanel && (
+        <PCFDevtools
+          context={context}
+          initialIsOpen={false}
+          position={devtoolsPosition}
+          initialTheme="system"
+        />
+      )}
+      
+      <div
+        id="tab-section2"
+        className={`pa-g pa-ae pa-h pa-ht pa-cf pa-pb pa-du pa-bx webkitScroll flexbox ${className}`}
+        style={{
+          height: '100vh',
+          width: '100vw',
+          overflow: 'auto',
+          backgroundColor: '#f3f2f1',
+          fontFamily:
+            '"Segoe UI", "Segoe UI Web (West European)", "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", sans-serif',
+        }}
+      >
       <div className="pa-op pa-gm flexbox" style={{ height: '100%', width: '100%' }}>
         <div
           id="id-875"
@@ -104,17 +122,48 @@ export const PowerAppsContainer: React.FC<PowerAppsContainerProps> = ({
                               className="pa-cf flexbox"
                               style={{ height: '100%', width: '100%' }}
                             >
-                              {/* PCF Component Container - exactly like PowerApps */}
-                              <div
-                                className="customControl pcf-component flexbox"
-                                data-id="pcf_container"
-                                style={{
-                                  width: '100%',
-                                  height: '100%',
-                                  minHeight: '100vh',
-                                }}
-                                ref={containerRef}
-                              />
+                              {/* PCF Component Container with WebAPI Monitoring */}
+                              {showDevPanel ? (
+                                <WebApiMonitorWrapper context={context}>
+                                  {(monitoredCtx) => {
+                                    React.useEffect(() => {
+                                      initializePCFComponent(monitoredCtx)
+                                    }, [monitoredCtx])
+                                    
+                                    return (
+                                      <div
+                                        className="customControl pcf-component flexbox"
+                                        data-id="pcf_container"
+                                        style={{
+                                          width: '100%',
+                                          height: '100%',
+                                          minHeight: '100vh',
+                                        }}
+                                        ref={containerRef}
+                                      />
+                                    )
+                                  }}
+                                </WebApiMonitorWrapper>
+                              ) : (
+                                (() => {
+                                  React.useEffect(() => {
+                                    initializePCFComponent(context)
+                                  }, [context])
+                                  
+                                  return (
+                                    <div
+                                      className="customControl pcf-component flexbox"
+                                      data-id="pcf_container"
+                                      style={{
+                                        width: '100%',
+                                        height: '100%',
+                                        minHeight: '100vh',
+                                      }}
+                                      ref={containerRef}
+                                    />
+                                  )
+                                })()
+                              )}
                             </div>
                           </div>
                         </div>
@@ -127,32 +176,7 @@ export const PowerAppsContainer: React.FC<PowerAppsContainerProps> = ({
           </div>
         </div>
       </div>
-
-      {/* Dev Tools Panel */}
-      {showDevPanel && (
-        <div
-          style={{
-            position: 'fixed',
-            bottom: '20px',
-            right: '20px',
-            backgroundColor: 'white',
-            padding: '10px',
-            borderRadius: '4px',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-            fontSize: '12px',
-            zIndex: 1001,
-          }}
-        >
-          <div>
-            <strong>PCF Vite Harness</strong>
-          </div>
-          <div>
-            Control ID:{' '}
-            {(context as any)?.accessibility?._customControlProperties?.descriptor?.DomId || 'N/A'}
-          </div>
-          <div>View ID: {context.parameters?.data?.getViewId?.() || 'N/A'}</div>
-        </div>
-      )}
-    </div>
+      </div>
+    </>
   )
 }
