@@ -4,7 +4,9 @@
       "Bash(npm run build:*)",
       "Bash(npm install)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "WebFetch(domain:learn.microsoft.com)",
+      "WebFetch(domain:github.com)"
     ],
     "deny": []
   }
