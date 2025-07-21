@@ -17,7 +17,7 @@ export default defineConfig({
   target: 'es2022',
   outDir: 'dist',
   tsconfig: './tsconfig.json',
-  external: ['react', 'react-dom', 'vite', '@vitejs/plugin-react', 'dataverse-utilities'],
+  external: ['react', 'react-dom', 'vite', '@vitejs/plugin-react', 'dataverse-utilities', 'react/jsx-runtime'],
   // Copy styles and templates to dist
   onSuccess: async () => {
     const fs = await import('node:fs/promises')
