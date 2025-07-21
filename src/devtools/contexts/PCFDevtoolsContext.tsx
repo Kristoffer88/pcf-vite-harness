@@ -4,6 +4,14 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react'
 import type { WebApiRequest, PCFContextUpdate } from '../utils'
 import type { PCFDevtoolsTab } from '../constants'
+import type { PCFManifest } from '../utils/pcfDiscovery'
+import type { DatasetDiscoveryState, EnhancementResult } from '../utils/contextEnhancer'
+import { 
+  createDatasetDiscoveryState, 
+  updateDatasetDiscoveryState,
+  enhanceDatasetContext,
+  triggerEnhancedUpdateView
+} from '../utils/contextEnhancer'
 
 interface PCFDevtoolsState {
   // UI State
@@ -22,6 +30,10 @@ interface PCFDevtoolsState {
   pcfComponentRef?: React.RefObject<ComponentFramework.StandardControl<any, any> | null>
   pcfContainerRef?: React.RefObject<HTMLDivElement | null>
   pcfClass?: new () => ComponentFramework.StandardControl<any, any>
+  
+  // Dataset Discovery State
+  datasetDiscovery: DatasetDiscoveryState
+  lastEnhancementResult?: EnhancementResult
 }
 
 interface PCFDevtoolsActions {
@@ -46,6 +58,12 @@ interface PCFDevtoolsActions {
   triggerInit: () => void
   triggerUpdate: () => void
   triggerDestroyInit: () => void
+  
+  // Dataset Discovery Actions
+  discoverPCFControls: (manifest: PCFManifest) => Promise<void>
+  enhanceDatasets: (manifest: PCFManifest) => Promise<void>
+  triggerEnhancedUpdate: () => Promise<void>
+  clearDatasetDiscovery: () => void
 }
 
 type PCFDevtoolsContextType = PCFDevtoolsState & PCFDevtoolsActions
@@ -77,6 +95,10 @@ export const PCFDevtoolsProvider: React.FC<PCFDevtoolsProviderProps> = ({
   const [pcfComponentRef, setPCFComponentRef] = useState<React.RefObject<ComponentFramework.StandardControl<any, any> | null>>()
   const [pcfContainerRef, setPCFContainerRef] = useState<React.RefObject<HTMLDivElement | null>>()
   const [pcfClass, setPCFClass] = useState<new () => ComponentFramework.StandardControl<any, any>>()
+  
+  // Dataset Discovery State
+  const [datasetDiscovery, setDatasetDiscovery] = useState<DatasetDiscoveryState>(createDatasetDiscoveryState())
+  const [lastEnhancementResult, setLastEnhancementResult] = useState<EnhancementResult>()
   
   // Actions
   const addWebApiRequest = useCallback((request: WebApiRequest) => {
@@ -238,6 +260,91 @@ export const PCFDevtoolsProvider: React.FC<PCFDevtoolsProviderProps> = ({
       console.error('❌ Failed to trigger destroy:', error)
     }
   }, [pcfComponentRef, pcfContainerRef, pcfClass, currentContext, addContextUpdate])
+
+  // Dataset Discovery Actions
+  const discoverPCFControls = useCallback(async (manifest: PCFManifest) => {
+    try {
+      setDatasetDiscovery(prev => updateDatasetDiscoveryState(prev, { isDiscovering: true }))
+      
+      const { findPCFOnForms } = await import('../utils/pcfDiscovery')
+      const discoveredForms = await findPCFOnForms(manifest)
+      const controlsFound = discoveredForms.flatMap(form => form.controls)
+      
+      setDatasetDiscovery(prev => updateDatasetDiscoveryState(prev, {
+        isDiscovering: false,
+        manifest,
+        discoveredForms,
+        controlsFound
+      }))
+      
+      console.log(`🔍 PCF Discovery complete: ${discoveredForms.length} forms, ${controlsFound.length} controls`)
+    } catch (error) {
+      console.error('❌ PCF Discovery failed:', error)
+      setDatasetDiscovery(prev => updateDatasetDiscoveryState(prev, { isDiscovering: false }))
+    }
+  }, [])
+
+  const enhanceDatasets = useCallback(async (manifest: PCFManifest) => {
+    if (!currentContext) {
+      console.warn('Cannot enhance datasets: no current context available')
+      return
+    }
+
+    try {
+      const result = await enhanceDatasetContext(
+        currentContext,
+        manifest,
+        currentContext.webAPI
+      )
+      
+      setLastEnhancementResult(result)
+      
+      if (result.enhancedContext) {
+        setCurrentContext(result.enhancedContext)
+      }
+      
+      // Log context update
+      addContextUpdate({
+        id: crypto.randomUUID(),
+        timestamp: Date.now(),
+        property: 'datasets:enhanced',
+        oldValue: undefined,
+        newValue: `Enhanced ${result.datasetsEnhanced} dataset(s)`
+      })
+      
+      console.log(`✅ Dataset enhancement complete: ${result.datasetsEnhanced} enhanced`)
+    } catch (error) {
+      console.error('❌ Dataset enhancement failed:', error)
+    }
+  }, [currentContext, addContextUpdate])
+
+  const triggerEnhancedUpdate = useCallback(async () => {
+    if (!pcfComponentRef?.current || !currentContext) {
+      console.warn('Cannot trigger enhanced update: missing component or context')
+      return
+    }
+
+    try {
+      const success = triggerEnhancedUpdateView(pcfComponentRef.current, currentContext)
+      
+      if (success) {
+        addContextUpdate({
+          id: crypto.randomUUID(),
+          timestamp: Date.now(),
+          property: 'lifecycle:enhancedUpdateView',
+          oldValue: undefined,
+          newValue: 'Enhanced updateView with dataset data'
+        })
+      }
+    } catch (error) {
+      console.error('❌ Failed to trigger enhanced update:', error)
+    }
+  }, [pcfComponentRef, currentContext, addContextUpdate])
+
+  const clearDatasetDiscovery = useCallback(() => {
+    setDatasetDiscovery(createDatasetDiscoveryState())
+    setLastEnhancementResult(undefined)
+  }, [])
   
   const contextValue: PCFDevtoolsContextType = {
     // State
@@ -250,6 +357,8 @@ export const PCFDevtoolsProvider: React.FC<PCFDevtoolsProviderProps> = ({
     pcfComponentRef,
     pcfContainerRef,
     pcfClass,
+    datasetDiscovery,
+    lastEnhancementResult,
     
     // Actions
     setIsOpen,
@@ -265,6 +374,10 @@ export const PCFDevtoolsProvider: React.FC<PCFDevtoolsProviderProps> = ({
     triggerInit,
     triggerUpdate,
     triggerDestroyInit,
+    discoverPCFControls,
+    enhanceDatasets,
+    triggerEnhancedUpdate,
+    clearDatasetDiscovery,
   }
   
   return (

@@ -33,6 +33,7 @@ export const pcfDevtoolsTabs = [
   'webapi',
   'context',
   'lifecycle',
+  'datasets',
 ] as const
 
 export type PCFDevtoolsTab = typeof pcfDevtoolsTabs[number]

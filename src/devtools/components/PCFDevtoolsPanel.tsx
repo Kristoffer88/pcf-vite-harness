@@ -32,6 +32,12 @@ export const PCFDevtoolsPanel: React.FC<PCFDevtoolsPanelProps> = ({
     triggerInit,
     triggerUpdate,
     triggerDestroyInit,
+    datasetDiscovery,
+    lastEnhancementResult,
+    discoverPCFControls,
+    enhanceDatasets,
+    triggerEnhancedUpdate,
+    clearDatasetDiscovery,
   } = usePCFDevtools()
   
   const systemTheme = useSystemTheme()
@@ -191,6 +197,7 @@ export const PCFDevtoolsPanel: React.FC<PCFDevtoolsPanelProps> = ({
     { id: 'lifecycle', label: 'Lifecycle' },
     { id: 'webapi', label: 'WebAPI' },
     { id: 'context', label: 'Context' },
+    { id: 'datasets', label: 'Datasets' },
     { id: 'overview', label: 'Overview' },
   ] as const
   
@@ -396,6 +403,171 @@ export const PCFDevtoolsPanel: React.FC<PCFDevtoolsPanelProps> = ({
                 </div>
               )}
             </div>
+          </div>
+        )
+      
+      case 'datasets':
+        return (
+          <div>
+            <h3>Dataset Discovery & Enhancement</h3>
+            
+            <div style={panelStyles.toolbar}>
+              <span>
+                {datasetDiscovery.isDiscovering 
+                  ? 'Discovering PCF controls...' 
+                  : `Found ${datasetDiscovery.controlsFound.length} dataset controls`
+                }
+              </span>
+              <button
+                style={panelStyles.clearButton}
+                onClick={clearDatasetDiscovery}
+              >
+                Clear Discovery
+              </button>
+            </div>
+            
+            {/* Discovery Controls */}
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: tokens.size['3'],
+              marginBottom: tokens.size['4']
+            }}>
+              <button
+                style={{
+                  ...panelStyles.clearButton,
+                  backgroundColor: colors.active,
+                  color: 'white',
+                  fontWeight: tokens.font.weight['2'],
+                  padding: `${tokens.size['3']} ${tokens.size['4']}`,
+                }}
+                onClick={() => {
+                  // Mock manifest for demo - in real scenario this would come from the PCF component
+                  const mockManifest = {
+                    namespace: 'Sample',
+                    constructor: 'DatasetControl',
+                    version: '1.0.0'
+                  }
+                  discoverPCFControls(mockManifest)
+                }}
+                disabled={datasetDiscovery.isDiscovering}
+              >
+                🔍 Discover PCF Controls on Forms
+              </button>
+              
+              <button
+                style={{
+                  ...panelStyles.clearButton,
+                  backgroundColor: colors.active,
+                  color: 'white',
+                  fontWeight: tokens.font.weight['2'],
+                  padding: `${tokens.size['3']} ${tokens.size['4']}`,
+                }}
+                onClick={() => {
+                  if (datasetDiscovery.manifest) {
+                    enhanceDatasets(datasetDiscovery.manifest)
+                  }
+                }}
+                disabled={!datasetDiscovery.manifest || datasetDiscovery.isDiscovering}
+              >
+                🚀 Enhance Datasets with Query Data
+              </button>
+              
+              <button
+                style={{
+                  ...panelStyles.clearButton,
+                  backgroundColor: colors.active,
+                  color: 'white',
+                  fontWeight: tokens.font.weight['2'],
+                  padding: `${tokens.size['3']} ${tokens.size['4']}`,
+                }}
+                onClick={triggerEnhancedUpdate}
+                disabled={!currentContext}
+              >
+                🔁 Trigger Enhanced updateView()
+              </button>
+            </div>
+            
+            {/* Discovery Results */}
+            {datasetDiscovery.discoveredForms.length > 0 && (
+              <div style={{ borderTop: `1px solid ${colors.inputBorder}`, paddingTop: tokens.size['3'] }}>
+                <h4>Discovered Forms</h4>
+                {datasetDiscovery.discoveredForms.map((form) => (
+                  <div key={form.formId} style={panelStyles.requestItem}>
+                    <div style={panelStyles.requestHeader}>
+                      <span style={panelStyles.requestMethod}>{form.formName}</span>
+                      <span style={panelStyles.requestDetails}>
+                        {form.controls.length} control(s)
+                      </span>
+                    </div>
+                    {form.controls.map((control) => (
+                      <div key={control.controlId} style={{
+                        marginLeft: tokens.size['4'],
+                        fontSize: tokens.font.size['3'],
+                        color: colors.grayAlt,
+                        fontFamily: tokens.font.family.mono,
+                      }}>
+                        {control.namespace}.{control.constructor}
+                        {control.dataSet && (
+                          <span style={{ color: colors.active, marginLeft: tokens.size['2'] }}>
+                            • Dataset: {control.dataSet.name}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {/* Enhancement Results */}
+            {lastEnhancementResult && (
+              <div style={{ borderTop: `1px solid ${colors.inputBorder}`, paddingTop: tokens.size['3'] }}>
+                <h4>Last Enhancement Result</h4>
+                <div style={panelStyles.requestItem}>
+                  <div style={panelStyles.requestHeader}>
+                    <span style={{
+                      ...panelStyles.statusBadge,
+                      backgroundColor: lastEnhancementResult.success ? colors.active : colors.danger,
+                    }}>
+                      {lastEnhancementResult.success ? 'Success' : 'Failed'}
+                    </span>
+                    <span style={panelStyles.requestDetails}>
+                      {lastEnhancementResult.datasetsEnhanced} dataset(s) enhanced
+                    </span>
+                  </div>
+                  {lastEnhancementResult.errors.length > 0 && (
+                    <div style={{ color: colors.danger, marginTop: tokens.size['2'] }}>
+                      Errors: {lastEnhancementResult.errors.join(', ')}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            
+            {/* Current Context Dataset Info */}
+            {currentContext && (
+              <div style={{ borderTop: `1px solid ${colors.inputBorder}`, paddingTop: tokens.size['3'] }}>
+                <h4>Current Context Datasets</h4>
+                <Explorer
+                  label="Dataset Parameters"
+                  value={Object.keys(currentContext.parameters || {}).reduce((acc, key) => {
+                    const param = currentContext.parameters[key]
+                    if (param && typeof param === 'object' && 'records' in param) {
+                      acc[key] = {
+                        recordCount: Object.keys(param.records || {}).length,
+                        columnCount: (param.columns || []).length,
+                        hasData: Object.keys(param.records || {}).length > 0,
+                        viewId: param.getViewId?.()
+                      }
+                    }
+                    return acc
+                  }, {} as any)}
+                  theme={effectiveTheme}
+                  defaultExpanded
+                />
+              </div>
+            )}
           </div>
         )
       
