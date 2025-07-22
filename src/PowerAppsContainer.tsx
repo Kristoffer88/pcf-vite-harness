@@ -1,5 +1,7 @@
 import * as React from 'react'
-import { PCFDevToolsProvider } from './devtools-redux/PCFDevToolsProvider'
+import { PCFDevToolsProvider, usePCFDevTools } from './devtools-redux/PCFDevToolsProvider'
+import { PCFLifecycleProvider, usePCFLifecycle } from './devtools-redux/contexts/PCFLifecycleContext'
+import { EmbeddedDevToolsUI } from './devtools-redux/EmbeddedDevToolsUI'
 import './devtools-redux/WebAPIMonitor' // Initialize WebAPI monitoring
 
 interface PowerAppsContainerProps {
@@ -17,45 +19,28 @@ interface PowerAppsContainerProps {
   }
 }
 
-// Inner component that can use the Redux DevTools hooks
-const PowerAppsContainerInner: React.FC<PowerAppsContainerProps> = ({
+// Inner component that can use the lifecycle hooks
+const PowerAppsContainerInner: React.FC<PowerAppsContainerProps & { containerRef: React.RefObject<HTMLDivElement> }> = ({
   context,
   pcfClass,
   className = '',
   showDevPanel = true,
   manifestInfo,
+  containerRef,
 }) => {
-  const containerRef = React.useRef<HTMLDivElement>(null)
-  const pcfComponentRef = React.useRef<ComponentFramework.StandardControl<any, any> | null>(null)
-
-  const initializePCFComponent = React.useCallback(
-    (ctx: ComponentFramework.Context<any>) => {
-      if (containerRef.current && !pcfComponentRef.current) {
-        // Initialize PCF component
-        pcfComponentRef.current = new pcfClass()
-        pcfComponentRef.current.init(
-          ctx,
-          () => console.log('PCF notifyOutputChanged called'),
-          {},
-          containerRef.current
-        )
-        pcfComponentRef.current.updateView(ctx)
-        console.log('✅ PCF Component initialized with Redux DevTools')
-      }
-    },
-    [pcfClass]
-  )
+  const { triggerInit } = usePCFLifecycle()
+  const pcfDevTools = usePCFDevTools()
 
   React.useEffect(() => {
-    initializePCFComponent(context)
-  }, [context, initializePCFComponent])
+    // Auto-initialize when component mounts
+    if (triggerInit) {
+      triggerInit().catch(console.error)
+    }
+  }, [triggerInit])
 
   React.useEffect(() => {
     return () => {
-      if (pcfComponentRef.current) {
-        pcfComponentRef.current.destroy()
-        pcfComponentRef.current = null
-      }
+      // Cleanup will be handled by the PCFLifecycleProvider
     }
   }, [])
 
@@ -149,18 +134,29 @@ const PowerAppsContainerInner: React.FC<PowerAppsContainerProps> = ({
           </div>
         </div>
       </div>
+      {showDevPanel && (
+        <EmbeddedDevToolsUI connector={pcfDevTools} />
+      )}
     </div>
   )
 }
 
-// Main component that sets up the Redux DevTools provider
+// Main component that sets up the providers
 export const PowerAppsContainer: React.FC<PowerAppsContainerProps> = props => {
+  const containerRef = React.useRef<HTMLDivElement>(null!)
+
   return (
     <PCFDevToolsProvider
       context={props.context}
       manifestInfo={props.manifestInfo}
     >
-      <PowerAppsContainerInner {...props} />
+      <PCFLifecycleProvider
+        pcfClass={props.pcfClass}
+        context={props.context}
+        containerRef={containerRef}
+      >
+        <PowerAppsContainerInner {...props} containerRef={containerRef} />
+      </PCFLifecycleProvider>
     </PCFDevToolsProvider>
   )
 }

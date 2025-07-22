@@ -34,12 +34,24 @@ export interface PCFHarnessOptions<TInputs, TOutputs> {
   }
 }
 
+export interface PCFHarnessResult<TInputs> {
+  context: ComponentFramework.Context<TInputs>
+  manifestInfo: {
+    namespace: string
+    constructor: string
+    version: string
+    displayName?: string
+    description?: string
+  }
+  container: HTMLElement
+}
+
 /**
  * Initializes the PCF harness with PowerApps-like environment
  */
 export function initializePCFHarness<TInputs, TOutputs>(
   options: PCFHarnessOptions<TInputs, TOutputs>
-): void {
+): PCFHarnessResult<TInputs> {
   const {
     pcfClass,
     containerId = 'pcf-container',
@@ -55,6 +67,7 @@ export function initializePCFHarness<TInputs, TOutputs>(
     throw new Error(`Container element with ID '${containerId}' not found`)
   }
 
+  console.log('🚀 Initializing PCF harness...')
   const context = customContext || createMockContext<TInputs>(contextOptions)
   const root = createRoot(container)
 
@@ -73,6 +86,13 @@ export function initializePCFHarness<TInputs, TOutputs>(
 
   console.log(`PCF harness initialized with ${pcfClass.name} component`)
   console.log(`Using manifest:`, finalManifestInfo)
+  console.log(`Context parameters:`, Object.keys(context.parameters || {}))
+
+  return {
+    context,
+    manifestInfo: finalManifestInfo,
+    container
+  }
 }
 
 /**
@@ -81,8 +101,8 @@ export function initializePCFHarness<TInputs, TOutputs>(
 export function initPCF<TInputs, TOutputs>(
   pcfClass: new () => ComponentFramework.StandardControl<TInputs, TOutputs>,
   containerId?: string
-): void {
-  initializePCFHarness({
+): PCFHarnessResult<TInputs> {
+  return initializePCFHarness({
     pcfClass,
     containerId,
   })

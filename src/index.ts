@@ -32,6 +32,9 @@ export {
   detectManifestInfo
 } from './utils/manifestReader.js'
 
+// View and record utilities
+export * from './utils/index.js'
+
 // Type definitions
 export type {
   HarnessEnvironment,

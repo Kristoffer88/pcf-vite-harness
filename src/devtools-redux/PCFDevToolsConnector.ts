@@ -4,7 +4,7 @@
  * Includes embedded UI fallback when browser extension is not available
  */
 
-// No imports needed for embedded devtools
+import { lifecycleHooks, LifecycleEvent, LifecycleStats } from './hooks/LifecycleHooks'
 
 interface PCFState {
   context?: ComponentFramework.Context<any>
@@ -45,6 +45,11 @@ interface PCFState {
       errors: string[]
     }
   }
+  lifecycleStats: LifecycleStats
+  lifecycleEvents: LifecycleEvent[]
+  hooks: {
+    registered: Record<string, number>
+  }
 }
 
 // Types for DevTools connection
@@ -70,6 +75,16 @@ export class PCFDevToolsConnector {
     datasets: {
       discovered: [],
       enhanced: false
+    },
+    lifecycleStats: {
+      totalInits: 0,
+      totalUpdates: 0,
+      totalErrors: 0,
+      lastActivity: Date.now()
+    },
+    lifecycleEvents: [],
+    hooks: {
+      registered: {}
     }
   }
 
@@ -180,13 +195,26 @@ export class PCFDevToolsConnector {
       datasets: {
         discovered: [],
         enhanced: false
+      },
+      lifecycleStats: {
+        totalInits: 0,
+        totalUpdates: 0,
+        totalErrors: 0,
+        lastActivity: Date.now()
+      },
+      lifecycleEvents: [],
+      hooks: {
+        registered: {}
       }
     }
     this.devtools?.init(this.state)
   }
 
   // PCF Lifecycle Actions
-  logInit(context: ComponentFramework.Context<any>) {
+  async logInit(context: ComponentFramework.Context<any>) {
+    // Execute lifecycle with hooks
+    await lifecycleHooks.executeInit(context)
+
     const event = {
       type: 'init' as const,
       timestamp: Date.now(),
@@ -197,13 +225,23 @@ export class PCFDevToolsConnector {
     this.state.lifecycle.initialized = true
     this.state.lifecycle.events.push(event)
 
+    // Update state with latest lifecycle data
+    this.updateEnhancedState()
+
     this.devtools?.send({
-      type: 'PCF_INIT',
-      payload: { context: this.serializeContext(context) }
+      type: 'PCF_INIT_ENHANCED',
+      payload: { 
+        context: this.serializeContext(context),
+        lifecycleStats: lifecycleHooks.getStats(),
+        lifecycleEvents: lifecycleHooks.getRecentEvents(10)
+      }
     }, this.state)
   }
 
-  logUpdateView(context: ComponentFramework.Context<any>) {
+  async logUpdateView(context: ComponentFramework.Context<any>) {
+    // Execute lifecycle with hooks
+    await lifecycleHooks.executeUpdateView(context)
+
     const event = {
       type: 'updateView' as const,
       timestamp: Date.now(),
@@ -215,16 +253,24 @@ export class PCFDevToolsConnector {
     this.state.lifecycle.updateCount++
     this.state.lifecycle.events.push(event)
 
+    // Update state with latest lifecycle data
+    this.updateEnhancedState()
+
     this.devtools?.send({
-      type: 'PCF_UPDATE_VIEW',
+      type: 'PCF_UPDATE_VIEW_ENHANCED',
       payload: { 
         context: this.serializeContext(context),
-        updateCount: this.state.lifecycle.updateCount
+        updateCount: this.state.lifecycle.updateCount,
+        lifecycleStats: lifecycleHooks.getStats(),
+        lifecycleEvents: lifecycleHooks.getRecentEvents(5)
       }
     }, this.state)
   }
 
-  logDestroy() {
+  async logDestroy() {
+    // Execute lifecycle with hooks
+    await lifecycleHooks.executeDestroy()
+
     const event = {
       type: 'destroy' as const,
       timestamp: Date.now()
@@ -233,9 +279,16 @@ export class PCFDevToolsConnector {
     this.state.lifecycle.initialized = false
     this.state.lifecycle.events.push(event)
 
+    // Update state with latest lifecycle data
+    this.updateEnhancedState()
+
     this.devtools?.send({
-      type: 'PCF_DESTROY',
-      payload: { timestamp: Date.now() }
+      type: 'PCF_DESTROY_ENHANCED',
+      payload: { 
+        timestamp: Date.now(),
+        lifecycleStats: lifecycleHooks.getStats(),
+        lifecycleEvents: lifecycleHooks.getRecentEvents(5)
+      }
     }, this.state)
   }
 
@@ -256,9 +309,46 @@ export class PCFDevToolsConnector {
                       request.status === 'success' ? 'WEBAPI_REQUEST_SUCCESS' :
                       'WEBAPI_REQUEST_ERROR'
 
+    // Check if this is a view-based request
+    const isViewRequest = request.url.includes('savedQuery=') || request.url.includes('userQuery=') || request.url.includes('fetchXml=')
+    const finalActionType = isViewRequest ? `VIEW_${actionType}` : actionType
+
     this.devtools?.send({
-      type: actionType,
-      payload: request
+      type: finalActionType,
+      payload: {
+        ...request,
+        isViewRequest
+      }
+    }, this.state)
+  }
+
+  // View-specific Actions
+  logViewDiscovery(viewInfo: {
+    viewId: string
+    viewName: string
+    entityName: string
+    isUserView: boolean
+    recordCount?: number
+  }) {
+    this.devtools?.send({
+      type: 'VIEW_DISCOVERED',
+      payload: viewInfo
+    }, this.state)
+  }
+
+  logViewQuery(queryInfo: {
+    viewId: string
+    viewName?: string
+    entityName: string
+    fetchXml?: string
+    recordCount: number
+    duration: number
+    success: boolean
+    error?: string
+  }) {
+    this.devtools?.send({
+      type: queryInfo.success ? 'VIEW_QUERY_SUCCESS' : 'VIEW_QUERY_ERROR',
+      payload: queryInfo
     }, this.state)
   }
 
@@ -286,6 +376,42 @@ export class PCFDevToolsConnector {
     }, this.state)
   }
 
+  // Dataset Record Injection
+  logDatasetRecordInjection(datasetKey: string, injectedRecords: any[], viewInfo?: {
+    viewId: string
+    entityName: string
+    recordCount: number
+  }) {
+    this.devtools?.send({
+      type: 'PCF_DATASET_RECORDS_INJECTED',
+      payload: {
+        datasetKey,
+        recordCount: injectedRecords.length,
+        records: injectedRecords.map(record => ({
+          id: record.id || record[`${viewInfo?.entityName}id`] || 'unknown',
+          fields: this.extractRecordFields(record)
+        })),
+        viewInfo
+      }
+    }, this.state)
+  }
+
+  private extractRecordFields(record: any): Record<string, any> {
+    const fields: Record<string, any> = {}
+    
+    for (const [key, value] of Object.entries(record)) {
+      // Skip system fields that start with @
+      if (key.startsWith('@')) continue
+      
+      // Handle formatted values
+      if (key.includes('@OData')) continue
+      
+      fields[key] = value
+    }
+    
+    return fields
+  }
+
   // Context Change Actions
   logContextChange(oldContext: any, newContext: ComponentFramework.Context<any>, property: string) {
     this.state.context = newContext
@@ -302,9 +428,18 @@ export class PCFDevToolsConnector {
 
   // Helper Methods
   private serializeContext(context: ComponentFramework.Context<any>) {
-    if (!context) return null
+    if (!context) {
+      console.log('🔍 DevTools: Context is null/undefined')
+      return null
+    }
 
     try {
+      console.log('🔍 DevTools: Serializing context:', {
+        hasParameters: !!context.parameters,
+        parameterKeys: context.parameters ? Object.keys(context.parameters) : [],
+        parameters: context.parameters
+      })
+      
       // Create a serializable version of the context
       return {
         mode: context.mode,
@@ -346,14 +481,26 @@ export class PCFDevToolsConnector {
         if (param && typeof param === 'object') {
           // Handle DataSet parameters
           if ('records' in param && 'columns' in param) {
+            const dataset = param as any
+            const records = dataset.records || {}
+            const columns = dataset.columns || []
+            
+            // Extract detailed dataset information for devtools
             serialized[key] = {
               type: 'DataSet',
-              recordCount: Object.keys((param as any).records || {}).length,
-              columnCount: ((param as any).columns || []).length,
-              hasData: Object.keys((param as any).records || {}).length > 0,
-              sorting: (param as any).sorting,
-              filtering: (param as any).filtering,
-              paging: (param as any).paging
+              recordCount: Object.keys(records).length,
+              columnCount: columns.length,
+              hasData: Object.keys(records).length > 0,
+              sorting: dataset.sorting,
+              filtering: dataset.filtering,
+              paging: dataset.paging,
+              // Include actual records data for devtools inspection
+              records: this.serializeDatasetRecords(records),
+              columns: this.serializeDatasetColumns(columns),
+              // Additional dataset metadata
+              targetEntityType: dataset.getTargetEntityType?.(),
+              viewId: dataset.getViewId?.(),
+              isUserView: dataset.isUserView?.()
             }
           } else {
             serialized[key] = {
@@ -375,6 +522,53 @@ export class PCFDevToolsConnector {
       }
     }
     return serialized
+  }
+
+  private serializeDatasetRecords(records: any): Array<{id: string, fields: Record<string, any>}> {
+    const serializedRecords: Array<{id: string, fields: Record<string, any>}> = []
+    
+    for (const [recordId, record] of Object.entries(records)) {
+      try {
+        const recordObj = record as any
+        const fields: Record<string, any> = {}
+        
+        // Extract all field values from the record
+        if (recordObj && typeof recordObj === 'object') {
+          for (const [fieldName, fieldValue] of Object.entries(recordObj)) {
+            if (typeof fieldValue === 'object' && fieldValue !== null) {
+              // Handle formatted values and lookup fields
+              fields[fieldName] = {
+                raw: (fieldValue as any).raw,
+                formatted: (fieldValue as any).formatted
+              }
+            } else {
+              fields[fieldName] = fieldValue
+            }
+          }
+        }
+        
+        serializedRecords.push({
+          id: recordId,
+          fields
+        })
+      } catch (error) {
+        serializedRecords.push({
+          id: recordId,
+          fields: { error: String(error) }
+        })
+      }
+    }
+    
+    return serializedRecords
+  }
+
+  private serializeDatasetColumns(columns: any[]): Array<{name: string, displayName: string, dataType: string, alias?: string}> {
+    return columns.map(column => ({
+      name: column.name || '',
+      displayName: column.displayName || column.name || '',
+      dataType: column.dataType || 'unknown',
+      alias: column.alias
+    }))
   }
 
   // Public method to get current state (for embedded UI)
@@ -400,8 +594,69 @@ export class PCFDevToolsConnector {
     return () => {}
   }
 
+  // Enhanced Methods
+  private updateEnhancedState(): void {
+    this.state.lifecycleStats = lifecycleHooks.getStats()
+    this.state.lifecycleEvents = lifecycleHooks.getRecentEvents(20)
+    this.state.hooks = {
+      registered: lifecycleHooks.getHookStatus()
+    }
+  }
+
+  // Get lifecycle hooks manager (for external access)
+  getLifecycleHooks() {
+    return lifecycleHooks
+  }
+
+  // Register lifecycle hooks
+  registerLifecycleHook(hookName: string, callback: (event: LifecycleEvent) => void): () => void {
+    const unsubscribe = lifecycleHooks.on(hookName, callback)
+    this.updateEnhancedState()
+    
+    // Send update to devtools
+    this.devtools?.send({
+      type: 'LIFECYCLE_HOOK_REGISTERED',
+      payload: {
+        hookName,
+        totalHooks: lifecycleHooks.getHookStatus()
+      }
+    }, this.state)
+
+    return unsubscribe
+  }
+
+  // Emit custom lifecycle event
+  async emitCustomLifecycleEvent(name: string, data?: any, metadata?: Record<string, any>): Promise<void> {
+    await lifecycleHooks.emitCustomEvent({ name, data, metadata })
+    this.updateEnhancedState()
+    
+    this.devtools?.send({
+      type: 'CUSTOM_LIFECYCLE_EVENT',
+      payload: {
+        eventName: name,
+        data,
+        metadata,
+        recentEvents: lifecycleHooks.getRecentEvents(5)
+      }
+    }, this.state)
+  }
+
+  // Clear lifecycle data
+  clearLifecycleData(): void {
+    lifecycleHooks.clear()
+    this.updateEnhancedState()
+    
+    this.devtools?.send({
+      type: 'LIFECYCLE_DATA_CLEARED',
+      payload: { timestamp: Date.now() }
+    }, this.state)
+  }
+
   // Cleanup
   disconnect() {
+    // Clear lifecycle data
+    lifecycleHooks.clear()
+    
     if (this.devtools) {
       this.devtools.unsubscribe()
       this.devtools = null

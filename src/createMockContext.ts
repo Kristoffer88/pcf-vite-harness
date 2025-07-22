@@ -19,6 +19,45 @@ async function getEntityMetadata(entityLogicalName: string): Promise<any> {
 }
 
 /**
+ * Helper function to extract view ID from query options
+ */
+function extractViewId(options: string): { viewId?: string; isUserView: boolean } {
+  if (options.includes('savedQuery=')) {
+    const match = options.match(/savedQuery=([^&]+)/)
+    return { viewId: match?.[1], isUserView: false }
+  }
+  
+  if (options.includes('userQuery=')) {
+    const match = options.match(/userQuery=([^&]+)/)
+    return { viewId: match?.[1], isUserView: true }
+  }
+  
+  return { isUserView: false }
+}
+
+/**
+ * Helper function to get view information for logging
+ */
+async function getViewInfo(viewId: string, isUserView: boolean): Promise<{ name?: string; entityName?: string }> {
+  try {
+    const entitySet = isUserView ? 'userqueries' : 'savedqueries'
+    const response = await fetch(`/api/data/v9.2/${entitySet}(${viewId})?$select=name,returnedtypecode`)
+    
+    if (response.ok) {
+      const data = await response.json()
+      return {
+        name: data.name,
+        entityName: data.returnedtypecode
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to get view info:', error)
+  }
+  
+  return {}
+}
+
+/**
  * Default webAPI implementation with proxy support
  */
 function createDefaultWebAPI(): ComponentFramework.WebApi {
@@ -41,6 +80,22 @@ function createDefaultWebAPI(): ComponentFramework.WebApi {
           url += options.startsWith('?') ? options : `?${options}`
         }
 
+        // Check if this is a view-based query and extract view information
+        const isViewQuery = options && (options.includes('savedQuery=') || options.includes('userQuery=') || options.includes('fetchXml='))
+        let viewInfo: { name?: string; entityName?: string } = {}
+        
+        if (isViewQuery && options) {
+          const { viewId, isUserView } = extractViewId(options)
+          if (viewId) {
+            viewInfo = await getViewInfo(viewId, isUserView)
+            console.log(`🔍 ${isUserView ? 'User' : 'System'} view query detected for ${entityLogicalName}`, {
+              viewId,
+              viewName: viewInfo.name || 'Unknown View'
+            })
+          } else if (options.includes('fetchXml=')) {
+            console.log(`🔍 FetchXML query detected for ${entityLogicalName}`)
+          }
+        }
 
         const response = await fetch(url)
         if (!response.ok) {
@@ -50,7 +105,14 @@ function createDefaultWebAPI(): ComponentFramework.WebApi {
         }
 
         const result = await response.json()
-        console.log(`✅ Retrieved ${result.value?.length || 0} records for ${entityLogicalName}`)
+        const recordCount = result.value?.length || 0
+        
+        if (isViewQuery) {
+          const viewDescription = viewInfo.name ? ` via "${viewInfo.name}"` : ' via view'
+          console.log(`✅ Retrieved ${recordCount} records for ${entityLogicalName}${viewDescription}`)
+        } else {
+          console.log(`✅ Retrieved ${recordCount} records for ${entityLogicalName}`)
+        }
 
         // Transform OData response to PCF WebAPI format
         if (result.value && !result.entities) {
@@ -209,7 +271,49 @@ function createDefaultWebAPI(): ComponentFramework.WebApi {
 }
 
 /**
+ * Helper function to create a mock dataset with proper structure
+ */
+function createMockDataSet(options?: { name?: string; displayName?: string } & Partial<ComponentFramework.PropertyTypes.DataSet>): ComponentFramework.PropertyTypes.DataSet {
+  const viewId = crypto.randomUUID()
+  
+  return {
+    getViewId: () => viewId,
+    getTargetEntityType: () => 'systemuser',
+    isUserView: () => false,
+    loading: false,
+    paging: {
+      totalResultCount: 0,
+      hasNextPage: false,
+      hasPreviousPage: false,
+    },
+    sorting: [],
+    columns: [
+      {
+        name: 'fullname',
+        displayName: 'Full Name',
+        dataType: 'SingleLine.Text',
+        alias: 'fullname'
+      },
+      {
+        name: 'domainname', 
+        displayName: 'Domain Name',
+        dataType: 'SingleLine.Text',
+        alias: 'domainname'
+      }
+    ],
+    records: {},
+    clearSelectedRecordIds: () => {},
+    getSelectedRecordIds: () => [],
+    setSelectedRecordIds: () => {},
+    refresh: () => Promise.resolve(),
+    openDatasetItem: () => {},
+    ...options,
+  } as ComponentFramework.PropertyTypes.DataSet
+}
+
+/**
  * Creates a mock PCF context with realistic PowerApps data
+ * For datasets, we'll create a known dataset for the test project
  */
 export function createMockContext<TInputs>(options?: {
   controlId?: string
@@ -230,24 +334,21 @@ export function createMockContext<TInputs>(options?: {
     webAPI: customWebAPI = {},
   } = options || {}
 
-  const mockDataSet = {
-    getViewId: () => viewId,
-    loading: false,
-    paging: {
-      totalResultCount: 0,
-      hasNextPage: false,
-      hasPreviousPage: false,
-    },
-    sorting: [],
-    columns: [],
-    records: {},
-    clearSelectedRecordIds: () => {},
-    getSelectedRecordIds: () => [],
-    setSelectedRecordIds: () => {},
-    refresh: () => Promise.resolve(),
-    openDatasetItem: () => {},
-    ...datasetOptions,
-  } as ComponentFramework.PropertyTypes.DataSet
+  console.log('🔧 Creating mock context...')
+
+  // Create sampleDataSet for the test project (we know this from the manifest)
+  const sampleDataSet = createMockDataSet({
+    name: 'sampleDataSet',
+    displayName: 'Dataset_Display_Key',
+    ...datasetOptions
+  })
+  
+  console.log('🔧 Created sampleDataSet with structure:', {
+    hasRecords: 'records' in sampleDataSet,
+    hasColumns: 'columns' in sampleDataSet,
+    recordCount: Object.keys(sampleDataSet.records || {}).length,
+    columnCount: sampleDataSet.columns?.length || 0
+  })
 
   return {
     accessibility: {
@@ -259,7 +360,7 @@ export function createMockContext<TInputs>(options?: {
       },
     },
     parameters: {
-      data: mockDataSet,
+      sampleDataSet
     } as any,
     factory: {
       requestRender: () => {},

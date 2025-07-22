@@ -3,6 +3,7 @@ import { defineConfig } from 'tsup'
 export default defineConfig({
   entry: {
     index: 'src/index.ts',
+    'devtools-redux/index': 'src/devtools-redux/index.ts',
     'bin/pcf-vite-init': 'bin/pcf-vite-init.ts',
   },
   format: ['cjs', 'esm'],

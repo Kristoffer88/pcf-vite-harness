@@ -18,6 +18,17 @@
       },
       "default": "./dist/index.js"
     },
+    "./devtools-redux": {
+      "import": {
+        "types": "./dist/devtools-redux/index.d.ts",
+        "default": "./dist/devtools-redux/index.js"
+      },
+      "require": {
+        "types": "./dist/devtools-redux/index.d.cts",
+        "default": "./dist/devtools-redux/index.cjs"
+      },
+      "default": "./dist/devtools-redux/index.js"
+    },
     "./styles/*": "./dist/styles/*",
     "./templates/*": "./dist/templates/*"
   },
