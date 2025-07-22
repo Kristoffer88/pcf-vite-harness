@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { PCFDevToolsProvider } from './devtools-redux/PCFDevToolsProvider'
+import { PCFDevToolsProvider, usePCFDevTools, usePCFLifecycle } from './devtools-redux/PCFDevToolsProvider'
 import './devtools-redux/WebAPIMonitor' // Initialize WebAPI monitoring
 
 interface PowerAppsContainerProps {
@@ -17,21 +17,28 @@ interface PowerAppsContainerProps {
   }
 }
 
-// Inner component that can use the Redux DevTools hooks
+// Inner component that can use the usePCFDevtools hook
 const PowerAppsContainerInner: React.FC<PowerAppsContainerProps> = ({
   context,
   pcfClass,
   className = '',
   showDevPanel = true,
+  devtoolsPosition = 'bottom-right',
   manifestInfo,
 }) => {
   const containerRef = React.useRef<HTMLDivElement>(null)
   const pcfComponentRef = React.useRef<ComponentFramework.StandardControl<any, any> | null>(null)
+  const [monitoredContext, setMonitoredContext] =
+    React.useState<ComponentFramework.Context<any>>(context)
+
+  // Get DevTools hooks for Redux DevTools integration
+  const devtools = showDevPanel ? usePCFDevTools() : null
+  const lifecycle = usePCFLifecycle(context)
 
   const initializePCFComponent = React.useCallback(
     (ctx: ComponentFramework.Context<any>) => {
       if (containerRef.current && !pcfComponentRef.current) {
-        // Initialize PCF component
+        // Initialize PCF component with monitored context
         pcfComponentRef.current = new pcfClass()
         pcfComponentRef.current.init(
           ctx,
@@ -40,26 +47,30 @@ const PowerAppsContainerInner: React.FC<PowerAppsContainerProps> = ({
           containerRef.current
         )
         pcfComponentRef.current.updateView(ctx)
-        console.log('✅ PCF Component initialized with Redux DevTools')
+
+        // Log PCF initialization with Redux DevTools
+        if (devtools) {
+          devtools.logInit(ctx)
+        }
       }
     },
-    [pcfClass]
+    [pcfClass, devtools]
   )
-
-  React.useEffect(() => {
-    initializePCFComponent(context)
-  }, [context, initializePCFComponent])
 
   React.useEffect(() => {
     return () => {
       if (pcfComponentRef.current) {
+        // Log destroy event
+        if (devtools) {
+          devtools.logDestroy()
+        }
         pcfComponentRef.current.destroy()
         pcfComponentRef.current = null
       }
     }
   }, [])
 
-  return (
+  const renderPCFContainer = () => (
     <div
       id="tab-section2"
       className={`pa-g pa-ae pa-h pa-ht pa-cf pa-pb pa-du pa-bx webkitScroll flexbox ${className}`}
@@ -126,17 +137,25 @@ const PowerAppsContainerInner: React.FC<PowerAppsContainerProps> = ({
                               className="pa-cf flexbox"
                               style={{ height: '100%', width: '100%' }}
                             >
-                              {/* PCF Component Container */}
-                              <div
-                                className="customControl pcf-component flexbox"
-                                data-id="pcf_container"
-                                style={{
-                                  width: '100%',
-                                  height: '100%',
-                                  minHeight: '100vh',
-                                }}
-                                ref={containerRef}
-                              />
+                              {/* PCF Component Container - WebAPI monitoring is automatic via fetch interception */}
+                              {(() => {
+                                React.useEffect(() => {
+                                  initializePCFComponent(monitoredContext)
+                                }, [monitoredContext])
+
+                                return (
+                                  <div
+                                    className="customControl pcf-component flexbox"
+                                    data-id="pcf_container"
+                                    style={{
+                                      width: '100%',
+                                      height: '100%',
+                                      minHeight: '100vh',
+                                    }}
+                                    ref={containerRef}
+                                  />
+                                )
+                              })()
                             </div>
                           </div>
                         </div>
@@ -151,6 +170,8 @@ const PowerAppsContainerInner: React.FC<PowerAppsContainerProps> = ({
       </div>
     </div>
   )
+
+  return renderPCFContainer()
 }
 
 // Main component that sets up the Redux DevTools provider

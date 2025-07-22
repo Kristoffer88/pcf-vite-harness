@@ -254,6 +254,7 @@ export function createMockContext<TInputs>(options?: {
       _customControlProperties: {
         descriptor: {
           DomId: controlId,
+          UniqueId: controlId + '_unique',
         },
       },
     },

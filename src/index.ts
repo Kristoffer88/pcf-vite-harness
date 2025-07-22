@@ -7,15 +7,15 @@
 
 export { createMockContext } from './createMockContext.js'
 export { createPCFViteConfig } from './createViteConfig.js'
-// Devtools
+// Redux DevTools Integration
 export {
-  getThemeColors,
-  PCFDevtools,
-  PCFDevtoolsPanel_Embedded,
-  PCFDevtoolsProvider,
-  tokens as devtoolsTokens,
-  usePCFDevtools,
-} from './devtools/index.js'
+  PCFDevToolsProvider,
+  usePCFDevTools,
+  usePCFLifecycle,
+  usePCFWebAPI,
+  usePCFDatasets,
+  pcfDevTools,
+} from './devtools-redux/index.js'
 export { initializePCFHarness, initPCF } from './initializePCFHarness.js'
 // Core components
 export { PowerAppsContainer } from './PowerAppsContainer.js'

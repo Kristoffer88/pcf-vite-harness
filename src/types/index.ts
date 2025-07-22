@@ -6,10 +6,11 @@
 declare global {
   namespace ComponentFramework {
     interface Context<TInputs> {
-      accessibility?: {
-        _customControlProperties?: {
-          descriptor?: {
-            DomId?: string
+      accessibility: {
+        _customControlProperties: {
+          descriptor: {
+            DomId: string
+            UniqueId: string
           }
         }
       }
