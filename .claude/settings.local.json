@@ -6,7 +6,9 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "WebFetch(domain:learn.microsoft.com)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:claudelog.com)",
+      "Bash(ls:*)"
     ],
     "deny": []
   }
