@@ -105,6 +105,7 @@ function updateDatasetMetadata(dataset: any, queryResult: QueryResult): void {
   // Update entity type if detected
   if (queryResult.entities.length > 0) {
     const firstEntity = queryResult.entities[0]
+    if (!firstEntity) return
     const entityType = detectEntityType(firstEntity)
     
     if (entityType && dataset.getTargetEntityType) {
@@ -157,7 +158,7 @@ function detectEntityType(entity: ComponentFramework.WebApi.Entity): string | nu
   if (context) {
     const match = context.match(/\/([a-z_]+)\(/i)
     if (match) {
-      return match[1]
+      return match[1] ?? null
     }
   }
   
