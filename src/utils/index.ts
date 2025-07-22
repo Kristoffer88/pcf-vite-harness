@@ -2,79 +2,75 @@
  * Utility functions for PCF development
  */
 
+// Convenience functions for common tasks
+export * from './manifestExtractor'
+export * from './manifestReader'
 // PCF Discovery
 export type {
-  PCFManifest,
-  PCFControlInfo,
+  EntityTypeCode,
   FormPCFMatch,
-  EntityTypeCode
+  PCFControlInfo,
+  PCFManifest,
 } from './pcfDiscovery'
-
 export {
-  parsePCFManifest,
-  parseFormXmlForPCF,
+  analyzePCFSubgridConfig,
+  ENTITY_TYPE_CODES,
   findPCFOnForms,
   getPCFControlsOnForm,
   getPCFFormsForEntity,
-  analyzePCFSubgridConfig,
-  ENTITY_TYPE_CODES
+  parseFormXmlForPCF,
+  parsePCFManifest,
 } from './pcfDiscovery'
-
-// View Discovery
-export type {
-  SavedQuery,
-  UserQuery,
-  ViewInfo
-} from './viewDiscovery'
-
-export {
-  getSystemViewsForEntity,
-  getUserViewsForEntity,
-  getAllViewsForEntity,
-  getSystemViewById,
-  getUserViewById,
-  getViewById,
-  getDefaultViewForEntity,
-  discoverEntitiesWithViews,
-  searchViewsByName
-} from './viewDiscovery'
 
 // Record Retrieval
 export type {
+  PaginatedRecordResult,
   RecordRetrievalOptions,
   RecordRetrievalResult,
-  PaginatedRecordResult
 } from './recordRetrieval'
 
 export {
+  executeFetchXml,
+  executeViewQuery,
+  extractEntityNameFromFetchXml,
+  getPaginatedRecordsForView,
+  getRecordCountForView,
   getRecordsForSystemView,
   getRecordsForUserView,
   getRecordsForView,
-  executeViewQuery,
-  executeFetchXml,
-  getPaginatedRecordsForView,
-  getRecordCountForView,
-  extractEntityNameFromFetchXml
 } from './recordRetrieval'
 
 // View Analysis
 export type {
+  FetchXmlAggregate,
   FetchXmlAnalysis,
   FetchXmlFilter,
   FetchXmlJoin,
   FetchXmlOrderBy,
-  FetchXmlAggregate,
+  ViewColumn,
   ViewMetadata,
-  ViewColumn
 } from './viewAnalyzer'
 
 export {
   analyzeFetchXml,
   analyzeViewLayout,
+  extractReferencedEntities,
   validateFetchXml,
-  extractReferencedEntities
 } from './viewAnalyzer'
-
-// Convenience functions for common tasks
-export * from './manifestExtractor'
-export * from './manifestReader'
+// View Discovery
+export type {
+  SavedQuery,
+  UserQuery,
+  ViewInfo,
+} from './viewDiscovery'
+export {
+  discoverEntitiesWithViews,
+  getAllViewsForEntity,
+  getDefaultViewForEntity,
+  getSystemViewById,
+  getSystemViewsForEntity,
+  getUserViewById,
+  getUserViewsForEntity,
+  getViewById,
+  searchViewsByName,
+} from './viewDiscovery'

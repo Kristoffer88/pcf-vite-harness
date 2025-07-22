@@ -26,34 +26,39 @@ function extractViewId(options: string): { viewId?: string; isUserView: boolean 
     const match = options.match(/savedQuery=([^&]+)/)
     return { viewId: match?.[1], isUserView: false }
   }
-  
+
   if (options.includes('userQuery=')) {
     const match = options.match(/userQuery=([^&]+)/)
     return { viewId: match?.[1], isUserView: true }
   }
-  
+
   return { isUserView: false }
 }
 
 /**
  * Helper function to get view information for logging
  */
-async function getViewInfo(viewId: string, isUserView: boolean): Promise<{ name?: string; entityName?: string }> {
+async function getViewInfo(
+  viewId: string,
+  isUserView: boolean
+): Promise<{ name?: string; entityName?: string }> {
   try {
     const entitySet = isUserView ? 'userqueries' : 'savedqueries'
-    const response = await fetch(`/api/data/v9.2/${entitySet}(${viewId})?$select=name,returnedtypecode`)
-    
+    const response = await fetch(
+      `/api/data/v9.2/${entitySet}(${viewId})?$select=name,returnedtypecode`
+    )
+
     if (response.ok) {
       const data = await response.json()
       return {
         name: data.name,
-        entityName: data.returnedtypecode
+        entityName: data.returnedtypecode,
       }
     }
   } catch (error) {
     console.warn('Failed to get view info:', error)
   }
-  
+
   return {}
 }
 
@@ -81,17 +86,24 @@ function createDefaultWebAPI(): ComponentFramework.WebApi {
         }
 
         // Check if this is a view-based query and extract view information
-        const isViewQuery = options && (options.includes('savedQuery=') || options.includes('userQuery=') || options.includes('fetchXml='))
+        const isViewQuery =
+          options &&
+          (options.includes('savedQuery=') ||
+            options.includes('userQuery=') ||
+            options.includes('fetchXml='))
         let viewInfo: { name?: string; entityName?: string } = {}
-        
+
         if (isViewQuery && options) {
           const { viewId, isUserView } = extractViewId(options)
           if (viewId) {
             viewInfo = await getViewInfo(viewId, isUserView)
-            console.log(`🔍 ${isUserView ? 'User' : 'System'} view query detected for ${entityLogicalName}`, {
-              viewId,
-              viewName: viewInfo.name || 'Unknown View'
-            })
+            console.log(
+              `🔍 ${isUserView ? 'User' : 'System'} view query detected for ${entityLogicalName}`,
+              {
+                viewId,
+                viewName: viewInfo.name || 'Unknown View',
+              }
+            )
           } else if (options.includes('fetchXml=')) {
             console.log(`🔍 FetchXML query detected for ${entityLogicalName}`)
           }
@@ -106,10 +118,12 @@ function createDefaultWebAPI(): ComponentFramework.WebApi {
 
         const result = await response.json()
         const recordCount = result.value?.length || 0
-        
+
         if (isViewQuery) {
           const viewDescription = viewInfo.name ? ` via "${viewInfo.name}"` : ' via view'
-          console.log(`✅ Retrieved ${recordCount} records for ${entityLogicalName}${viewDescription}`)
+          console.log(
+            `✅ Retrieved ${recordCount} records for ${entityLogicalName}${viewDescription}`
+          )
         } else {
           console.log(`✅ Retrieved ${recordCount} records for ${entityLogicalName}`)
         }
@@ -273,12 +287,30 @@ function createDefaultWebAPI(): ComponentFramework.WebApi {
 /**
  * Helper function to create a mock dataset with proper structure
  */
-function createMockDataSet(options?: { name?: string; displayName?: string } & Partial<ComponentFramework.PropertyTypes.DataSet>): ComponentFramework.PropertyTypes.DataSet {
+function createMockDataSet(
+  options?: {
+    name?: string
+    displayName?: string
+    entityLogicalName?: string
+    columns?: any[]
+  } & Partial<ComponentFramework.PropertyTypes.DataSet>
+): ComponentFramework.PropertyTypes.DataSet {
   const viewId = crypto.randomUUID()
-  
+
+  const defaultColumns = [
+    {
+      name: 'name',
+      displayName: 'Name',
+      dataType: 'SingleLine.Text',
+      alias: 'name',
+      order: 1,
+      visualSizeFactor: 1,
+    },
+  ]
+
   return {
     getViewId: () => viewId,
-    getTargetEntityType: () => 'systemuser',
+    getTargetEntityType: () => options?.entityLogicalName || 'account',
     isUserView: () => false,
     loading: false,
     paging: {
@@ -287,20 +319,8 @@ function createMockDataSet(options?: { name?: string; displayName?: string } & P
       hasPreviousPage: false,
     },
     sorting: [],
-    columns: [
-      {
-        name: 'fullname',
-        displayName: 'Full Name',
-        dataType: 'SingleLine.Text',
-        alias: 'fullname'
-      },
-      {
-        name: 'domainname', 
-        displayName: 'Domain Name',
-        dataType: 'SingleLine.Text',
-        alias: 'domainname'
-      }
-    ],
+    columns: (options?.columns ||
+      defaultColumns) as ComponentFramework.PropertyHelper.DataSetApi.Column[],
     records: {},
     clearSelectedRecordIds: () => {},
     getSelectedRecordIds: () => [],
@@ -311,9 +331,11 @@ function createMockDataSet(options?: { name?: string; displayName?: string } & P
   } as ComponentFramework.PropertyTypes.DataSet
 }
 
+// Removed getMockDatasetConfig - datasets are now configured dynamically based on discovered form data
+
 /**
  * Creates a mock PCF context with realistic PowerApps data
- * For datasets, we'll create a known dataset for the test project
+ * For datasets, we'll create a minimal dataset that can be configured dynamically
  */
 export function createMockContext<TInputs>(options?: {
   controlId?: string
@@ -323,6 +345,7 @@ export function createMockContext<TInputs>(options?: {
   userId?: string
   datasetOptions?: Partial<ComponentFramework.PropertyTypes.DataSet>
   webAPI?: Partial<ComponentFramework.WebApi>
+  entityType?: string
 }): ComponentFramework.Context<TInputs> {
   const {
     controlId = `id-${crypto.randomUUID()}`,
@@ -332,22 +355,36 @@ export function createMockContext<TInputs>(options?: {
     userId = 'dev-user-id',
     datasetOptions = {},
     webAPI: customWebAPI = {},
+    entityType = 'unknown',
   } = options || {}
 
-  console.log('🔧 Creating mock context...')
+  console.log('🔧 Creating mock context...', { entityType })
 
-  // Create sampleDataSet for the test project (we know this from the manifest)
+  // Create sampleDataSet with minimal configuration
+  // The actual entity type and columns will be determined by discovered form data
   const sampleDataSet = createMockDataSet({
     name: 'sampleDataSet',
     displayName: 'Dataset_Display_Key',
-    ...datasetOptions
+    entityLogicalName: 'unknown', // Will be updated when form is discovered
+    columns: [], // Will be populated based on discovered entity
+    ...datasetOptions,
   })
   
+  // Make getTargetEntityType configurable
+  Object.defineProperty(sampleDataSet, 'getTargetEntityType', {
+    value: function() {
+      return (this as any)._targetEntityType || (this as any).entityLogicalName || 'unknown'
+    },
+    writable: true,
+    configurable: true
+  })
+
   console.log('🔧 Created sampleDataSet with structure:', {
+    entityType: entityType,
     hasRecords: 'records' in sampleDataSet,
     hasColumns: 'columns' in sampleDataSet,
     recordCount: Object.keys(sampleDataSet.records || {}).length,
-    columnCount: sampleDataSet.columns?.length || 0
+    columnCount: sampleDataSet.columns?.length || 0,
   })
 
   return {
@@ -359,8 +396,13 @@ export function createMockContext<TInputs>(options?: {
         },
       },
     },
+    page: {
+      entityTypeName: entityType,
+      entityId: crypto.randomUUID(),
+      isVisible: true,
+    } as any,
     parameters: {
-      sampleDataSet
+      sampleDataSet,
     } as any,
     factory: {
       requestRender: () => {},

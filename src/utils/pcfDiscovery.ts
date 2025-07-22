@@ -1,6 +1,6 @@
 /**
  * PCF Discovery Tool
- * 
+ *
  * Functions to discover and analyze PCF controls on Dataverse forms,
  * including subgrid views, target entities, and relationship information.
  */
@@ -47,7 +47,7 @@ export interface FormPCFMatch {
 export function parsePCFManifest(manifestXml: string): PCFManifest {
   const parser = new DOMParser()
   const doc = parser.parseFromString(manifestXml, 'text/xml')
-  
+
   const controlElement = doc.querySelector('control')
   if (!controlElement) {
     throw new Error('Invalid PCF manifest: control element not found')
@@ -58,7 +58,7 @@ export function parsePCFManifest(manifestXml: string): PCFManifest {
     constructor: controlElement.getAttribute('constructor') || '',
     version: controlElement.getAttribute('version') || '',
     displayName: controlElement.getAttribute('display-name-key') || '',
-    description: controlElement.getAttribute('description-key') || ''
+    description: controlElement.getAttribute('description-key') || '',
   }
 }
 
@@ -68,39 +68,39 @@ export function parsePCFManifest(manifestXml: string): PCFManifest {
 export function parseFormXmlForPCF(formXml: string): PCFControlInfo[] {
   const parser = new DOMParser()
   const doc = parser.parseFromString(formXml, 'text/xml')
-  
+
   // Look for both patterns: <customcontrol> and <customControl>
   const customControlsLower = doc.querySelectorAll('customcontrol')
   const customControlsUpper = doc.querySelectorAll('customControl')
   const results: PCFControlInfo[] = []
-  
+
   // Handle legacy format: <customcontrol namespace="..." constructor="...">
   customControlsLower.forEach(control => {
     const controlElement = control.closest('control')
     const controlId = controlElement?.getAttribute('id') || ''
-    
+
     const pcfInfo: PCFControlInfo = {
       controlId,
       namespace: control.getAttribute('namespace') || '',
       constructor: control.getAttribute('constructor') || '',
       version: control.getAttribute('version') || '',
-      formFactor: '0'
+      formFactor: '0',
     }
-    
+
     results.push(pcfInfo)
   })
-  
+
   // Handle new format: <customControl name="namespace.constructor">
   customControlsUpper.forEach(control => {
     const controlElement = control.closest('control')
     const controlId = controlElement?.getAttribute('id') || ''
     const nameAttr = control.getAttribute('name') || ''
     const formFactor = control.getAttribute('formFactor') || '0'
-    
+
     // Parse "prefix_Publisher.ControlName" format
     let namespace = ''
     let constructor = ''
-    
+
     if (nameAttr.includes('.')) {
       const parts = nameAttr.split('.')
       // Handle "prefix_Publisher.ControlName" format - remove any publisher prefix
@@ -109,16 +109,16 @@ export function parseFormXmlForPCF(formXml: string): PCFControlInfo[] {
     } else if (nameAttr) {
       constructor = nameAttr
     }
-    
+
     if (namespace || constructor) {
       const pcfInfo: PCFControlInfo = {
         controlId,
         namespace,
         constructor,
         version: control.getAttribute('version') || '',
-        formFactor
+        formFactor,
       }
-      
+
       // Extract subgrid/dataset information
       const parametersElement = control.querySelector('parameters')
       if (parametersElement) {
@@ -131,18 +131,21 @@ export function parseFormXmlForPCF(formXml: string): PCFControlInfo[] {
             targetEntityType: getElementText(dataSetElement, 'TargetEntityType'),
             relationshipName: getElementText(dataSetElement, 'RelationshipName'),
             enableViewPicker: getElementText(dataSetElement, 'EnableViewPicker') === 'true',
-            filteredViewIds: getElementText(dataSetElement, 'FilteredViewIds')?.split(',').filter(id => id.trim()) || []
+            filteredViewIds:
+              getElementText(dataSetElement, 'FilteredViewIds')
+                ?.split(',')
+                .filter(id => id.trim()) || [],
           }
         }
-        
+
         // Extract other parameters
         pcfInfo.parameters = extractParameters(parametersElement)
       }
-      
+
       results.push(pcfInfo)
     }
   })
-  
+
   return results
 }
 
@@ -159,56 +162,84 @@ function getElementText(parent: Element, tagName: string): string | undefined {
  */
 function extractParameters(parametersElement: Element): Record<string, unknown> {
   const params: Record<string, unknown> = {}
-  
+
   parametersElement.childNodes.forEach(node => {
     if (node.nodeType === Node.ELEMENT_NODE) {
       const element = node as Element
       const tagName = element.tagName
-      
-      if (tagName !== 'data-set') { // Skip data-set as it's handled separately
+
+      if (tagName !== 'data-set') {
+        // Skip data-set as it's handled separately
         params[tagName] = element.textContent?.trim() || element.outerHTML
       }
     }
   })
-  
+
   return params
 }
 
 /**
  * Find all forms containing the specified PCF control
  */
-export async function findPCFOnForms(manifest: PCFManifest, entityTypeCode?: number): Promise<FormPCFMatch[]> {
+export async function findPCFOnForms(
+  manifest: PCFManifest,
+  entityTypeCode?: number
+): Promise<FormPCFMatch[]> {
+  console.log('🔍 findPCFOnForms called with:', {
+    namespace: manifest.namespace,
+    constructor: manifest.constructor,
+    entityTypeCode
+  })
+
   let url = `/api/data/v9.2/systemforms?$select=formid,name,objecttypecode,formxml&$filter=contains(formxml,'customControl') or contains(formxml,'customcontroldefinition')`
-  
+
   if (entityTypeCode) {
     url += ` and objecttypecode eq ${entityTypeCode}`
   }
-  
-  const response = await fetch(url)
-  if (!response.ok) {
-    throw new Error(`Failed to fetch forms: ${response.status}`)
+
+  console.log('📡 Fetching forms from:', url)
+
+  let response: Response
+  try {
+    response = await fetch(url)
+    console.log('📡 Response status:', response.status, response.statusText)
+  } catch (error) {
+    console.error('❌ Network error during fetch:', error)
+    throw error
   }
-  
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('❌ Failed response body:', errorText)
+    throw new Error(`Failed to fetch forms: ${response.status} ${response.statusText}`)
+  }
+
   const data = await response.json()
+  console.log(`📋 Found ${data.value?.length || 0} total forms with custom controls`)
+
   const matches: FormPCFMatch[] = []
-  
+
   for (const form of data.value) {
     const pcfControls = parseFormXmlForPCF(form.formxml)
-    
-    const matchingControls = pcfControls.filter(control => 
-      control.namespace === manifest.namespace && control.constructor === manifest.constructor
+    console.log(`  Form "${form.name}": Found ${pcfControls.length} PCF controls`)
+
+    const matchingControls = pcfControls.filter(
+      control =>
+        control.namespace === manifest.namespace && control.constructor === manifest.constructor
     )
-    
+
     if (matchingControls.length > 0) {
+      console.log(`  ✅ Form "${form.name}" matches! Has ${matchingControls.length} matching controls`)
       matches.push({
         formId: form.formid,
         formName: form.name,
         entityTypeCode: form.objecttypecode,
-        controls: matchingControls
+        controls: matchingControls,
       })
     }
   }
-  
+
+  console.log(`🎯 Found ${matches.length} forms with matching PCF control`)
   return matches
 }
 
@@ -217,11 +248,11 @@ export async function findPCFOnForms(manifest: PCFManifest, entityTypeCode?: num
  */
 export async function getPCFControlsOnForm(formId: string): Promise<PCFControlInfo[]> {
   const response = await fetch(`/api/data/v9.2/systemforms(${formId})?$select=formxml`)
-  
+
   if (!response.ok) {
     throw new Error(`Failed to fetch form ${formId}: ${response.status}`)
   }
-  
+
   const data = await response.json()
   return parseFormXmlForPCF(data.formxml)
 }
@@ -231,28 +262,28 @@ export async function getPCFControlsOnForm(formId: string): Promise<PCFControlIn
  */
 export async function getPCFFormsForEntity(entityTypeCode: number): Promise<FormPCFMatch[]> {
   const url = `/api/data/v9.2/systemforms?$select=formid,name,objecttypecode,formxml&$filter=objecttypecode eq ${entityTypeCode} and (contains(formxml,'customControl') or contains(formxml,'customcontroldefinition'))`
-  
+
   const response = await fetch(url)
   if (!response.ok) {
     throw new Error(`Failed to fetch forms for entity ${entityTypeCode}: ${response.status}`)
   }
-  
+
   const data = await response.json()
   const results: FormPCFMatch[] = []
-  
+
   for (const form of data.value) {
     const pcfControls = parseFormXmlForPCF(form.formxml)
-    
+
     if (pcfControls.length > 0) {
       results.push({
         formId: form.formid,
         formName: form.name,
         entityTypeCode: form.objecttypecode,
-        controls: pcfControls
+        controls: pcfControls,
       })
     }
   }
-  
+
   return results
 }
 
@@ -273,12 +304,12 @@ export function analyzePCFSubgridConfig(control: PCFControlInfo): {
       hasSubgrid: false,
       isRelated: false,
       isCustomView: false,
-      allowViewSelection: false
+      allowViewSelection: false,
     }
   }
-  
+
   const dataset = control.dataSet
-  
+
   return {
     hasSubgrid: true,
     targetEntity: dataset.targetEntityType,
@@ -286,7 +317,7 @@ export function analyzePCFSubgridConfig(control: PCFControlInfo): {
     relationshipName: dataset.relationshipName,
     viewId: dataset.viewId,
     isCustomView: dataset.isUserView || false,
-    allowViewSelection: dataset.enableViewPicker || false
+    allowViewSelection: dataset.enableViewPicker || false,
   }
 }
 
@@ -300,7 +331,7 @@ export const ENTITY_TYPE_CODES = {
   LEAD: 4,
   CASE: 112,
   USER: 8,
-  TEAM: 9
+  TEAM: 9,
 } as const
 
-export type EntityTypeCode = typeof ENTITY_TYPE_CODES[keyof typeof ENTITY_TYPE_CODES]
+export type EntityTypeCode = (typeof ENTITY_TYPE_CODES)[keyof typeof ENTITY_TYPE_CODES]

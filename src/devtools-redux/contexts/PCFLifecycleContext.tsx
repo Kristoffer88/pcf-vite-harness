@@ -3,19 +3,20 @@
  * Provides access to actual PCF component lifecycle methods
  */
 
-import React, { createContext, useContext, useRef, useCallback } from 'react'
+import type React from 'react'
+import { createContext, useCallback, useContext, useRef } from 'react'
 
 export interface PCFLifecycleContextType {
   // Component instance management
   pcfComponentRef: React.MutableRefObject<ComponentFramework.StandardControl<any, any> | null>
   containerRef: React.RefObject<HTMLDivElement>
-  
+
   // Lifecycle actions
   triggerInit: () => Promise<void>
   triggerUpdateView: () => Promise<void>
   triggerDestroy: () => Promise<void>
   triggerDestroyAndInit: () => Promise<void>
-  
+
   // State
   isInitialized: boolean
 }
@@ -33,7 +34,7 @@ export const PCFLifecycleProvider: React.FC<PCFLifecycleProviderProps> = ({
   children,
   pcfClass,
   context,
-  containerRef
+  containerRef,
 }) => {
   const pcfComponentRef = useRef<ComponentFramework.StandardControl<any, any> | null>(null)
 
@@ -59,7 +60,7 @@ export const PCFLifecycleProvider: React.FC<PCFLifecycleProviderProps> = ({
       // Create new PCF component instance
       console.log('🔄 Initializing PCF component')
       pcfComponentRef.current = new pcfClass()
-      
+
       // Initialize the component
       await pcfComponentRef.current.init(
         context,
@@ -103,12 +104,12 @@ export const PCFLifecycleProvider: React.FC<PCFLifecycleProviderProps> = ({
       console.log('🔥 Destroying PCF component')
       pcfComponentRef.current.destroy()
       pcfComponentRef.current = null
-      
+
       // Clear container
       if (containerRef.current) {
         containerRef.current.innerHTML = ''
       }
-      
+
       console.log('✅ PCF Component destroyed')
     } catch (error) {
       console.error('❌ PCF destroy failed:', error)
@@ -118,13 +119,13 @@ export const PCFLifecycleProvider: React.FC<PCFLifecycleProviderProps> = ({
 
   const triggerDestroyAndInit = useCallback(async () => {
     console.log('🔥➡️🔄 Starting destroy and reinit cycle')
-    
+
     try {
       await triggerDestroy()
-      
+
       // Small delay to ensure cleanup
       await new Promise(resolve => setTimeout(resolve, 100))
-      
+
       await triggerInit()
       console.log('✅ PCF Destroy → Init cycle completed')
     } catch (error) {
@@ -140,13 +141,11 @@ export const PCFLifecycleProvider: React.FC<PCFLifecycleProviderProps> = ({
     triggerUpdateView,
     triggerDestroy,
     triggerDestroyAndInit,
-    isInitialized: !!pcfComponentRef.current
+    isInitialized: !!pcfComponentRef.current,
   }
 
   return (
-    <PCFLifecycleContext.Provider value={contextValue}>
-      {children}
-    </PCFLifecycleContext.Provider>
+    <PCFLifecycleContext.Provider value={contextValue}>{children}</PCFLifecycleContext.Provider>
   )
 }
 

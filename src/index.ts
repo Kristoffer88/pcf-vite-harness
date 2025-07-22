@@ -10,31 +10,15 @@ export { createPCFViteConfig } from './createViteConfig.js'
 // Redux DevTools Integration
 export {
   PCFDevToolsProvider,
+  pcfDevTools,
+  usePCFDatasets,
   usePCFDevTools,
   usePCFLifecycle,
   usePCFWebAPI,
-  usePCFDatasets,
-  pcfDevTools,
 } from './devtools-redux/index.js'
 export { initializePCFHarness, initPCF } from './initializePCFHarness.js'
 // Core components
 export { PowerAppsContainer } from './PowerAppsContainer.js'
-// Utility functions
-export { 
-  extractManifestFromXml, 
-  extractManifestFromBuiltXml, 
-  createTestProjectManifest,
-  autoDetectManifest,
-  extractManifestFromComponentClass
-} from './utils/manifestExtractor.js'
-export {
-  readManifestFromFileSystem,
-  detectManifestInfo
-} from './utils/manifestReader.js'
-
-// View and record utilities
-export * from './utils/index.js'
-
 // Type definitions
 export type {
   HarnessEnvironment,
@@ -44,6 +28,20 @@ export type {
   PCFViteOptions,
   PowerAppsContainerProps,
 } from './types/index.js'
+// View and record utilities
+export * from './utils/index.js'
+// Utility functions
+export {
+  autoDetectManifest,
+  createTestProjectManifest,
+  extractManifestFromBuiltXml,
+  extractManifestFromComponentClass,
+  extractManifestFromXml,
+} from './utils/manifestExtractor.js'
+export {
+  detectManifestInfo,
+  readManifestFromFileSystem,
+} from './utils/manifestReader.js'
 
 // CSS import for convenience
 export const PCF_STYLES = '../styles/powerapps.css'

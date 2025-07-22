@@ -21,9 +21,7 @@ export interface LifecycleStats {
   lastActivity: number
 }
 
-export interface LifecycleHookCallback {
-  (event: LifecycleEvent): void | Promise<void>
-}
+export type LifecycleHookCallback = (event: LifecycleEvent) => void | Promise<void>
 
 export interface CustomLifecycleEvent {
   name: string
@@ -38,7 +36,7 @@ export class LifecycleHooksManager {
     totalInits: 0,
     totalUpdates: 0,
     totalErrors: 0,
-    lastActivity: Date.now()
+    lastActivity: Date.now(),
   }
 
   constructor() {
@@ -60,7 +58,7 @@ export class LifecycleHooksManager {
     if (!this.hooks.has(hookName)) {
       this.hooks.set(hookName, new Set())
     }
-    
+
     this.hooks.get(hookName)!.add(callback)
 
     // Return unsubscribe function
@@ -73,7 +71,7 @@ export class LifecycleHooksManager {
    * Register multiple hooks at once
    */
   onMultiple(hooks: Record<string, LifecycleHookCallback>): () => void {
-    const unsubscribeFunctions = Object.entries(hooks).map(([hookName, callback]) => 
+    const unsubscribeFunctions = Object.entries(hooks).map(([hookName, callback]) =>
       this.on(hookName, callback)
     )
 
@@ -99,7 +97,7 @@ export class LifecycleHooksManager {
         await callback(event)
       } catch (error) {
         console.warn(`Lifecycle hook error (${hookName}):`, error)
-        
+
         // Emit error event
         const errorEvent: LifecycleEvent = {
           id: this.generateEventId(),
@@ -107,9 +105,9 @@ export class LifecycleHooksManager {
           phase: 'error',
           timestamp: Date.now(),
           error: error instanceof Error ? error : new Error(String(error)),
-          metadata: { originalHook: hookName, originalEvent: event.id }
+          metadata: { originalHook: hookName, originalEvent: event.id },
         }
-        
+
         // Emit error without await to prevent recursion
         setImmediate(() => this.emit('error', errorEvent))
       }
@@ -128,7 +126,7 @@ export class LifecycleHooksManager {
       type: 'init',
       phase: 'before',
       timestamp: Date.now(),
-      context: this.serializeContext(context)
+      context: this.serializeContext(context),
     })
 
     try {
@@ -138,7 +136,7 @@ export class LifecycleHooksManager {
         type: 'init',
         phase: 'after',
         timestamp: Date.now(),
-        context: this.serializeContext(context)
+        context: this.serializeContext(context),
       })
 
       // Update stats
@@ -151,9 +149,9 @@ export class LifecycleHooksManager {
         phase: 'error',
         timestamp: Date.now(),
         context: this.serializeContext(context),
-        error: error instanceof Error ? error : new Error(String(error))
+        error: error instanceof Error ? error : new Error(String(error)),
       }
-      
+
       await this.emit('error', errorEvent)
       this.stats.totalErrors++
     }
@@ -171,7 +169,7 @@ export class LifecycleHooksManager {
       type: 'updateView',
       phase: 'before',
       timestamp: Date.now(),
-      context: this.serializeContext(context)
+      context: this.serializeContext(context),
     })
 
     try {
@@ -181,7 +179,7 @@ export class LifecycleHooksManager {
         type: 'updateView',
         phase: 'after',
         timestamp: Date.now(),
-        context: this.serializeContext(context)
+        context: this.serializeContext(context),
       })
 
       // Update stats
@@ -194,9 +192,9 @@ export class LifecycleHooksManager {
         phase: 'error',
         timestamp: Date.now(),
         context: this.serializeContext(context),
-        error: error instanceof Error ? error : new Error(String(error))
+        error: error instanceof Error ? error : new Error(String(error)),
       }
-      
+
       await this.emit('error', errorEvent)
       this.stats.totalErrors++
     }
@@ -213,7 +211,7 @@ export class LifecycleHooksManager {
       id: eventId,
       type: 'destroy',
       phase: 'before',
-      timestamp: Date.now()
+      timestamp: Date.now(),
     })
 
     try {
@@ -222,7 +220,7 @@ export class LifecycleHooksManager {
         id: eventId,
         type: 'destroy',
         phase: 'after',
-        timestamp: Date.now()
+        timestamp: Date.now(),
       })
 
       // Update stats
@@ -233,9 +231,9 @@ export class LifecycleHooksManager {
         type: 'destroy',
         phase: 'error',
         timestamp: Date.now(),
-        error: error instanceof Error ? error : new Error(String(error))
+        error: error instanceof Error ? error : new Error(String(error)),
       }
-      
+
       await this.emit('error', errorEvent)
       this.stats.totalErrors++
     }
@@ -253,8 +251,8 @@ export class LifecycleHooksManager {
       metadata: {
         customEventName: event.name,
         customEventData: event.data,
-        ...event.metadata
-      }
+        ...event.metadata,
+      },
     }
 
     await this.emit('custom', lifecycleEvent)
@@ -297,7 +295,7 @@ export class LifecycleHooksManager {
       totalInits: 0,
       totalUpdates: 0,
       totalErrors: 0,
-      lastActivity: Date.now()
+      lastActivity: Date.now(),
     }
   }
 
@@ -326,14 +324,13 @@ export class LifecycleHooksManager {
         userSettings: {
           userId: context.userSettings?.userId,
           userName: context.userSettings?.userName,
-          languageId: context.userSettings?.languageId
-        }
+          languageId: context.userSettings?.languageId,
+        },
       }
     } catch (error) {
       return { error: 'Failed to serialize context', message: String(error) }
     }
   }
-
 
   public trimEventHistory(): void {
     // Keep only last 500 events to prevent memory issues
@@ -341,7 +338,6 @@ export class LifecycleHooksManager {
       this.events = this.events.slice(-500)
     }
   }
-
 }
 
 // Global instance
@@ -358,6 +354,6 @@ export const useLifecycleHooks = () => {
     getEventsByType: lifecycleHooks.getEventsByType.bind(lifecycleHooks),
     getEventsByPhase: lifecycleHooks.getEventsByPhase.bind(lifecycleHooks),
     getHookStatus: lifecycleHooks.getHookStatus.bind(lifecycleHooks),
-    clear: lifecycleHooks.clear.bind(lifecycleHooks)
+    clear: lifecycleHooks.clear.bind(lifecycleHooks),
   }
 }

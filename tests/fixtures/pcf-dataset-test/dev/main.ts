@@ -1,8 +1,5 @@
 import { initializePCFHarness } from 'pcf-vite-harness'
-import { PCFDevToolsProvider } from 'pcf-vite-harness/devtools-redux'
 import 'pcf-vite-harness/styles/powerapps.css'
-import React from 'react'
-import { createRoot } from 'react-dom/client'
 
 // Import your PCF component
 import { dataset } from '../dataset/index'
@@ -23,23 +20,7 @@ const harness = initializePCFHarness({
   },
 })
 
-console.log('✅ PCF harness initialized, adding DevTools...')
-
-// Add the DevTools Provider to the page as an overlay
-const devToolsRoot = document.createElement('div')
-devToolsRoot.id = 'pcf-devtools-root'
-document.body.appendChild(devToolsRoot)
-
-const devToolsReactRoot = createRoot(devToolsRoot)
-devToolsReactRoot.render(
-  React.createElement(PCFDevToolsProvider, {
-    context: harness.context,
-    manifestInfo: harness.manifestInfo,
-    children: null // No children needed, just the devtools overlay
-  })
-)
-
-console.log('✅ DevTools added to page')
+console.log('✅ PCF harness initialized with DevTools enabled')
 
 // For additional configuration options:
 /*

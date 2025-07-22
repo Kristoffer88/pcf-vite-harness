@@ -51,7 +51,7 @@ export async function getRecordsForSystemView(
       return {
         entities: [],
         success: false,
-        error: `System view not found: ${savedQueryId}`
+        error: `System view not found: ${savedQueryId}`,
       }
     }
 
@@ -60,7 +60,7 @@ export async function getRecordsForSystemView(
     return {
       entities: [],
       success: false,
-      error: `Failed to get records for system view ${savedQueryId}: ${error}`
+      error: `Failed to get records for system view ${savedQueryId}: ${error}`,
     }
   }
 }
@@ -78,7 +78,7 @@ export async function getRecordsForUserView(
       return {
         entities: [],
         success: false,
-        error: `User view not found: ${userQueryId}`
+        error: `User view not found: ${userQueryId}`,
       }
     }
 
@@ -87,7 +87,7 @@ export async function getRecordsForUserView(
     return {
       entities: [],
       success: false,
-      error: `Failed to get records for user view ${userQueryId}: ${error}`
+      error: `Failed to get records for user view ${userQueryId}: ${error}`,
     }
   }
 }
@@ -105,7 +105,7 @@ export async function getRecordsForView(
       return {
         entities: [],
         success: false,
-        error: `View not found: ${viewId}`
+        error: `View not found: ${viewId}`,
       }
     }
 
@@ -114,7 +114,7 @@ export async function getRecordsForView(
     return {
       entities: [],
       success: false,
-      error: `Failed to get records for view ${viewId}: ${error}`
+      error: `Failed to get records for view ${viewId}: ${error}`,
     }
   }
 }
@@ -130,23 +130,23 @@ export async function executeViewQuery(
     // Use the WebAPI with savedQuery parameter for better performance
     const queryParam = viewInfo.isUserView ? 'userQuery' : 'savedQuery'
     const collectionName = await getCollectionNameForEntity(viewInfo.entityName)
-    
+
     let url = `/api/data/v9.2/${collectionName}?${queryParam}=${viewInfo.id}`
-    
+
     // Add optional parameters
     if (options.maxPageSize) {
       url += `&$top=${options.maxPageSize}`
     }
-    
+
     if (options.includeCount) {
       url += `&$count=true`
     }
-    
+
     // Add additional filters if provided
     if (options.additionalFilters) {
       url += `&$filter=${encodeURIComponent(options.additionalFilters)}`
     }
-    
+
     // Add custom ordering if provided
     if (options.orderBy) {
       url += `&$orderby=${encodeURIComponent(options.orderBy)}`
@@ -158,14 +158,14 @@ export async function executeViewQuery(
     }
 
     const data = await response.json()
-    
+
     return {
       entities: data.value || [],
       totalCount: data['@odata.count'],
       nextLink: data['@odata.nextLink'],
       success: true,
       viewInfo,
-      fetchXml: viewInfo.fetchXml
+      fetchXml: viewInfo.fetchXml,
     }
   } catch (error) {
     return {
@@ -173,7 +173,7 @@ export async function executeViewQuery(
       success: false,
       error: String(error),
       viewInfo,
-      fetchXml: viewInfo.fetchXml
+      fetchXml: viewInfo.fetchXml,
     }
   }
 }
@@ -188,38 +188,38 @@ export async function executeFetchXml(
 ): Promise<RecordRetrievalResult> {
   try {
     const collectionName = await getCollectionNameForEntity(entityLogicalName)
-    
+
     // Add pagination to FetchXML if specified
     let modifiedFetchXml = fetchXml
     if (options.maxPageSize || options.pageNumber) {
       modifiedFetchXml = addPaginationToFetchXml(fetchXml, {
         pageSize: options.maxPageSize || 50,
-        pageNumber: options.pageNumber || 1
+        pageNumber: options.pageNumber || 1,
       })
     }
-    
+
     const url = `/api/data/v9.2/${collectionName}?fetchXml=${encodeURIComponent(modifiedFetchXml)}`
-    
+
     const response = await fetch(url)
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`)
     }
 
     const data = await response.json()
-    
+
     return {
       entities: data.value || [],
       totalCount: data['@odata.count'],
       nextLink: data['@odata.nextLink'],
       success: true,
-      fetchXml: modifiedFetchXml
+      fetchXml: modifiedFetchXml,
     }
   } catch (error) {
     return {
       entities: [],
       success: false,
       error: String(error),
-      fetchXml
+      fetchXml,
     }
   }
 }
@@ -235,11 +235,11 @@ export async function getPaginatedRecordsForView(
   const options: RecordRetrievalOptions = {
     maxPageSize: pageSize,
     pageNumber,
-    includeCount: true
+    includeCount: true,
   }
-  
+
   const result = await getRecordsForView(viewId, options)
-  
+
   if (!result.success) {
     return {
       entities: [],
@@ -247,15 +247,15 @@ export async function getPaginatedRecordsForView(
       hasPreviousPage: false,
       pageInfo: {
         currentPage: pageNumber,
-        pageSize
+        pageSize,
       },
       success: false,
-      error: result.error
+      error: result.error,
     }
   }
-  
+
   const totalPages = result.totalCount ? Math.ceil(result.totalCount / pageSize) : undefined
-  
+
   return {
     entities: result.entities,
     totalCount: result.totalCount,
@@ -264,9 +264,9 @@ export async function getPaginatedRecordsForView(
     pageInfo: {
       currentPage: pageNumber,
       pageSize,
-      totalPages
+      totalPages,
     },
-    success: true
+    success: true,
   }
 }
 
@@ -282,16 +282,16 @@ export async function getRecordCountForView(viewId: string): Promise<number | nu
 
     const queryParam = viewInfo.isUserView ? 'userQuery' : 'savedQuery'
     const collectionName = await getCollectionNameForEntity(viewInfo.entityName)
-    
+
     const countUrl = `/api/data/v9.2/${collectionName}/$count?${queryParam}=${viewId}`
-    
+
     const response = await fetch(countUrl)
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`)
     }
 
     const count = await response.text()
-    return parseInt(count, 10)
+    return Number.parseInt(count, 10)
   } catch (error) {
     console.error(`Failed to get record count for view ${viewId}:`, error)
     return null
@@ -303,15 +303,19 @@ export async function getRecordCountForView(viewId: string): Promise<number | nu
  */
 async function getCollectionNameForEntity(entityLogicalName: string): Promise<string> {
   try {
-    const response = await fetch(`/api/data/v9.2/EntityDefinitions(LogicalName='${entityLogicalName}')?$select=LogicalCollectionName`)
+    const response = await fetch(
+      `/api/data/v9.2/EntityDefinitions(LogicalName='${entityLogicalName}')?$select=LogicalCollectionName`
+    )
     if (!response.ok) {
       throw new Error(`Failed to get metadata for ${entityLogicalName}`)
     }
-    
+
     const data = await response.json()
     return data.LogicalCollectionName || entityLogicalName
   } catch (error) {
-    console.warn(`Failed to get collection name for ${entityLogicalName}, using logical name as fallback`)
+    console.warn(
+      `Failed to get collection name for ${entityLogicalName}, using logical name as fallback`
+    )
     return entityLogicalName
   }
 }
@@ -319,16 +323,19 @@ async function getCollectionNameForEntity(entityLogicalName: string): Promise<st
 /**
  * Helper: Add pagination attributes to FetchXML
  */
-function addPaginationToFetchXml(fetchXml: string, pagination: { pageSize: number, pageNumber: number }): string {
+function addPaginationToFetchXml(
+  fetchXml: string,
+  pagination: { pageSize: number; pageNumber: number }
+): string {
   const parser = new DOMParser()
   const doc = parser.parseFromString(fetchXml, 'text/xml')
-  
+
   const entityElement = doc.querySelector('entity')
   if (entityElement) {
     entityElement.setAttribute('page', pagination.pageNumber.toString())
     entityElement.setAttribute('count', pagination.pageSize.toString())
   }
-  
+
   return new XMLSerializer().serializeToString(doc)
 }
 

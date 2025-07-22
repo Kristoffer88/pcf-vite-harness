@@ -1,7 +1,10 @@
 import * as React from 'react'
-import { PCFDevToolsProvider, usePCFDevTools } from './devtools-redux/PCFDevToolsProvider'
-import { PCFLifecycleProvider, usePCFLifecycle } from './devtools-redux/contexts/PCFLifecycleContext'
+import {
+  PCFLifecycleProvider,
+  usePCFLifecycle,
+} from './devtools-redux/contexts/PCFLifecycleContext'
 import { EmbeddedDevToolsUI } from './devtools-redux/EmbeddedDevToolsUI'
+import { PCFDevToolsProvider, usePCFDevTools } from './devtools-redux/PCFDevToolsProvider'
 import './devtools-redux/WebAPIMonitor' // Initialize WebAPI monitoring
 
 interface PowerAppsContainerProps {
@@ -20,14 +23,9 @@ interface PowerAppsContainerProps {
 }
 
 // Inner component that can use the lifecycle hooks
-const PowerAppsContainerInner: React.FC<PowerAppsContainerProps & { containerRef: React.RefObject<HTMLDivElement> }> = ({
-  context,
-  pcfClass,
-  className = '',
-  showDevPanel = true,
-  manifestInfo,
-  containerRef,
-}) => {
+const PowerAppsContainerInner: React.FC<
+  PowerAppsContainerProps & { containerRef: React.RefObject<HTMLDivElement> }
+> = ({ context, pcfClass, className = '', showDevPanel = true, manifestInfo, containerRef }) => {
   const { triggerInit } = usePCFLifecycle()
   const pcfDevTools = usePCFDevTools()
 
@@ -134,9 +132,7 @@ const PowerAppsContainerInner: React.FC<PowerAppsContainerProps & { containerRef
           </div>
         </div>
       </div>
-      {showDevPanel && (
-        <EmbeddedDevToolsUI connector={pcfDevTools} />
-      )}
+      {showDevPanel && <EmbeddedDevToolsUI connector={pcfDevTools} />}
     </div>
   )
 }
@@ -146,10 +142,7 @@ export const PowerAppsContainer: React.FC<PowerAppsContainerProps> = props => {
   const containerRef = React.useRef<HTMLDivElement>(null!)
 
   return (
-    <PCFDevToolsProvider
-      context={props.context}
-      manifestInfo={props.manifestInfo}
-    >
+    <PCFDevToolsProvider context={props.context} manifestInfo={props.manifestInfo}>
       <PCFLifecycleProvider
         pcfClass={props.pcfClass}
         context={props.context}

@@ -33,11 +33,12 @@ class WebAPIMonitor {
     if (typeof window === 'undefined' || !window.fetch) {
       return
     }
-    
+
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+      const url =
+        typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
       const method = init?.method || 'GET'
-      
+
       // Only monitor API calls (skip static resources)
       if (!this.shouldMonitor(url)) {
         return this.originalFetch(input, init)
@@ -45,14 +46,14 @@ class WebAPIMonitor {
 
       const requestId = this.generateRequestId()
       const startTime = Date.now()
-      
+
       const requestCall: WebAPICall = {
         id: requestId,
         method: method.toUpperCase(),
         url,
         timestamp: startTime,
         status: 'pending',
-        entityLogicalName: this.extractEntityName(url)
+        entityLogicalName: this.extractEntityName(url),
       }
 
       // Log request start
@@ -86,7 +87,7 @@ class WebAPIMonitor {
           status: response.ok ? 'success' : 'error',
           duration,
           response: this.sanitizeResponse(responseData),
-          error: !response.ok ? `HTTP ${response.status}: ${response.statusText}` : undefined
+          error: !response.ok ? `HTTP ${response.status}: ${response.statusText}` : undefined,
         }
 
         this.activeRequests.set(requestId, successCall)
@@ -102,7 +103,7 @@ class WebAPIMonitor {
           ...requestCall,
           status: 'error',
           duration,
-          error: error instanceof Error ? error.message : String(error)
+          error: error instanceof Error ? error.message : String(error),
         }
 
         this.activeRequests.set(requestId, errorCall)
@@ -116,12 +117,12 @@ class WebAPIMonitor {
   private shouldMonitor(url: string): boolean {
     // Only monitor Dataverse API calls and other relevant APIs
     const apiPatterns = [
-      /\/api\/data\/v[\d.]+\//,  // Dataverse Web API
-      /\/XRMServices\//,          // Legacy XRM Services
-      /\/api\//,                  // Generic API calls
-      /powerapps\.com/,           // PowerApps APIs
-      /dynamics\.com/,            // Dynamics APIs
-      /crm\d*\.dynamics\.com/     // CRM APIs
+      /\/api\/data\/v[\d.]+\//, // Dataverse Web API
+      /\/XRMServices\//, // Legacy XRM Services
+      /\/api\//, // Generic API calls
+      /powerapps\.com/, // PowerApps APIs
+      /dynamics\.com/, // Dynamics APIs
+      /crm\d*\.dynamics\.com/, // CRM APIs
     ]
 
     return apiPatterns.some(pattern => pattern.test(url))
@@ -154,7 +155,7 @@ class WebAPIMonitor {
       // For large responses, summarize to avoid memory issues
       if (typeof response === 'object') {
         if (Array.isArray(response)) {
-          return response.length > 10 
+          return response.length > 10
             ? [...response.slice(0, 5), `... and ${response.length - 5} more items`]
             : response
         }
@@ -163,9 +164,13 @@ class WebAPIMonitor {
         if (response.value && Array.isArray(response.value)) {
           return {
             ...response,
-            value: response.value.length > 10 
-              ? [...response.value.slice(0, 5), `... and ${response.value.length - 5} more records`]
-              : response.value
+            value:
+              response.value.length > 10
+                ? [
+                    ...response.value.slice(0, 5),
+                    `... and ${response.value.length - 5} more records`,
+                  ]
+                : response.value,
           }
         }
 
@@ -196,7 +201,8 @@ class WebAPIMonitor {
     const result: any = {}
     let count = 0
     for (const [key, value] of Object.entries(obj)) {
-      if (count >= 20) { // Limit number of properties
+      if (count >= 20) {
+        // Limit number of properties
         result['...'] = `${Object.keys(obj).length - count} more properties`
         break
       }

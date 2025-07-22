@@ -2,6 +2,8 @@
 
 ## Development Commands
 
+All commands are run from the root of the project directory.
+
 ### Core Commands
 ```bash
 # Build the library (uses tsup)

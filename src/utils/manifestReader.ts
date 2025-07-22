@@ -56,9 +56,7 @@ export function readManifestFromFileSystem(): {
             console.log(`❌ Failed to parse manifest from ${filePath}`)
           }
         }
-      } catch (error) {
-        continue
-      }
+      } catch (error) {}
     }
 
     console.log('📝 No manifest file found in any of the searched paths:', allPaths)
@@ -136,7 +134,7 @@ export function detectManifestInfo(
   let namespace = 'default'
   let constructor = className.toLowerCase()
 
-  // Check for underscore pattern (e.g., "test_dataset") 
+  // Check for underscore pattern (e.g., "test_dataset")
   if (className.includes('_')) {
     const parts = className.split('_')
     namespace = parts[0] || 'default'

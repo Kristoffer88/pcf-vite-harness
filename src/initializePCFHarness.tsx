@@ -17,6 +17,8 @@ export interface PCFHarnessOptions<TInputs, TOutputs> {
     userName?: string
     userId?: string
     datasetOptions?: Partial<ComponentFramework.PropertyTypes.DataSet>
+    entityType?: string
+    mockScenario?: 'account' | 'contact' | 'initiative' | 'custom'
   }
   /** Additional CSS class for the container */
   className?: string
@@ -91,7 +93,7 @@ export function initializePCFHarness<TInputs, TOutputs>(
   return {
     context,
     manifestInfo: finalManifestInfo,
-    container
+    container,
   }
 }
 

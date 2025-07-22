@@ -3,18 +3,10 @@ import type { IInputs, IOutputs } from './generated/ManifestTypes'
 import DataSetInterfaces = ComponentFramework.PropertyHelper.DataSetApi
 type DataSet = ComponentFramework.PropertyTypes.DataSet
 
-interface SystemUser {
-  systemuserid: string
-  fullname: string
-  domainname: string
-  businessunitid: string
-}
-
 export class dataset implements ComponentFramework.StandardControl<IInputs, IOutputs> {
   private _container: HTMLDivElement
   private _context: ComponentFramework.Context<IInputs>
-  private _loadingElement: HTMLDivElement
-  private _usersContainer: HTMLDivElement
+  private _datasetContainer: HTMLDivElement
 
   /**
    * Empty constructor.
@@ -40,73 +32,15 @@ export class dataset implements ComponentFramework.StandardControl<IInputs, IOut
     this._container = container
     this._context = context
 
-    // Create main container
+    // Create simple container for dataset display
     this._container.innerHTML = `
-            <div style="padding: 20px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
-                <h2 style="color: #323130; margin-bottom: 16px;">System Users Dataset</h2>
-                <div id="loading" style="display: block; color: #605e5c;">Loading system users...</div>
-                <div id="users-container" style="display: none;"></div>
-            </div>
-        `
+      <div style="padding: 20px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+        <h2 style="color: #323130; margin: 0 0 16px 0;">Dataset Test Component</h2>
+        <div id="dataset-container">No dataset records available yet</div>
+      </div>
+    `
 
-    this._loadingElement = this._container.querySelector('#loading') as HTMLDivElement
-    this._usersContainer = this._container.querySelector('#users-container') as HTMLDivElement
-
-    // Load system users
-    this.loadSystemUsers()
-  }
-
-  private async loadSystemUsers(): Promise<void> {
-    try {
-      const response = await this._context.webAPI.retrieveMultipleRecords(
-        'systemuser',
-        '?$select=systemuserid,fullname,domainname,businessunitid&$top=5&$orderby=fullname'
-      )
-
-      this.renderSystemUsers(response.entities as SystemUser[])
-    } catch (error) {
-      console.error('Error loading system users:', error)
-      this._loadingElement.innerHTML = `
-                <div style="color: #a80000; padding: 10px; background: #fed9cc; border-radius: 4px;">
-                    <strong>Error:</strong> Failed to load system users. ${error}
-                </div>
-            `
-    }
-  }
-
-  private renderSystemUsers(users: SystemUser[]): void {
-    this._loadingElement.style.display = 'none'
-    this._usersContainer.style.display = 'block'
-
-    let html = '<div style="display: grid; gap: 12px;">'
-
-    users.forEach((user, index) => {
-      html += `
-                <div style="
-                    background: #f3f2f1; 
-                    padding: 16px; 
-                    border-radius: 6px;
-                    border-left: 4px solid #0078d4;
-                ">
-                    <div style="font-weight: 600; color: #323130; margin-bottom: 4px;">
-                        ${index + 1}. ${user.fullname || 'N/A'}
-                    </div>
-                    <div style="font-size: 12px; color: #605e5c;">
-                        <div>Domain: ${user.domainname || 'N/A'}</div>
-                        <div>ID: ${user.systemuserid || 'N/A'}</div>
-                    </div>
-                </div>
-            `
-    })
-
-    html += '</div>'
-    html += `
-            <div style="margin-top: 16px; padding: 12px; background: #e6f3ff; border-radius: 4px; font-size: 12px; color: #605e5c;">
-                <strong>Network Call:</strong> Retrieved ${users.length} system users from Dataverse
-            </div>
-        `
-
-    this._usersContainer.innerHTML = html
+    this._datasetContainer = this._container.querySelector('#dataset-container') as HTMLDivElement
   }
 
   /**
@@ -115,6 +49,65 @@ export class dataset implements ComponentFramework.StandardControl<IInputs, IOut
    */
   public updateView(context: ComponentFramework.Context<IInputs>): void {
     this._context = context
+
+    // Display dataset records if available
+    const sampleDataSet = context.parameters.sampleDataSet
+    if (sampleDataSet && sampleDataSet.records) {
+      const recordCount = Object.keys(sampleDataSet.records).length
+      console.log(`📋 Dataset updated: ${recordCount} records available`)
+
+      if (recordCount > 0) {
+        let html = `<div style="background: #f8f9fa; padding: 12px; border-radius: 6px; border: 1px solid #dee2e6; margin-bottom: 16px;">
+          <strong>Dataset Records (${recordCount}):</strong><br>
+          <div style="font-size: 12px; color: #6c757d; margin-top: 8px;">
+            Entity: ${sampleDataSet.getTargetEntityType ? sampleDataSet.getTargetEntityType() : 'Unknown'}<br>
+            View ID: ${sampleDataSet.getViewId ? sampleDataSet.getViewId().substring(0, 8) + '...' : 'None'}
+          </div>
+        </div>`
+
+        html += '<div style="display: grid; gap: 8px; max-height: 300px; overflow-y: auto;">'
+
+        const recordKeys = Object.keys(sampleDataSet.records).slice(0, 5)
+        recordKeys.forEach((key, index) => {
+          const record = sampleDataSet.records[key]
+          const primaryField = record.getFormattedValue
+            ? record.getFormattedValue('name') || record.getFormattedValue('fullname')
+            : null
+          const displayName = primaryField || `Record ${index + 1}`
+
+          html += `
+            <div style="
+              background: #ffffff; 
+              padding: 12px; 
+              border: 1px solid #e9ecef;
+              border-radius: 4px;
+            ">
+              <div style="font-weight: 600; color: #495057; margin-bottom: 4px;">
+                ${displayName}
+              </div>
+              <div style="font-size: 11px; color: #6c757d;">
+                ID: ${key}
+              </div>
+            </div>
+          `
+        })
+
+        if (recordCount > 5) {
+          html += `<div style="padding: 8px; text-align: center; color: #6c757d; font-style: italic;">
+            ... and ${recordCount - 5} more records
+          </div>`
+        }
+
+        html += '</div>'
+        this._datasetContainer.innerHTML = html
+      } else {
+        this._datasetContainer.innerHTML =
+          '<div style="color: #6c757d; font-style: italic;">No records in dataset</div>'
+      }
+    } else {
+      this._datasetContainer.innerHTML =
+        '<div style="color: #6c757d; font-style: italic;">Dataset not yet loaded</div>'
+    }
   }
 
   /**

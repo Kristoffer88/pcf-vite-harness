@@ -95,7 +95,9 @@ export async function autoDetectManifest(): Promise<{
     // In a browser environment, we can't directly read files
     // This function would need to be adapted based on the environment
     if (typeof window !== 'undefined') {
-      console.warn('Auto-detection not supported in browser environment. Please provide manifestInfo manually.')
+      console.warn(
+        'Auto-detection not supported in browser environment. Please provide manifestInfo manually.'
+      )
       return null
     }
 
@@ -123,7 +125,7 @@ export function extractManifestFromComponentClass(
   description?: string
 } {
   const className = pcfClass.name
-  
+
   // Try to split className if it follows patterns like "NamespaceControlName"
   // This is heuristic and may not always work
   return {

@@ -328,20 +328,20 @@ export default createPCFViteConfig({
     // Extract manifest information for auto-injection
     let componentClassName: string
     let manifestInfo: string = ''
-    
+
     try {
       const manifestPath = resolve(this.projectRoot, component.manifestPath)
       const manifestContent = await readFile(manifestPath, 'utf-8')
-      
+
       // Extract component details
       const controlMatch = manifestContent.match(/constructor="([^"]+)"/)
       const namespaceMatch = manifestContent.match(/namespace="([^"]+)"/)
       const versionMatch = manifestContent.match(/version="([^"]+)"/)
       const displayNameMatch = manifestContent.match(/display-name-key="([^"]+)"/)
       const descriptionMatch = manifestContent.match(/description-key="([^"]+)"/)
-      
+
       componentClassName = controlMatch?.[1] ?? component.constructor ?? basename(component.path)
-      
+
       if (namespaceMatch?.[1] && controlMatch?.[1] && versionMatch?.[1]) {
         manifestInfo = `  // Auto-detected manifest info from ${component.manifestPath}
   manifestInfo: {

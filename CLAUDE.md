@@ -9,6 +9,11 @@ PCF Vite Harness is a modern Vite-based development environment for PowerApps Co
 
 Its a add on to the existing PCF Project, allowing developers to build and test PCF components using Vite's fast development server while maintaining compatibility with the PowerApps ecosystem.
 
+# Mocks / Integration Tests
+NEVER USE MOCKS! always validate using real data and real API calls in the integration tests project.
+Do not call setupDataverse inside the tests. its done in the setup
+Do not use full urls. Use relative urls to the API endpoints.
+
 **Key Architecture Concepts:**
 - **Dual Build System**: Development uses Vite bundler while PCF production uses webpack (compatibility concerns exist)
 - **Environment Simulation**: Replicates PowerApps container structure and context for realistic development
