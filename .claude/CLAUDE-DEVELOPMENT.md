@@ -27,6 +27,9 @@ npm run clean
 npm run test:integration
 npm run test:integration:run
 
+# Run E2E tests (Playwright)
+npm run test:e2e      # Run Playwright tests against running instance
+
 # Test with fixture projects
 npm run dev:dataset   # PCF dataset component
 npm run dev:field     # PCF field component
@@ -38,8 +41,8 @@ npm run dev:field     # PCF field component
 cd /path/to/existing-pcf-project
 npx pcf-vite-harness
 
-# Test with fixture projects (navigate to tests/fixtures/*)
-cd tests/fixtures/pcf-dataset-test && npm run dev:pcf
+# Test with fixture projects (from root)
+npm run dev:dataset   # or npm run dev:field
 ```
 
 ## Testing Strategy
@@ -55,6 +58,12 @@ cd tests/fixtures/pcf-dataset-test && npm run dev:pcf
 - `pcf-dataset-test/` - Dataset-based PCF component with full development setup
 - `pcf-field-test/` - Field-based PCF component
 - Both include complete PCF project structure with manifests, TypeScript, and dev environments
+
+### E2E Testing (`tests/e2e/`)
+- **Playwright Tests**: Browser automation tests for DevTools UI and functionality
+- **Test Focus**: DevTools panels, console monitoring, network traffic inspection
+- **No Dev Server**: Tests run against existing running instances (e.g., fixture projects)
+- **Run Command**: `npm run test:e2e` from root directory
 
 ## Development Workflow
 

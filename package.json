@@ -54,6 +54,7 @@
     "prebuild": "npm run clean",
     "prepublishOnly": "npm run build",
     "test:integration": "cd tests/integration && vitest run",
+    "test:e2e": "cd tests/e2e && npx playwright test",
     "dev:dataset": "cd tests/fixtures/pcf-dataset-test && npm run dev:pcf",
     "dev:field": "cd tests/fixtures/pcf-field-test && npm run dev:pcf"
   },
