@@ -16,14 +16,12 @@ describe('Relationship Discovery Tests', () => {
     const accountData = await accountResponse.json()
     if (accountData.value && accountData.value.length > 0) {
       testAccountId = accountData.value[0].accountid
-      console.log('🎯 Using test account ID:', testAccountId)
     }
   })
 
   describe('Find Correct Lookup Syntax', () => {
     it('should test different lookup column syntaxes', async () => {
       if (!testAccountId) {
-        console.log('⚠️ No test account available, skipping syntax tests')
         return
       }
 

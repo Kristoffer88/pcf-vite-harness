@@ -38,9 +38,20 @@ interface UnifiedDatasetTabProps {
   connector: PCFDevToolsConnector
   currentState: any
   onUpdateView?: () => Promise<void>
+  // Shared state from parent
+  selectedParentEntity: ParentEntity | null
+  onSelectParentEntity: (entity: ParentEntity | null) => void
+  discoveredRelationships: DiscoveredRelationship[]
+  onDiscoveredRelationshipsUpdate: (relationships: DiscoveredRelationship[]) => void
+  detectedParentEntityType: string | null
+  onDetectedParentEntityTypeUpdate: (type: string | null) => void
+  currentEntity: string
+  onCurrentEntityUpdate: (entity: string) => void
+  targetEntity: string
+  onTargetEntityUpdate: (entity: string) => void
 }
 
-interface ParentEntity {
+export interface ParentEntity {
   id: string
   name: string
   entityType: string
@@ -71,10 +82,9 @@ interface LeftPanelProps {
   currentState: any
   onSelectDataset: (key: string) => void
   onRefreshDatasets: () => void
-  onClearCache: () => void
+  onSelectView: (viewId: string) => void
   onParentEntitySearch: (value: string) => void
   onSelectParentEntity: (entity: ParentEntity | null) => void
-  onSelectView: (viewId: string) => void
 }
 
 interface RightPanelProps {
@@ -190,18 +200,12 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
   datasetAnalysis,
   currentEntity,
   detectedParentEntityType,
-  parentEntitySearch,
   selectedParentEntity,
-  isLoadingParentEntities,
-  parentEntitySuggestions,
   availableViews,
   selectedViewId,
   currentState,
   onSelectDataset,
   onRefreshDatasets,
-  onClearCache,
-  onParentEntitySearch,
-  onSelectParentEntity,
   onSelectView,
 }) => {
   const getPageEntity = () => {
@@ -230,7 +234,7 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
         }}
       >
         <div style={{ marginBottom: '8px' }}>
-          <strong>📊 Dataset Management</strong>
+          <strong>🔍 Data Search & Refresh</strong>
         </div>
         <div style={{ fontSize: fontSize.xs, color: colors.text.secondary, marginBottom: '4px' }}>
           Page/Form Entity:{' '}
@@ -252,7 +256,49 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
 
         {/* Parent Entity Selection */}
         <div style={{ marginTop: '12px' }}>
-          {!detectedParentEntityType && datasets.length > 0 && (
+          {selectedParentEntity ? (
+            <div style={{
+              padding: '8px 12px',
+              backgroundColor: '#1a3d1a',
+              border: '1px solid #2ea043',
+              borderRadius: '4px',
+              fontSize: '12px',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: '10px', color: '#5ea85e', marginBottom: '2px' }}>
+                    Parent Filter Active
+                  </div>
+                  <div style={{ color: '#7ee787', fontWeight: '500' }}>
+                    {selectedParentEntity.name}
+                  </div>
+                  <div style={{ color: '#5ea85e', fontSize: '10px' }}>
+                    {selectedParentEntity.entityType} • {selectedParentEntity.id}
+                  </div>
+                </div>
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    // Switch to parent search tab
+                    const buttons = Array.from(document.querySelectorAll('button'))
+                    const parentSearchButton = buttons.find(btn => btn.textContent?.includes('🔍 Parent Search'))
+                    if (parentSearchButton) {
+                      parentSearchButton.click()
+                    }
+                  }}
+                  style={{
+                    color: '#58a6ff',
+                    fontSize: '11px',
+                    textDecoration: 'none',
+                  }}
+                  title="Go to Parent Search tab to change selection"
+                >
+                  Change →
+                </a>
+              </div>
+            </div>
+          ) : !detectedParentEntityType ? (
             <div style={{ 
               padding: '8px', 
               backgroundColor: '#1a3d1a', 
@@ -268,169 +314,54 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
                 Or add VITE_PCF_PAGE_TABLE=your_parent_entity to .env file
               </div>
             </div>
-          )}
-          
-        {detectedParentEntityType && (
-          <div style={{ position: 'relative' }}>
-            <label
-              style={{
-                fontSize: '11px',
-                color: colors.text.secondary,
-                marginBottom: '4px',
-                display: 'block',
-              }}
-            >
-              Parent Entity ({detectedParentEntityType}):
-            </label>
-            <div style={{ position: 'relative' }}>
-              <input
-                type="text"
-                value={parentEntitySearch}
-                onChange={e => onParentEntitySearch(e.target.value)}
-                placeholder={`Search ${detectedParentEntityType}...`}
-                style={{
-                  width: '100%',
-                  padding: '8px 32px 8px 12px',
-                  fontSize: '12px',
-                  backgroundColor: '#21262d',
-                  border: '1px solid #30363d',
-                  borderRadius: '4px',
-                  color: '#e6edf3',
-                  outline: 'none',
-                  transition: 'border-color 0.2s',
+          ) : detectedParentEntityType ? (
+            <div style={{ 
+              padding: '8px', 
+              backgroundColor: '#161b22', 
+              border: '1px solid #30363d',
+              borderRadius: '4px',
+              fontSize: '11px',
+            }}>
+              <div style={{ color: '#7d8590', marginBottom: '4px' }}>
+                No parent filter active
+              </div>
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault()
+                  // Switch to parent search tab
+                  const buttons = Array.from(document.querySelectorAll('button'))
+                  const parentSearchButton = buttons.find(btn => btn.textContent?.includes('🔍 Parent Search'))
+                  if (parentSearchButton) {
+                    parentSearchButton.click()
+                  }
                 }}
-                onFocus={e => e.target.style.borderColor = '#58a6ff'}
-                onBlur={e => e.target.style.borderColor = '#30363d'}
-              />
-              {isLoadingParentEntities && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    right: '8px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    fontSize: '10px',
-                    color: colors.text.secondary,
-                  }}
-                >
-                  Loading...
-                </div>
-              )}
-              {!isLoadingParentEntities && parentEntitySearch && (
-                <button
-                  onClick={() => onParentEntitySearch('')}
-                  style={{
-                    position: 'absolute',
-                    right: '8px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'none',
-                    border: 'none',
-                    color: '#7d8590',
-                    cursor: 'pointer',
-                    padding: '0 4px',
-                    fontSize: '14px',
-                  }}
-                  title="Clear search"
-                >
-                  ✕
-                </button>
-              )}
+                style={{
+                  color: '#58a6ff',
+                  fontSize: '11px',
+                  textDecoration: 'none',
+                }}
+              >
+                Select parent {detectedParentEntityType} →
+              </a>
             </div>
-
-            {/* Suggestions dropdown */}
-            {parentEntitySuggestions.length > 0 && parentEntitySearch.length > 0 && (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: '100%',
-                  left: '-12px',
-                  right: '-12px',
-                  backgroundColor: '#161b22',
-                  border: '1px solid #30363d',
-                  borderRadius: '6px',
-                  marginTop: '4px',
-                  maxHeight: '300px',
-                  overflowY: 'auto',
-                  zIndex: 100,
-                  boxShadow: '0 8px 16px rgba(0, 0, 0, 0.4)',
-                }}
-              >
-                {parentEntitySuggestions.map(entity => (
-                  <div
-                    key={entity.id}
-                    onClick={() => {
-                      onSelectParentEntity(entity)
-                      onParentEntitySearch('') // Clear search to close dropdown
-                    }}
-                    style={{
-                      padding: '10px 12px',
-                      fontSize: '12px',
-                      cursor: 'pointer',
-                      borderBottom: '1px solid #21262d',
-                      ':hover': {
-                        backgroundColor: '#21262d',
-                      },
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#21262d')}
-                    onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
-                  >
-                    <div style={{ flex: 1 }}>
-                      <div style={{ color: '#e6edf3', fontWeight: '500', marginBottom: '2px' }}>{entity.name}</div>
-                      <div style={{ color: '#7d8590', fontSize: '10px' }}>
-                        {entity.entityType} • {entity.id}
-                      </div>
-                    </div>
-                    <div style={{ color: '#58a6ff', fontSize: '16px' }}>✓</div>
-                  </div>
-                ))}
+          ) : (
+            <div style={{ 
+              padding: '8px', 
+              backgroundColor: '#1a3d1a', 
+              border: '1px solid #2ea043',
+              borderRadius: '4px',
+              fontSize: '11px',
+              marginBottom: '8px'
+            }}>
+              <div style={{ color: '#7ee787', marginBottom: '4px' }}>
+                💡 No parent entity detected. Click "Refresh All Datasets" to discover relationships.
               </div>
-            )}
-
-            {selectedParentEntity && (
-              <div
-                style={{
-                  marginTop: '8px',
-                  padding: '8px 12px',
-                  backgroundColor: '#1a3d1a',
-                  border: '1px solid #2ea043',
-                  borderRadius: '4px',
-                  fontSize: '12px',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <div style={{ color: '#7ee787', fontWeight: '500', marginBottom: '2px' }}>
-                      ✓ {selectedParentEntity.name}
-                    </div>
-                    <div style={{ color: '#5ea85e', fontSize: '10px' }}>
-                      {selectedParentEntity.entityType} • {selectedParentEntity.id}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => onSelectParentEntity(null)}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: '#7ee787',
-                      cursor: 'pointer',
-                      padding: '4px',
-                      fontSize: '16px',
-                      lineHeight: '1',
-                    }}
-                    title="Remove parent entity filter"
-                  >
-                    ✕
-                  </button>
-                </div>
+              <div style={{ fontSize: '10px', color: '#7ee787' }}>
+                Or add VITE_PCF_PAGE_TABLE=your_parent_entity to .env file
               </div>
-            )}
-          </div>
-        )}
-        </div>
+            </div>
+          )}
 
         {/* View Selection */}
         {availableViews.length > 0 && (
@@ -467,6 +398,7 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
             </select>
           </div>
         )}
+        </div>
       </div>
 
       {/* Refresh Controls */}
@@ -477,41 +409,24 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
           backgroundColor: '#1a1f2e',
         }}
       >
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-          <button
-            onClick={onRefreshDatasets}
-            disabled={refreshState.isRefreshing || datasets.length === 0}
-            style={{
-              flex: 1,
-              padding: '8px 12px',
-              backgroundColor: refreshState.isRefreshing ? '#475569' : '#3b82f6',
-              color: '#ffffff',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: refreshState.isRefreshing ? 'not-allowed' : 'pointer',
-              fontSize: '12px',
-              fontWeight: '600',
-            }}
-          >
-            {refreshState.isRefreshing ? '🔄 Refreshing...' : '🔄 Refresh All Datasets'}
-          </button>
-
-          <button
-            onClick={onClearCache}
-            style={{
-              padding: '8px 12px',
-              backgroundColor: '#6b7280',
-              color: '#ffffff',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '11px',
-            }}
-            title="Clear relationship discovery cache"
-          >
-            🧹 Clear Cache
-          </button>
-        </div>
+        <button
+          onClick={onRefreshDatasets}
+          disabled={refreshState.isRefreshing || datasets.length === 0}
+          style={{
+            width: '100%',
+            padding: '8px 12px',
+            backgroundColor: refreshState.isRefreshing ? '#475569' : '#3b82f6',
+            color: '#ffffff',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: refreshState.isRefreshing ? 'not-allowed' : 'pointer',
+            fontSize: '12px',
+            fontWeight: '600',
+            marginBottom: '8px',
+          }}
+        >
+          {refreshState.isRefreshing ? '🔄 Refreshing...' : '🔄 Refresh All Datasets'}
+        </button>
 
         {/* Status */}
         {refreshState.lastRefresh && (
@@ -668,54 +583,6 @@ const RightPanel: React.FC<RightPanelProps> = ({
               </div>
             </div>
 
-            {/* Discovered Relationships */}
-            {discoveredRelationships.length > 0 && (
-              <div
-                style={{
-                  backgroundColor: '#161b22',
-                  border: '1px solid #21262d',
-                  borderRadius: '6px',
-                  padding: '12px',
-                }}
-              >
-                <h4
-                  style={{
-                    margin: '0 0 8px 0',
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    color: '#e6edf3',
-                  }}
-                >
-                  Discovered Relationships
-                </h4>
-                <div style={{ fontSize: '11px' }}>
-                  {discoveredRelationships
-                    .filter(rel => 
-                      rel.parentEntity === selectedDatasetDetails.entityLogicalName ||
-                      rel.childEntity === selectedDatasetDetails.entityLogicalName
-                    )
-                    .map((rel, idx) => (
-                      <div
-                        key={idx}
-                        style={{
-                          padding: '8px',
-                          marginBottom: '4px',
-                          backgroundColor: '#0d1117',
-                          borderRadius: '4px',
-                          border: '1px solid #21262d',
-                        }}
-                      >
-                        <div style={{ color: '#e6edf3', marginBottom: '4px' }}>
-                          {rel.parentEntity} → {rel.childEntity}
-                        </div>
-                        <div style={{ color: '#7d8590', fontSize: '10px' }}>
-                          Type: {rel.type} | Field: {rel.lookupFieldName}
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              </div>
-            )}
           </div>
         )}
       </div>
@@ -727,14 +594,18 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
   connector,
   currentState,
   onUpdateView,
+  selectedParentEntity,
+  onSelectParentEntity,
+  discoveredRelationships,
+  onDiscoveredRelationshipsUpdate,
+  detectedParentEntityType,
+  onDetectedParentEntityTypeUpdate,
+  currentEntity,
+  onCurrentEntityUpdate,
+  targetEntity,
+  onTargetEntityUpdate,
 }) => {
   const [selectedDataset, setSelectedDataset] = useState<string | null>(null)
-  
-  // State declarations - must be before useEffect hooks that use them
-  const [parentEntities, setParentEntities] = useState<ParentEntity[]>([])
-  const [parentEntitySearch, setParentEntitySearch] = useState('')
-  const [isLoadingParentEntities, setIsLoadingParentEntities] = useState(false)
-  const [detectedParentEntityType, setDetectedParentEntityType] = useState<string | null>(null)
   const [availableViews, setAvailableViews] = useState<Array<{savedqueryid: string, name: string, isdefault: boolean}>>([])
   const [selectedViewId, setSelectedViewId] = useState<string | null>(null)
   const [refreshState, setRefreshState] = useState<DatasetRefreshState>({
@@ -745,8 +616,6 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
     totalFormsToRefresh: 0,
     currentlyRefreshing: [],
   })
-  const [discoveredRelationships, setDiscoveredRelationships] = useState<DiscoveredRelationship[]>([])
-  const [currentEntity, setCurrentEntity] = useState<string>('unknown')
   const [selectedForm, setSelectedForm] = useState<FormPCFMatch | null>(null)
   const [datasetAnalysisTrigger, setDatasetAnalysisTrigger] = useState(0)
   
@@ -782,73 +651,6 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
       type: 'DataSet',
     },
   }))
-  
-  // Initialize selectedParentEntity from localStorage
-  const [selectedParentEntity, setSelectedParentEntityInternal] = useState<ParentEntity | null>(() => {
-    try {
-      const saved = localStorage.getItem('pcf-devtools-selected-parent-entity')
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        // Validate that it has required properties
-        if (parsed && typeof parsed.id === 'string' && typeof parsed.name === 'string') {
-          return parsed
-        }
-      }
-    } catch (error) {
-      console.warn('Failed to load selected parent entity from localStorage:', error)
-    }
-    return null
-  })
-
-  // Wrapper to persist to localStorage and clear caches
-  const setSelectedParentEntity = useCallback((entity: ParentEntity | null) => {
-    const previousEntity = selectedParentEntity
-    
-    console.log('🔄 Parent entity selection changing:', {
-      from: previousEntity ? `${previousEntity.name} (${previousEntity.id})` : 'null',
-      to: entity ? `${entity.name} (${entity.id})` : 'null',
-      entityType: entity?.entityType || 'none'
-    })
-    
-    setSelectedParentEntityInternal(entity)
-    
-    // Clear caches when parent entity changes to ensure fresh data
-    if (previousEntity?.id !== entity?.id) {
-      console.log('🧹 Parent entity ID changed, clearing all caches')
-      console.log('   📋 Previous ID:', previousEntity?.id || 'none')
-      console.log('   📋 New ID:', entity?.id || 'none')
-      clearDiscoveryCache()
-      clearBatchMetadataCache()
-      console.log('✅ Cache clearing complete')
-    } else if (previousEntity?.id === entity?.id && entity) {
-      console.log('ℹ️ Same parent entity selected, no cache clearing needed')
-    }
-    
-    try {
-      if (entity) {
-        localStorage.setItem('pcf-devtools-selected-parent-entity', JSON.stringify(entity))
-      } else {
-        localStorage.removeItem('pcf-devtools-selected-parent-entity')
-      }
-    } catch (error) {
-      console.warn('Failed to persist selected parent entity:', error)
-    }
-  }, [selectedParentEntity])
-
-  // Validate selected parent entity when parent entities are loaded
-  useEffect(() => {
-    if (selectedParentEntity && parentEntities.length > 0) {
-      const isValid = parentEntities.some(entity => 
-        entity.id === selectedParentEntity.id && 
-        entity.entityType === selectedParentEntity.entityType
-      )
-      
-      if (!isValid) {
-        console.log('📋 Clearing invalid selected parent entity:', selectedParentEntity.name)
-        setSelectedParentEntity(null)
-      }
-    }
-  }, [parentEntities, selectedParentEntity, setSelectedParentEntity])
 
   // Trigger dataset refresh when parent entity changes
   useEffect(() => {
@@ -885,11 +687,8 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
 
   // Helper function to get the correct target entity
   const getTargetEntity = useCallback(() => {
-    return import.meta.env.VITE_PCF_TARGET_TABLE || 
-           discoveredRelationships[0]?.childEntity || 
-           datasets[0]?.entityLogicalName || 
-           'unknown'
-  }, [discoveredRelationships, datasets])
+    return targetEntity
+  }, [targetEntity])
 
   // Helper function to get the correct page/form entity
   const getPageEntity = useCallback(() => {
@@ -905,99 +704,26 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
   useEffect(() => {
     if (datasets.length > 0 && datasets[0]?.dataset?.entityLogicalName) {
       const entityName = datasets[0].dataset.entityLogicalName
-      console.log('📋 Updating current entity from dataset:', entityName)
-      setCurrentEntity(entityName)
+      console.log('📋 Updating target entity from dataset:', entityName)
+      onTargetEntityUpdate(entityName)
     }
-  }, [datasets])
+  }, [datasets, onTargetEntityUpdate])
 
   
 
-  // Detect parent entity type from relationships or environment
-  useEffect(() => {
-    // First check environment variable - PAGE_TABLE is the parent entity
-    const envPageTable = import.meta.env.VITE_PCF_PAGE_TABLE
-    if (envPageTable) {
-      setDetectedParentEntityType(envPageTable)
-      console.log(`🔍 Using parent entity from VITE_PCF_PAGE_TABLE: ${envPageTable}`)
-      return
-    }
-
-    // Then check discovered relationships
-    if (datasets.length > 0 && discoveredRelationships.length > 0) {
-      const targetEntity = datasets[0]?.dataset?.entityLogicalName
-      if (targetEntity) {
-        // Find relationships where this entity is the child
-        const parentRelationship = discoveredRelationships.find(rel => 
-          rel.childEntity === targetEntity && rel.parentEntity !== targetEntity
-        )
-        if (parentRelationship) {
-          setDetectedParentEntityType(parentRelationship.parentEntity)
-          console.log(`🔍 Detected parent entity type: ${parentRelationship.parentEntity} for ${targetEntity}`)
-        }
-      }
-    }
-    
-    // If no parent entity detected and we have WebAPI, try to discover from metadata
-    const targetEntity = datasets[0]?.dataset?.entityLogicalName
-    if (targetEntity && !detectedParentEntityType && currentState?.webAPI) {
-      console.log(`🔍 No parent entity detected, will discover from metadata after refresh`)
-      // The relationship discovery will happen when user clicks refresh
-      // This will populate discoveredRelationships and trigger parent entity detection
-    }
-  }, [datasets, discoveredRelationships, detectedParentEntityType])
-
-  // Load parent entities when parent type is detected
-  useEffect(() => {
-    const loadParentEntities = async () => {
-      if (!currentState?.webAPI || !detectedParentEntityType) return
-      
-      setIsLoadingParentEntities(true)
-      try {
-        // Get metadata to find primary name attribute
-        const metadataUrl = `EntityDefinitions(LogicalName='${detectedParentEntityType}')?$select=PrimaryIdAttribute,PrimaryNameAttribute`
-        const metadataResponse = await fetch(`/api/data/v9.2/${metadataUrl}`)
-        const metadata = await metadataResponse.json()
-        
-        const primaryId = metadata.PrimaryIdAttribute || `${detectedParentEntityType}id`
-        const primaryName = metadata.PrimaryNameAttribute || 'name'
-        
-        let query = `$select=${primaryId},${primaryName}&$orderby=${primaryName}`
-        if (parentEntitySearch) {
-          query += `&$filter=contains(${primaryName},'${parentEntitySearch}')`
-        }
-        
-        const result = await currentState.webAPI.retrieveMultipleRecords(detectedParentEntityType, query)
-        const entities = result.entities.map((entity: any) => ({
-          id: entity[primaryId],
-          name: entity[primaryName] || 'Unnamed',
-          entityType: detectedParentEntityType
-        }))
-        setParentEntities(entities)
-      } catch (error) {
-        console.error('Failed to load parent entities:', error)
-        setParentEntities([])
-      } finally {
-        setIsLoadingParentEntities(false)
-      }
-    }
-
-    const debounceTimer = setTimeout(loadParentEntities, 300)
-    return () => clearTimeout(debounceTimer)
-  }, [parentEntitySearch, currentState?.webAPI, detectedParentEntityType])
-
   // Callbacks for EntityDetectionPanel
   const handleEntityChange = useCallback((entity: string) => {
-    setCurrentEntity(entity)
-  }, [])
+    onCurrentEntityUpdate(entity)
+  }, [onCurrentEntityUpdate])
 
   const handleFormSelect = useCallback((form: FormPCFMatch | null) => {
     setSelectedForm(form)
     if (form) {
       // Clear relationship cache when switching forms
       clearDiscoveryCache()
-      setDiscoveredRelationships([])
+      onDiscoveredRelationshipsUpdate([])
     }
-  }, [])
+  }, [onDiscoveredRelationshipsUpdate])
 
   const handleDatasetAnalysisTrigger = useCallback(() => {
     setDatasetAnalysisTrigger(prev => prev + 1)
@@ -1071,7 +797,7 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
         // Update the UI with discovered relationships
         const timer = setTimeout(() => {
           const current = getDiscoveredRelationships()
-          setDiscoveredRelationships(current)
+          onDiscoveredRelationshipsUpdate(current)
           console.log(`🔍 Auto-discovery complete: ${current.length} relationships found`)
           relationshipDiscoveryInProgress.current = false
         }, 1000)
@@ -1346,10 +1072,10 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
                   console.log(`✅ Total relationships after record analysis: ${relationships.length}`)
                 }
                 
-                setDiscoveredRelationships(relationships)
+                onDiscoveredRelationshipsUpdate(relationships)
               }
             } else {
-              setDiscoveredRelationships(currentDiscovered)
+              onDiscoveredRelationshipsUpdate(currentDiscovered)
             }
             
             // If we don't have a view ID from form discovery, try to get appropriate view
@@ -1455,11 +1181,6 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
     setSelectedDataset(key)
   }, [])
 
-  const handleClearCache = useCallback(() => {
-    clearDiscoveryCache()
-    setDiscoveredRelationships([])
-    console.log('🧹 Discovery cache cleared')
-  }, [])
 
 
   return (
@@ -1471,18 +1192,12 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
         datasetAnalysis={datasetAnalysis}
         currentEntity={currentEntity}
         detectedParentEntityType={detectedParentEntityType}
-        parentEntitySearch={parentEntitySearch}
         selectedParentEntity={selectedParentEntity}
-        isLoadingParentEntities={isLoadingParentEntities}
-        parentEntitySuggestions={parentEntities}
         availableViews={availableViews}
         selectedViewId={selectedViewId}
         currentState={currentState}
         onSelectDataset={handleSelectDataset}
         onRefreshDatasets={handleRefreshDatasets}
-        onClearCache={handleClearCache}
-        onParentEntitySearch={setParentEntitySearch}
-        onSelectParentEntity={setSelectedParentEntity}
         onSelectView={(viewId) => {
           setSelectedViewId(viewId)
           
