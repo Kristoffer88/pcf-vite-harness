@@ -193,7 +193,7 @@ export async function executeFetchXml(
     let modifiedFetchXml = fetchXml
     if (options.maxPageSize || options.pageNumber) {
       modifiedFetchXml = addPaginationToFetchXml(fetchXml, {
-        pageSize: options.maxPageSize || 50,
+        pageSize: options.maxPageSize || 5000,
         pageNumber: options.pageNumber || 1,
       })
     }
@@ -230,7 +230,7 @@ export async function executeFetchXml(
 export async function getPaginatedRecordsForView(
   viewId: string,
   pageNumber: number = 1,
-  pageSize: number = 50
+  pageSize: number = 5000
 ): Promise<PaginatedRecordResult> {
   const options: RecordRetrievalOptions = {
     maxPageSize: pageSize,

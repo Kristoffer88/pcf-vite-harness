@@ -67,7 +67,7 @@ export class dataset implements ComponentFramework.StandardControl<IInputs, IOut
 
         html += '<div style="display: grid; gap: 8px; max-height: 300px; overflow-y: auto;">'
 
-        const recordKeys = Object.keys(sampleDataSet.records).slice(0, 5)
+        const recordKeys = Object.keys(sampleDataSet.records)
         recordKeys.forEach((key, index) => {
           const record = sampleDataSet.records[key]
           const primaryField = record.getFormattedValue
@@ -91,12 +91,6 @@ export class dataset implements ComponentFramework.StandardControl<IInputs, IOut
             </div>
           `
         })
-
-        if (recordCount > 5) {
-          html += `<div style="padding: 8px; text-align: center; color: #6c757d; font-style: italic;">
-            ... and ${recordCount - 5} more records
-          </div>`
-        }
 
         html += '</div>'
         this._datasetContainer.innerHTML = html

@@ -12,15 +12,46 @@ export function convertEntitiesToDatasetRecords(entities: ComponentFramework.Web
   [id: string]: any
 } {
   const records: { [id: string]: any } = {}
+  console.log(`🔄 Converting ${entities.length} entities to dataset records`)
 
-  entities.forEach(entity => {
+  const recordIds = new Set<string>()
+  let duplicateCount = 0
+
+  entities.forEach((entity, index) => {
     const primaryKey = findPrimaryKey(entity)
     if (primaryKey) {
       const recordId = entity[primaryKey] as string
+      
+      // Check for duplicates
+      if (recordIds.has(recordId)) {
+        duplicateCount++
+        console.warn(`⚠️ Duplicate record ID found: ${recordId} (entity ${index + 1})`)
+      }
+      recordIds.add(recordId)
+      
       records[recordId] = convertEntityToRecord(entity)
+      if (index < 5) {
+        console.log(`✅ Converted entity ${index + 1}: ${primaryKey} = ${recordId}`)
+      }
+    } else {
+      console.warn(`⚠️ Could not find primary key for entity ${index + 1}:`, Object.keys(entity).slice(0, 10))
     }
   })
+  
+  // Log available ID fields for debugging
+  if (entities.length > 0) {
+    const sampleEntity = entities[0]
+    if (sampleEntity) {
+      const idFields = Object.keys(sampleEntity).filter(k => k.endsWith('id') && !k.includes('@'))
+      console.log(`🔑 Available ID fields in entities:`, idFields)
+    }
+  }
+  
+  if (duplicateCount > 0) {
+    console.warn(`⚠️ Found ${duplicateCount} duplicate record IDs!`)
+  }
 
+  console.log(`✅ Converted ${Object.keys(records).length} records successfully`)
   return records
 }
 
@@ -134,20 +165,43 @@ export function createEnhancedContext(
 // Helper functions
 
 function findPrimaryKey(entity: ComponentFramework.WebApi.Entity): string | null {
-  // Look for common primary key patterns
-  const keys = Object.keys(entity)
-
-  // Find attribute ending with 'id' that contains a GUID
-  for (const key of keys) {
-    if (key.endsWith('id') && typeof entity[key] === 'string') {
-      const value = entity[key] as string
-      // Check if it looks like a GUID
-      if (value.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-        return key
+  // Try to detect entity type from @odata.context
+  let entityType: string | null = null
+  const odataContext = entity['@odata.context'] as string | undefined
+  if (odataContext) {
+    const match = odataContext.match(/\/([a-z_]+)s?\(/i)
+    if (match) {
+      entityType = match[1] || null
+    }
+  }
+  
+  if (entityType) {
+    // For Dataverse entities, the primary key is always entityname + 'id'
+    const expectedPrimaryKey = `${entityType}id`
+    
+    // Check if this field exists and has a GUID value
+    if (entity[expectedPrimaryKey]) {
+      const value = entity[expectedPrimaryKey]
+      if (typeof value === 'string' && value.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+        return expectedPrimaryKey
       }
     }
   }
-
+  
+  // Fallback: Look for any field ending with 'id' that contains a GUID and is not a relationship
+  const keys = Object.keys(entity)
+  for (const key of keys) {
+    if (key.endsWith('id') && !key.includes('@') && !key.includes('.')) {
+      const value = entity[key]
+      if (typeof value === 'string' && value.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+        // Skip relationship fields
+        if (!key.includes('parent') && !key.includes('related') && !key.includes('regarding') && !key.includes('owner')) {
+          return key
+        }
+      }
+    }
+  }
+  
   return null
 }
 

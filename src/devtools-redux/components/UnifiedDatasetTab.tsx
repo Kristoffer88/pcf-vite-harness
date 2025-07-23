@@ -122,7 +122,7 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
         const primaryId = metadata.PrimaryIdAttribute || `${detectedParentEntityType}id`
         const primaryName = metadata.PrimaryNameAttribute || 'name'
         
-        let query = `$select=${primaryId},${primaryName}&$orderby=${primaryName}&$top=50`
+        let query = `$select=${primaryId},${primaryName}&$orderby=${primaryName}`
         if (parentEntitySearch) {
           query += `&$filter=contains(${primaryName},'${parentEntitySearch}')`
         }
@@ -540,7 +540,6 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
 
           // Build query with runtime discovery
           const queryOptions = {
-            maxPageSize: 50,
             includeFormattedValues: true,
             parentEntity: selectedParentEntity
               ? selectedParentEntity.entityType
@@ -568,6 +567,14 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
             successCount++
             console.log(`✅ Success for ${key}: ${queryResult.entities.length} records`)
             
+            // Log the dataset state before injection
+            const datasetBefore = context.parameters?.[key]
+            console.log(`📊 Dataset ${key} before injection:`, {
+              hasRecords: !!datasetBefore?.records,
+              recordCount: Object.keys(datasetBefore?.records || {}).length,
+              records: datasetBefore?.records ? Object.keys(datasetBefore.records).slice(0, 5) : []
+            })
+            
             // Inject the retrieved records into the dataset
             const injected = await injectDatasetRecords({
               context,
@@ -578,6 +585,14 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
             
             if (injected) {
               console.log(`💉 Successfully injected records into dataset: ${key}`)
+              
+              // Log the dataset state after injection
+              const datasetAfter = context.parameters?.[key]
+              console.log(`📊 Dataset ${key} after injection:`, {
+                hasRecords: !!datasetAfter?.records,
+                recordCount: Object.keys(datasetAfter?.records || {}).length,
+                records: datasetAfter?.records ? Object.keys(datasetAfter.records).slice(0, 5) : []
+              })
             }
           } else {
             errorCount++
@@ -619,7 +634,7 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
               error: String(error),
             },
             errorAnalysis: errorAnalysisResult,
-            query: `${dataset.entityLogicalName}s?$select=*&$top=50`,
+            query: `${dataset.entityLogicalName}s?$select=*`,
           })
           errorCount++
         }

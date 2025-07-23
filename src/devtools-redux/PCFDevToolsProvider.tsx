@@ -213,7 +213,7 @@ export const usePCFDatasets = () => {
           return { success: false, error: `View not found: ${targetViewId}` }
         }
 
-        const recordResult = await getRecordsForView(targetViewId, { maxPageSize: 50 })
+        const recordResult = await getRecordsForView(targetViewId, {})
 
         if (!recordResult.success) {
           return { success: false, error: recordResult.error }

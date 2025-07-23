@@ -195,9 +195,9 @@ const DatasetTabComponent: React.FC<DatasetTabProps> = ({ connector, currentStat
           const generatedDataset = await generateDatasetFromViewWithProgress(
             {
               viewId: dataset.viewId,
-              pageSize: 50,
+              pageSize: 5000,
               includeRecords: true,
-              recordLimit: 50,
+              recordLimit: 5000,
             },
             (step: number, message: string) => {
               setLoadingState(prev => ({

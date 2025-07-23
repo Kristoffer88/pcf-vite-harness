@@ -266,9 +266,9 @@ export const DatasetRefreshTool: React.FC<DatasetRefreshToolProps> = ({
               // Generate the complete dataset structure from the view
               const generatedDataset = await generateDatasetFromView({
                 viewId: matchingDataset.viewId,
-                pageSize: 50,
+                pageSize: 5000,
                 includeRecords: true,
-                recordLimit: 50,
+                recordLimit: 5000,
               })
               
               // Convert generated dataset to query result format
@@ -306,7 +306,7 @@ export const DatasetRefreshTool: React.FC<DatasetRefreshToolProps> = ({
               
               // Fallback to the original query builder
               const query = await buildDatasetRefreshQueryWithDiscovery(subgridInfo, {
-                maxPageSize: 50,
+                maxPageSize: 5000,
                 includeFormattedValues: true,
                 parentRecordId: currentParentRecordId || undefined,
                 parentEntity: datasetMetadata?.entityName || undefined,

@@ -326,7 +326,7 @@ function createErrorDataset(error: Error): GeneratedDataset {
       totalResultCount: 0,
       firstPageNumber: 1,
       lastPageNumber: 1,
-      pageSize: 50,
+      pageSize: 5000,
       hasNextPage: false,
       hasPreviousPage: false,
     },

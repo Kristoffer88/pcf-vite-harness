@@ -34,22 +34,27 @@ export async function injectDatasetRecords(options: DatasetInjectionOptions): Pr
     }
 
     console.log(`💉 Injecting ${queryResult.entities.length} records into dataset: ${datasetName}`)
+    console.log(`📊 Existing records before injection:`, Object.keys(dataset.records || {}).length)
 
     // Convert entities to dataset records format
     const newRecords = convertEntitiesToDatasetRecords(queryResult.entities)
+    console.log(`🔄 Converted ${Object.keys(newRecords).length} entities to dataset records`)
     
     // Clear existing records and add new ones
     if (dataset.records) {
       // Clear existing records
+      console.log(`🧹 Clearing ${Object.keys(dataset.records).length} existing records`)
       Object.keys(dataset.records).forEach(key => {
         delete dataset.records[key]
       })
       
       // Add new records
       Object.assign(dataset.records, newRecords)
+      console.log(`✅ Added ${Object.keys(newRecords).length} new records`)
     } else {
       // Create records object if it doesn't exist
       (dataset as any).records = newRecords
+      console.log(`✅ Created new records object with ${Object.keys(newRecords).length} records`)
     }
 
     // Update columns if needed
@@ -140,25 +145,25 @@ function updateDatasetMetadata(dataset: any, queryResult: QueryResult): void {
 }
 
 /**
- * Detect entity type from entity data
+ * Detect entity type from entity data or metadata
  */
 function detectEntityType(entity: ComponentFramework.WebApi.Entity): string | null {
-  // Look for common entity type patterns
-  const keys = Object.keys(entity)
+  // Check @odata.context if available (most reliable)
+  const context = entity['@odata.context'] as string | undefined
+  if (context) {
+    // Extract entity name from context like "#/accounts(" or "#/pum_gantttasks("
+    const match = context.match(/\/([a-z_]+)s?\(/i)
+    if (match) {
+      return match[1] ?? null
+    }
+  }
   
+  // Fallback: Look for common entity type patterns in keys
+  const keys = Object.keys(entity)
   for (const key of keys) {
     if (key.endsWith('id') && !key.includes('_') && !key.includes('@')) {
       // Extract entity name from primary key
       return key.substring(0, key.length - 2)
-    }
-  }
-  
-  // Check @odata.context if available
-  const context = entity['@odata.context'] as string | undefined
-  if (context) {
-    const match = context.match(/\/([a-z_]+)\(/i)
-    if (match) {
-      return match[1] ?? null
     }
   }
   
@@ -169,16 +174,37 @@ function detectEntityType(entity: ComponentFramework.WebApi.Entity): string | nu
  * Find primary key attribute in entity
  */
 function findPrimaryKey(entity: ComponentFramework.WebApi.Entity): string | null {
-  const keys = Object.keys(entity)
+  // Detect entity type from the data
+  const entityType = detectEntityType(entity)
   
-  for (const key of keys) {
-    if (key.endsWith('id') && typeof entity[key] === 'string') {
-      const value = entity[key] as string
-      if (value.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-        return key
+  if (entityType) {
+    // For standard and custom entities, the primary key is always entityname + 'id'
+    const expectedPrimaryKey = `${entityType}id`
+    
+    // Check if this field exists and has a GUID value
+    if (entity[expectedPrimaryKey]) {
+      const value = entity[expectedPrimaryKey]
+      if (typeof value === 'string' && value.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+        console.log(`🔑 Found primary key: ${expectedPrimaryKey} = ${value}`)
+        return expectedPrimaryKey
       }
     }
   }
+  
+  // Fallback: Look for any field ending with 'id' that contains a GUID
+  const keys = Object.keys(entity)
+  const idFields = keys.filter(k => k.endsWith('id') && !k.includes('@'))
+  
+  for (const key of idFields) {
+    const value = entity[key]
+    if (typeof value === 'string' && value.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+      console.log(`🔑 Found primary key (fallback): ${key} = ${value}`)
+      return key
+    }
+  }
+  
+  console.warn(`⚠️ No primary key found for entity type: ${entityType}`)
+  console.warn(`⚠️ Available ID fields:`, idFields)
   
   return null
 }

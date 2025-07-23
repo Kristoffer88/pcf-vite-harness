@@ -46,7 +46,7 @@ export function buildDatasetRefreshQuery(
   } = {}
 ): DatasetQuery {
   const {
-    maxPageSize = 50,
+    maxPageSize,
     includeFormattedValues = true,
     additionalSelect = [],
     parentRecordId,
@@ -58,7 +58,12 @@ export function buildDatasetRefreshQuery(
   const entityCollection = subgrid.targetEntity.endsWith('s')
     ? subgrid.targetEntity
     : `${subgrid.targetEntity}s`
-  let odataQuery = `${entityCollection}?$select=${selectFields}&$top=${maxPageSize}`
+  let odataQuery = `${entityCollection}?$select=${selectFields}`
+  
+  // Only add $top if maxPageSize is explicitly provided
+  if (maxPageSize !== undefined && maxPageSize > 0) {
+    odataQuery += `&$top=${maxPageSize}`
+  }
 
   // Note: We don't use $expand=*($levels=1) for datasets as it's unnecessary and impacts performance
   // Formatted values are included by default in dataset queries
@@ -113,7 +118,7 @@ export async function buildDatasetRefreshQueryWithDiscovery(
   } = {}
 ): Promise<DatasetQuery> {
   const {
-    maxPageSize = 50,
+    maxPageSize,
     includeFormattedValues = true,
     additionalSelect = [],
     parentRecordId,
@@ -121,13 +126,23 @@ export async function buildDatasetRefreshQueryWithDiscovery(
     webAPI,
   } = options
 
+  const selectFields = ['*', ...additionalSelect].join(',')
+
   // Use plural form for entity collection (discovered in tests)
   const entityCollection = subgrid.targetEntity.endsWith('s')
     ? subgrid.targetEntity
     : `${subgrid.targetEntity}s`
   
-  // Start with basic query
-  let odataQuery = `${entityCollection}?$top=${maxPageSize}`
+  // Start with basic query including select fields
+  let odataQuery = `${entityCollection}?$select=${selectFields}`
+  
+  console.log(`🔨 Building query - maxPageSize: ${maxPageSize}, selectFields: ${selectFields}`)
+  
+  // Only add $top if maxPageSize is explicitly provided
+  if (maxPageSize !== undefined && maxPageSize > 0) {
+    odataQuery += `&$top=${maxPageSize}`
+    console.log(`📏 Added $top=${maxPageSize} to query`)
+  }
 
   // Note: We don't use $expand=*($levels=1) for datasets as it's unnecessary and impacts performance
   // Formatted values are included by default in dataset queries
