@@ -25,7 +25,7 @@ export interface DiscoveredRelationship {
   relationshipDisplayName: string
   discoveredAt: Date
   confidence: 'high' | 'medium' | 'low'
-  source: 'metadata' | 'pattern' | 'manual'
+  source: 'metadata' | 'pattern' | 'manual' | 'record-analysis' | 'column-analysis'
 }
 
 // In-memory cache for discovered metadata

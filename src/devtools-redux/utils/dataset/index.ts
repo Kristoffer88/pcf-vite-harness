@@ -87,3 +87,11 @@ export {
   getCachedEntityMetadata,
 } from './entityMetadata'
 export type { EntityMetadataInfo } from './entityMetadata'
+
+// Column Relationship Analysis
+export {
+  analyzeColumnsForRelationships,
+  isLookupColumn,
+  extractFieldNameFromColumn,
+} from './columnRelationshipAnalyzer'
+export type { ColumnAnalysisResult } from './columnRelationshipAnalyzer'
