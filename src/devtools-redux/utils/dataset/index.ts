@@ -3,13 +3,7 @@
  * Centralized exports for all dataset-related functionality
  */
 
-// Dataset Enhancement
-export {
-  convertEntitiesToDatasetRecords,
-  createDatasetColumnsFromEntities,
-  createEnhancedContext,
-  mergeDatasetResults,
-} from './datasetEnhancer'
+// Dataset Enhancement (exports removed - unused)
 export type { DatasetErrorAnalysis } from './errorAnalyzer'
 // Error Analysis
 export {
@@ -49,16 +43,9 @@ export {
   testWebAPIConnection,
 } from './queryExecutor'
 export type { RelationshipMapping } from './relationshipMapper'
-// Relationship Mapping
+// Relationship Mapping (only keep the used ones)
 export {
-  addRelationshipMapping,
-  buildRelationshipFilter,
-  buildRelationshipFilterWithDiscovery,
-  getMappingsForChildEntity,
-  getMappingsForParentEntity,
   isKnownRelationship,
-  mapRelationshipToLookupColumn,
-  mapRelationshipToLookupColumnWithDiscovery,
   suggestRelationshipMapping,
 } from './relationshipMapper'
 // Types
@@ -71,38 +58,12 @@ export type {
   SubgridInfo,
 } from './types'
 
-// Dataset Injection
-export {
-  injectDatasetRecords,
-  batchInjectDatasets,
-} from './datasetInjector'
-export type { DatasetInjectionOptions } from './datasetInjector'
+// Dataset Injection (functions unused - removed)
 
-// Entity Metadata
-export {
-  fetchEntityMetadata,
-  getEntityPrimaryKey,
-  getEntityPrimaryName,
-  clearEntityMetadataCache,
-  getCachedEntityMetadata,
-} from './entityMetadata'
-export type { EntityMetadataInfo } from './entityMetadata'
+// Entity Metadata (functions unused - removed)
 
-// Column Relationship Analysis
-export {
-  analyzeColumnsForRelationships,
-  isLookupColumn,
-  extractFieldNameFromColumn,
-} from './columnRelationshipAnalyzer'
-export type { ColumnAnalysisResult } from './columnRelationshipAnalyzer'
+// Column Relationship Analysis (functions unused - removed)
 
-// Batch Metadata Fetching
-export {
-  fetchEntityMetadataWithLookups,
-  fetchMultipleEntityMetadata,
-  clearBatchMetadataCache,
-  getBatchCacheStats,
-} from './batchMetadataFetcher'
+// Batch Metadata Fetching (functions unused - removed)
 
-// Rate Limiting
-export { RateLimiter, metadataRateLimiter, dataRateLimiter } from './rateLimiter'
+// Rate Limiting (functions unused - removed)

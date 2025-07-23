@@ -3,7 +3,6 @@
  * Export all DevTools functionality
  */
 
-export { DatasetRefreshTool } from './components/DatasetRefreshTool'
 export { LifecycleTriggers } from './components/LifecycleTriggers'
 // Export PCF lifecycle context
 export { PCFLifecycleProvider, usePCFLifecycle } from './contexts/PCFLifecycleContext'
@@ -36,25 +35,7 @@ export type {
   RelationshipMapping,
   SubgridInfo,
 } from './utils/dataset'
-export {
-  addRelationshipMapping,
-  analyzeDatasetRefreshError,
-  analyzeDataverseError,
-  buildDatasetRefreshQuery,
-  buildRelationshipFilter,
-  convertEntitiesToDatasetRecords,
-  createDatasetColumnsFromEntities,
-  createDataverseError,
-  createEnhancedContext,
-  executeDatasetQuery,
-  getMappingsForChildEntity,
-  getMappingsForParentEntity,
-  isKnownRelationship,
-  // New dataset refresh functionality
-  mapRelationshipToLookupColumn,
-  mergeDatasetResults,
-  suggestRelationshipMapping,
-} from './utils/dataset'
+// Dataset enhancement exports removed - unused per ts-prune analysis
 
 // Export dataset analysis functionality
 export type {
