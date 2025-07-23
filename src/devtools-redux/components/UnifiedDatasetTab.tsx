@@ -5,7 +5,7 @@
  */
 
 import type React from 'react'
-import { memo, useCallback, useEffect, useState, useMemo, useRef } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react'
 import type { PCFDevToolsConnector } from '../PCFDevToolsConnector'
 import {
   borderRadius,
@@ -35,6 +35,7 @@ import {
 } from '../../utils/pcfDiscovery'
 import { EntityDetectionPanel } from './EntityDetectionPanel'
 import { LeftPanel, RightPanel } from './dataset'
+import { useDatasetStore } from '../stores'
 interface UnifiedDatasetTabProps {
   connector: PCFDevToolsConnector
   currentState: any
@@ -75,19 +76,21 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
   targetEntity,
   onTargetEntityUpdate,
 }) => {
-  const [selectedDataset, setSelectedDataset] = useState<string | null>(null)
-  const [availableViews, setAvailableViews] = useState<Array<{savedqueryid: string, name: string, isdefault: boolean}>>([])
-  const [selectedViewId, setSelectedViewId] = useState<string | null>(null)
-  const [refreshState, setRefreshState] = useState<DatasetRefreshState>({
-    isRefreshing: false,
-    refreshResults: [],
-    successCount: 0,
-    errorCount: 0,
-    totalFormsToRefresh: 0,
-    currentlyRefreshing: [],
-  })
-  const [selectedForm, setSelectedForm] = useState<FormPCFMatch | null>(null)
-  const [datasetAnalysisTrigger, setDatasetAnalysisTrigger] = useState(0)
+  // Zustand stores - using individual selectors to avoid reference equality issues
+  const selectedDataset = useDatasetStore((state) => state.selectedDataset)
+  const availableViews = useDatasetStore((state) => state.availableViews)
+  const selectedViewId = useDatasetStore((state) => state.selectedViewId)
+  const refreshState = useDatasetStore((state) => state.refreshState)
+  const selectedForm = useDatasetStore((state) => state.selectedForm)
+  const datasetAnalysisTrigger = useDatasetStore((state) => state.datasetAnalysisTrigger)
+  
+  // Actions (these are stable functions, so object destructuring is fine)
+  const setSelectedDataset = useDatasetStore((state) => state.setSelectedDataset)
+  const setAvailableViews = useDatasetStore((state) => state.setAvailableViews)
+  const setSelectedViewId = useDatasetStore((state) => state.setSelectedViewId)
+  const setRefreshState = useDatasetStore((state) => state.setRefreshState)
+  const setSelectedForm = useDatasetStore((state) => state.setSelectedForm)
+  const triggerDatasetAnalysis = useDatasetStore((state) => state.triggerDatasetAnalysis)
   
   // Memoize dataset analysis to prevent repeated calls - must be early to avoid temporal dead zone
   const datasetAnalysis = useMemo(() => {
@@ -114,13 +117,13 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
   }, [currentState?.context, datasetAnalysisTrigger])
 
   // Define datasets immediately after datasetAnalysis to avoid temporal dead zone issues
-  const datasets = datasetAnalysis.datasets.map(ds => ({
+  const datasets = useMemo(() => datasetAnalysis.datasets.map(ds => ({
     key: ds.name,
     dataset: {
       ...ds,
       type: 'DataSet',
     },
-  }))
+  })), [datasetAnalysis.datasets])
 
   // Trigger dataset refresh when parent entity changes
   useEffect(() => {
@@ -135,11 +138,7 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
       // Add a small delay to ensure caches are cleared
       const timer = setTimeout(() => {
         console.log('⏰ Timer expired, triggering dataset analysis refresh now')
-        setDatasetAnalysisTrigger(prev => {
-          const newValue = prev + 1
-          console.log('📊 Dataset analysis trigger updated:', prev, '→', newValue)
-          return newValue
-        })
+        triggerDatasetAnalysis()
       }, 100)
       
       return () => {
@@ -152,6 +151,7 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
         datasetCount: datasets.length,
         reason: !selectedParentEntity ? 'no parent entity' : 'no datasets'
       })
+      return undefined
     }
   }, [selectedParentEntity?.id, datasets.length])
 
@@ -169,15 +169,20 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
 
   // Refs to prevent duplicate operations
   const relationshipDiscoveryInProgress = useRef(false)
+  const lastSetTargetEntity = useRef<string | null>(null)
 
   // Update current entity when datasets change
   useEffect(() => {
     if (datasets.length > 0 && datasets[0]?.dataset?.entityLogicalName) {
       const entityName = datasets[0].dataset.entityLogicalName
-      console.log('📋 Updating target entity from dataset:', entityName)
-      onTargetEntityUpdate(entityName)
+      // Only update if the entity name has actually changed AND we haven't already set it
+      if (entityName !== targetEntity && entityName !== lastSetTargetEntity.current) {
+        console.log('📋 Updating target entity from dataset:', entityName, '(previous:', lastSetTargetEntity.current, ', current target:', targetEntity, ')')
+        lastSetTargetEntity.current = entityName
+        onTargetEntityUpdate(entityName)
+      }
     }
-  }, [datasets, onTargetEntityUpdate])
+  }, [datasets, targetEntity]) // Removed onTargetEntityUpdate from deps to prevent loops
 
   
 
@@ -196,8 +201,8 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
   }, [onDiscoveredRelationshipsUpdate])
 
   const handleDatasetAnalysisTrigger = useCallback(() => {
-    setDatasetAnalysisTrigger(prev => prev + 1)
-  }, [])
+    triggerDatasetAnalysis()
+  }, [triggerDatasetAnalysis])
 
 
 
@@ -281,6 +286,7 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
 
       return () => clearTimeout(timer)
     }
+    return undefined
   }, [datasets.length, currentEntity, currentState?.webAPI])
 
   const handleRefreshDatasets = useCallback(async () => {
@@ -652,7 +658,7 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
 
   const handleSelectDataset = useCallback((key: string) => {
     setSelectedDataset(key)
-  }, [])
+  }, [setSelectedDataset])
 
 
 

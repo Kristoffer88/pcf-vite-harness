@@ -4,7 +4,7 @@
  */
 
 import type React from 'react'
-import { memo, useCallback, useEffect, useState } from 'react'
+import { memo, useCallback, useEffect } from 'react'
 import {
   SearchBox,
   Button,
@@ -37,6 +37,7 @@ import {
   fontSize,
   spacing,
 } from '../styles/theme'
+import { useSearchStore } from '../stores'
 
 export interface ParentEntity {
   id: string
@@ -65,10 +66,18 @@ const ParentSearchTabComponent: React.FC<ParentSearchTabProps> = ({
   currentEntity,
   targetEntity,
 }) => {
-  const [parentEntities, setParentEntities] = useState<ParentEntity[]>([])
-  const [parentEntitySearch, setParentEntitySearch] = useState('')
-  const [isLoadingParentEntities, setIsLoadingParentEntities] = useState(false)
-  const [searchError, setSearchError] = useState<string | null>(null)
+  // Zustand stores
+  // Use individual selectors to avoid reference equality issues
+  const parentEntities = useSearchStore((state) => state.parentEntities)
+  const parentEntitySearch = useSearchStore((state) => state.parentEntitySearch)
+  const isLoadingParentEntities = useSearchStore((state) => state.isLoadingParentEntities)
+  const searchError = useSearchStore((state) => state.searchError)
+  
+  // Actions (these are stable functions)
+  const setParentEntities = useSearchStore((state) => state.setParentEntities)
+  const setParentEntitySearch = useSearchStore((state) => state.setParentEntitySearch)
+  const setIsLoadingParentEntities = useSearchStore((state) => state.setIsLoadingParentEntities)
+  const setSearchError = useSearchStore((state) => state.setSearchError)
 
   // Load parent entities when search changes
   useEffect(() => {

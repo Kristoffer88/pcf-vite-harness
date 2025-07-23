@@ -4,7 +4,7 @@
  */
 
 import type React from 'react'
-import { memo, useCallback, useEffect, useState } from 'react'
+import { memo, useCallback, useEffect } from 'react'
 import { FluentProvider, webDarkTheme } from '@fluentui/react-components'
 import { LifecycleTriggers } from './components/LifecycleTriggers'
 import { UnifiedDatasetTab } from './components/UnifiedDatasetTab'
@@ -19,6 +19,8 @@ import {
 import type { PCFDevToolsConnector } from './PCFDevToolsConnector'
 import { usePCFLifecycle } from './contexts/PCFLifecycleContext'
 import type { DiscoveredRelationship } from './utils/dataset'
+import { useDevToolsStore, selectDevToolsUI, selectEntityManagement, selectDevToolsActions } from './stores'
+import { shallow } from 'zustand/shallow'
 import {
   borderRadius,
   colors,
@@ -35,49 +37,31 @@ interface EmbeddedDevToolsUIProps {
 }
 
 const EmbeddedDevToolsUIComponent: React.FC<EmbeddedDevToolsUIProps> = ({ connector }) => {
-  const [isOpen, setIsOpen] = useState(false)
-  const [currentState, setCurrentState] = useState<any>(null)
-  const [activeTab, setActiveTab] = useState<'lifecycle' | 'relationships' | 'data' | 'parent'>('data')
   const { triggerUpdateView } = usePCFLifecycle()
-
-  // Shared state between Relationships and Datasets tabs
-  const [selectedParentEntity, setSelectedParentEntity] = useState<ParentEntity | null>(() => {
-    try {
-      const saved = localStorage.getItem('pcf-devtools-selected-parent-entity')
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        if (parsed && typeof parsed.id === 'string' && typeof parsed.name === 'string') {
-          return parsed
-        }
-      }
-    } catch (error) {
-      console.warn('Failed to load selected parent entity from localStorage:', error)
-    }
-    return null
-  })
-  const [discoveredRelationships, setDiscoveredRelationships] = useState<DiscoveredRelationship[]>([])
-  const [detectedParentEntityType, setDetectedParentEntityType] = useState<string | null>(null)
-  const [currentEntity, setCurrentEntity] = useState<string>('unknown')
-  const [targetEntity, setTargetEntity] = useState<string>('unknown')
-
-  // Wrapper to persist parent entity to localStorage
-  const handleSelectParentEntity = useCallback((entity: ParentEntity | null) => {
-    setSelectedParentEntity(entity)
-    try {
-      if (entity) {
-        localStorage.setItem('pcf-devtools-selected-parent-entity', JSON.stringify(entity))
-      } else {
-        localStorage.removeItem('pcf-devtools-selected-parent-entity')
-      }
-    } catch (error) {
-      console.warn('Failed to persist selected parent entity:', error)
-    }
-  }, [])
+  
+  // Zustand stores - using individual property access to prevent re-render loops
+  const isOpen = useDevToolsStore((state) => state.isOpen)
+  const activeTab = useDevToolsStore((state) => state.activeTab)
+  const currentState = useDevToolsStore((state) => state.currentState)
+  const selectedParentEntity = useDevToolsStore((state) => state.selectedParentEntity)
+  const discoveredRelationships = useDevToolsStore((state) => state.discoveredRelationships)
+  const detectedParentEntityType = useDevToolsStore((state) => state.detectedParentEntityType)
+  const currentEntity = useDevToolsStore((state) => state.currentEntity)
+  const targetEntity = useDevToolsStore((state) => state.targetEntity)
+  const setCurrentState = useDevToolsStore((state) => state.setCurrentState)
+  const setSelectedParentEntity = useDevToolsStore((state) => state.setSelectedParentEntity)
+  const setDiscoveredRelationships = useDevToolsStore((state) => state.setDiscoveredRelationships)
+  const setDetectedParentEntityType = useDevToolsStore((state) => state.setDetectedParentEntityType)
+  const setCurrentEntity = useDevToolsStore((state) => state.setCurrentEntity)
+  const setTargetEntity = useDevToolsStore((state) => state.setTargetEntity)
+  const openDevTools = useDevToolsStore((state) => state.openDevTools)
+  const closeDevTools = useDevToolsStore((state) => state.closeDevTools)
+  const setActiveTab = useDevToolsStore((state) => state.setActiveTab)
 
   // Memoized event handlers
-  const handleOpen = useCallback(() => setIsOpen(true), [])
-  const handleClose = useCallback(() => setIsOpen(false), [])
-  const handleTabChange = useCallback((tab: 'lifecycle' | 'relationships' | 'data' | 'parent') => setActiveTab(tab), [])
+  const handleOpen = useCallback(() => openDevTools(), [openDevTools])
+  const handleClose = useCallback(() => closeDevTools(), [closeDevTools])
+  const handleTabChange = useCallback((tab: 'lifecycle' | 'relationships' | 'data' | 'parent') => setActiveTab(tab), [setActiveTab])
 
   useEffect(() => {
     // Subscribe to devtools updates
@@ -92,7 +76,7 @@ const EmbeddedDevToolsUIComponent: React.FC<EmbeddedDevToolsUIProps> = ({ connec
       // Ensure cleanup
       unsubscribe()
     }
-  }, [connector])
+  }, [connector, setCurrentState])
 
   // Detect parent entity type from relationships or environment
   useEffect(() => {
@@ -115,7 +99,7 @@ const EmbeddedDevToolsUIComponent: React.FC<EmbeddedDevToolsUIProps> = ({ connec
         console.log(`🔍 Detected parent entity type: ${parentRelationship.parentEntity} for ${targetEntity}`)
       }
     }
-  }, [discoveredRelationships, targetEntity])
+  }, [discoveredRelationships, targetEntity, setDetectedParentEntityType])
 
   // Update current entity based on context
   useEffect(() => {
@@ -125,7 +109,7 @@ const EmbeddedDevToolsUIComponent: React.FC<EmbeddedDevToolsUIProps> = ({ connec
         setCurrentEntity(contextEntity)
       }
     }
-  }, [currentState])
+  }, [currentState, setCurrentEntity])
 
   // Initialize target entity from environment or default
   useEffect(() => {
@@ -134,7 +118,7 @@ const EmbeddedDevToolsUIComponent: React.FC<EmbeddedDevToolsUIProps> = ({ connec
       setTargetEntity(envTargetTable)
       console.log(`🎯 Using target entity from VITE_PCF_TARGET_TABLE: ${envTargetTable}`)
     }
-  }, [])
+  }, [targetEntity, setTargetEntity])
 
   if (!isOpen) {
     return <DevToolsToggleButton onOpen={handleOpen} />
@@ -187,7 +171,7 @@ const EmbeddedDevToolsUIComponent: React.FC<EmbeddedDevToolsUIProps> = ({ connec
               connector={connector}
               currentState={currentState}
               selectedParentEntity={selectedParentEntity}
-              onSelectParentEntity={handleSelectParentEntity}
+              onSelectParentEntity={setSelectedParentEntity}
               detectedParentEntityType={detectedParentEntityType}
               currentEntity={currentEntity}
               targetEntity={targetEntity}
@@ -201,7 +185,7 @@ const EmbeddedDevToolsUIComponent: React.FC<EmbeddedDevToolsUIProps> = ({ connec
               currentState={currentState} 
               onUpdateView={triggerUpdateView}
               selectedParentEntity={selectedParentEntity}
-              onSelectParentEntity={handleSelectParentEntity}
+              onSelectParentEntity={setSelectedParentEntity}
               discoveredRelationships={discoveredRelationships}
               onDiscoveredRelationshipsUpdate={setDiscoveredRelationships}
               detectedParentEntityType={detectedParentEntityType}
