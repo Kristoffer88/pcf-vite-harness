@@ -336,6 +336,100 @@ export function getDiscoveredRelationships(): DiscoveredRelationship[] {
 }
 
 /**
+ * Discover relationships from dataset record fields
+ * Analyzes _value fields in records to infer lookup relationships
+ */
+export async function discoverRelationshipsFromRecords(
+  records: any[],
+  currentEntity: string,
+  webAPI: ComponentFramework.WebApi
+): Promise<DiscoveredRelationship[]> {
+  const discoveredRelationships: DiscoveredRelationship[] = []
+  const lookupFields = new Map<string, { fieldName: string; targetId: string }>()
+
+  console.log(`🔍 Analyzing ${records.length} records from ${currentEntity} for relationships...`)
+
+  // Analyze records to find _value fields
+  records.forEach(record => {
+    Object.keys(record).forEach(key => {
+      if (key.endsWith('_value') && record[key]) {
+        const fieldName = key.replace('_value', '').replace(/^_/, '')
+        const targetId = record[key]
+        
+        console.log(`  Found lookup field: ${key} (attribute: ${fieldName}) = ${targetId}`)
+        
+        // Store unique lookup fields
+        if (!lookupFields.has(fieldName)) {
+          lookupFields.set(fieldName, { fieldName, targetId })
+        }
+      }
+    })
+  })
+
+  // First check if the current entity has a primary key to avoid treating it as a lookup
+  let primaryKeyAttribute: string | null = null
+  try {
+    const entityMetadataUrl = `/api/data/v9.2/EntityDefinitions(LogicalName='${currentEntity}')?$select=PrimaryIdAttribute`
+    const entityResponse = await fetch(entityMetadataUrl)
+    if (entityResponse.ok) {
+      const entityData = await entityResponse.json()
+      primaryKeyAttribute = entityData.PrimaryIdAttribute
+      console.log(`  Primary key for ${currentEntity}: ${primaryKeyAttribute}`)
+    }
+  } catch (error) {
+    console.warn(`Failed to get primary key for ${currentEntity}:`, error)
+  }
+
+  // For each lookup field, try to determine the target entity
+  for (const [fieldName, fieldInfo] of lookupFields) {
+    // Skip if this is the primary key field
+    if (primaryKeyAttribute && fieldName === primaryKeyAttribute) {
+      console.log(`  ⚠️ Skipping ${fieldName} - it's the primary key, not a lookup`)
+      continue
+    }
+
+    try {
+      // Try to get attribute metadata to find target entities
+      const metadataUrl = `/api/data/v9.2/EntityDefinitions(LogicalName='${currentEntity}')/Attributes(LogicalName='${fieldName}')/Microsoft.Dynamics.CRM.LookupAttributeMetadata?$select=LogicalName,Targets`
+      const response = await fetch(metadataUrl)
+      
+      if (response.ok) {
+        const metadata = await response.json()
+        const targets = metadata.Targets || []
+        
+        if (targets.length > 0) {
+          // For each target entity, create a discovered relationship
+          targets.forEach((targetEntity: string) => {
+            const relationship: DiscoveredRelationship = {
+              parentEntity: targetEntity,
+              childEntity: currentEntity,
+              lookupColumn: `_${fieldName}_value`,
+              relationshipDisplayName: `${targetEntity} lookup on ${currentEntity}`,
+              discoveredAt: new Date(),
+              confidence: 'high',
+              source: 'record-analysis',
+            }
+            
+            // Cache the discovered relationship
+            const cacheKey = `${relationship.parentEntity}->${relationship.childEntity}`
+            relationshipCache.set(cacheKey, relationship)
+            
+            discoveredRelationships.push(relationship)
+            console.log(`✅ Discovered relationship from records: ${currentEntity}.${fieldName} -> ${targetEntity}`)
+          })
+        } else {
+          console.warn(`⚠️ No targets found for lookup field ${fieldName} on ${currentEntity}`)
+        }
+      }
+    } catch (error) {
+      console.warn(`Failed to get metadata for field ${fieldName}:`, error)
+    }
+  }
+
+  return discoveredRelationships
+}
+
+/**
  * Clear all caches (useful for testing)
  */
 export function clearDiscoveryCache(): void {

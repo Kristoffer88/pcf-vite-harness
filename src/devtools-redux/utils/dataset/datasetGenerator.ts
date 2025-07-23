@@ -267,7 +267,7 @@ function createFieldObject(value: any, formattedValue: any, column: any): any {
         const lookupFormattedKey = `_${column.name}_value@OData.Community.Display.V1.FormattedValue`
         return {
           reference: {
-            etn: column.targets?.[0] || 'unknown',
+            etn: column.targets?.[0] || column.name.replace(/_value$/, '').replace(/^_/, '') || 'unknown',
             id: {
               guid: value,
             },

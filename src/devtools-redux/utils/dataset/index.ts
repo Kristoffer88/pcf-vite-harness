@@ -30,6 +30,7 @@ export {
   discoverEntityMetadata,
   discoverRelationshipLookupColumn,
   discoverRelationshipMultiStrategy,
+  discoverRelationshipsFromRecords,
   exportDiscoveredMappings,
   getDiscoveredRelationships,
 } from './metadataDiscovery'

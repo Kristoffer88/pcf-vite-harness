@@ -197,10 +197,18 @@ export async function fetchAttributeMetadata(
         const lookupResponse = await fetch(lookupUrl)
         if (lookupResponse.ok) {
           const lookupData = await lookupResponse.json()
-          attr.targets = lookupData.Targets
+          attr.targets = lookupData.Targets || []
+          
+          if (attr.targets.length === 0) {
+            console.warn(`⚠️ No targets found for lookup field ${attrName} on ${entityName}. This might be a polymorphic lookup.`)
+          } else {
+            console.log(`✅ Found targets for ${attrName}: ${attr.targets.join(', ')}`)
+          }
+        } else {
+          console.warn(`Failed to fetch lookup metadata for ${attrName}: ${lookupResponse.status} ${lookupResponse.statusText}`)
         }
       } catch (e) {
-        console.warn(`Failed to fetch lookup metadata for ${attrName}`)
+        console.warn(`Failed to fetch lookup metadata for ${attrName}:`, e)
       }
     }
   }
@@ -284,6 +292,7 @@ export async function buildDatasetColumns(
       cellType: '',
       disableSorting: false,
       type: mapPCFDataTypeToSimpleType(attrMeta?.dataType || 'SingleLine.Text', viewColumn.name),
+      targets: attrMeta?.targets || [], // Include targets for lookup fields
     }
 
     columns.push(column)

@@ -96,6 +96,17 @@ export function detectDatasetParameters(
         resolved: entityLogicalName
       })
 
+      // Debug log columns to understand structure
+      if (columns.length > 0) {
+        console.log(`📊 Columns in dataset ${paramName}:`)
+        columns.forEach((col: any) => {
+          console.log(`  - ${col.name} (${col.dataType || 'unknown'})`)
+          if (col.name?.endsWith('id') || col.name?.includes('_value')) {
+            console.log(`    ⚠️ Potential lookup field pattern`)
+          }
+        })
+      }
+
       const datasetInfo: DatasetInfo = {
         name: paramName,
         records,

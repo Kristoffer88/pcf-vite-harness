@@ -518,7 +518,7 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
 
             try {
               // Import the discovery function and try to discover the relationship
-              const { discoverRelationshipMultiStrategy } = await import('../utils/dataset')
+              const { discoverRelationshipMultiStrategy, discoverRelationshipsFromRecords } = await import('../utils/dataset')
 
               const discoveredRelationship = await discoverRelationshipMultiStrategy(
                 currentEntity,
@@ -775,6 +775,32 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
                 })) || []
                 
                 console.log(`✅ Discovered ${relationships.length} relationships for ${targetEntity}`)
+                
+                // Also analyze dataset records if available to discover more relationships
+                if (refreshResults.length > 0) {
+                  for (const result of refreshResults) {
+                    if (result.queryResult?.success && result.queryResult.entities.length > 0) {
+                      const recordRelationships = await discoverRelationshipsFromRecords(
+                        result.queryResult.entities,
+                        targetEntity,
+                        webAPI
+                      )
+                      
+                      // Merge with existing relationships, avoiding duplicates
+                      recordRelationships.forEach(rel => {
+                        if (!relationships.find(r => 
+                          r.parentEntity === rel.parentEntity && 
+                          r.childEntity === rel.childEntity && 
+                          r.lookupColumn === rel.lookupColumn
+                        )) {
+                          relationships.push(rel)
+                        }
+                      })
+                    }
+                  }
+                  console.log(`✅ Total relationships after record analysis: ${relationships.length}`)
+                }
+                
                 setDiscoveredRelationships(relationships)
               }
             } else {
