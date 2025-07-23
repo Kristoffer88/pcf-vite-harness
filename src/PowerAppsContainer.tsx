@@ -45,11 +45,11 @@ const PowerAppsContainerInner: React.FC<
   return (
     <div
       id="tab-section2"
-      className={`pa-g pa-ae pa-h pa-ht pa-cf pa-pb pa-du pa-bx webkitScroll flexbox ${className}`}
+      className={`pa-g pa-ae pa-h pa-ht pa-cf pa-pb pa-du pa-bx flexbox ${className}`}
       style={{
         height: '100vh',
         width: '100vw',
-        overflow: 'auto',
+        overflow: 'hidden',
         backgroundColor: '#f3f2f1',
         fontFamily:
           '"Segoe UI", "Segoe UI Web (West European)", "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", sans-serif',
@@ -69,7 +69,7 @@ const PowerAppsContainerInner: React.FC<
             style={{ height: '100%', width: '100%' }}
           >
             <div
-              className="pa-g pa-ct pa-h pa-j pa-hq webkitScroll flexbox"
+              className="pa-g pa-ct pa-h pa-j pa-hq flexbox"
               style={{ height: '100%', width: '100%' }}
             >
               <div
@@ -116,7 +116,6 @@ const PowerAppsContainerInner: React.FC<
                                 style={{
                                   width: '100%',
                                   height: '100%',
-                                  minHeight: '100vh',
                                 }}
                                 ref={containerRef}
                               />

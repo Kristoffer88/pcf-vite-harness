@@ -83,8 +83,6 @@
   },
   "homepage": "https://github.com/kristoffer88/pcf-vite-harness#readme",
   "dependencies": {
-    "@fluentui/react-components": "^9.67.0",
-    "@fluentui/react-icons": "^2.0.306",
     "@redux-devtools/extension": "^3.3.0",
     "@vitejs/plugin-react": "^4.7.0",
     "commander": "^12.0.0",

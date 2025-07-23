@@ -5,36 +5,14 @@
 
 import type React from 'react'
 import { memo, useCallback, useEffect } from 'react'
-import {
-  SearchBox,
-  Button,
-  Text,
-  Card,
-  CardHeader,
-  CardPreview,
-  Body1,
-  Body2,
-  Caption1,
-  Badge,
-  Spinner,
-  MessageBar,
-  MessageBarBody,
-  MessageBarTitle,
-  tokens,
-} from '@fluentui/react-components'
-import {
-  Search20Regular,
-  Dismiss20Regular,
-  CheckmarkCircle20Filled,
-  Warning20Filled,
-  Info20Filled,
-} from '@fluentui/react-icons'
 import type { PCFDevToolsConnector } from '../PCFDevToolsConnector'
 import {
   borderRadius,
   colors,
   commonStyles,
   fontSize,
+  fonts,
+  fontWeight,
   spacing,
 } from '../styles/theme'
 import { useSearchStore } from '../stores'
@@ -153,179 +131,325 @@ const ParentSearchTabComponent: React.FC<ParentSearchTabProps> = ({
   return (
     <div style={{ 
       flex: 1, 
-      overflow: 'auto', 
-      padding: tokens.spacingVerticalXL,
+      overflow: 'hidden', 
+      padding: spacing.xl,
       display: 'flex',
       flexDirection: 'column',
-      gap: tokens.spacingVerticalL,
+      gap: spacing.lg,
     }}>
-      {/* Header */}
-      <div style={{ marginBottom: tokens.spacingVerticalL }}>
-        <Text as="h2" size={600} weight="semibold" style={{ marginBottom: tokens.spacingVerticalM }}>
-          🔍 Parent Entity Search
-        </Text>
-        
-        {/* Entity Context Cards */}
+      {/* Info Message if no parent type detected */}
+      {!detectedParentEntityType && (
         <div style={{ 
-          display: 'flex', 
-          gap: tokens.spacingHorizontalL, 
-          marginBottom: tokens.spacingVerticalL,
-          flexWrap: 'wrap',
+          marginBottom: spacing.lg,
+          padding: spacing.md,
+          backgroundColor: colors.background.secondary,
+          border: `1px solid ${colors.border.secondary}`,
+          borderRadius: borderRadius.md,
+          color: colors.text.primary
         }}>
-          <Card style={{ minWidth: '200px' }}>
-            <CardHeader
-              header={<Body2>Page/Form Entity</Body2>}
-              description={
-                <div style={{ display: 'flex', alignItems: 'center', gap: tokens.spacingHorizontalXS }}>
-                  <Badge appearance="filled" color="success">{getPageEntity()}</Badge>
-                  {import.meta.env.VITE_PCF_PAGE_TABLE && (
-                    <Caption1>(from .env)</Caption1>
-                  )}
-                </div>
-              }
-            />
-          </Card>
-          
-          <Card style={{ minWidth: '200px' }}>
-            <CardHeader
-              header={<Body2>Target Entity</Body2>}
-              description={<Badge appearance="filled" color="informative">{targetEntity}</Badge>}
-            />
-          </Card>
+          <div style={{ fontWeight: fontWeight.semibold, marginBottom: spacing.xs }}>
+            ℹ️ No parent entity type detected
+          </div>
+          <div>To enable parent entity search:</div>
+          <ol style={{ margin: spacing.xs, paddingLeft: spacing.lg }}>
+            <li>Add VITE_PCF_PAGE_TABLE=your_parent_entity to your .env file</li>
+            <li>Or refresh datasets in the Data & Search tab to discover relationships</li>
+          </ol>
         </div>
-
-        {/* Info Message if no parent type detected */}
-        {!detectedParentEntityType && (
-          <MessageBar intent="info" style={{ marginBottom: tokens.spacingVerticalL }}>
-            <MessageBarBody>
-              <MessageBarTitle>No parent entity type detected</MessageBarTitle>
-              To enable parent entity search:
-              <ol style={{ margin: tokens.spacingVerticalXS, paddingLeft: tokens.spacingHorizontalL }}>
-                <li>Add VITE_PCF_PAGE_TABLE=your_parent_entity to your .env file</li>
-                <li>Or refresh datasets in the Data & Search tab to discover relationships</li>
-              </ol>
-            </MessageBarBody>
-          </MessageBar>
-        )}
-      </div>
+      )}
 
       {/* Search Section */}
       {detectedParentEntityType && (
         <div>
-          {/* Search Input - Moved to TOP as requested */}
-          <div style={{ marginBottom: tokens.spacingVerticalL }}>
-            <SearchBox
-              placeholder={`Search ${detectedParentEntityType} records...`}
-              value={parentEntitySearch}
-              onChange={(_, data) => setParentEntitySearch(data.value)}
-              contentBefore={<Search20Regular />}
-              contentAfter={
-                isLoadingParentEntities ? (
-                  <Spinner size="extra-small" />
-                ) : parentEntitySearch ? (
-                  <Button
-                    appearance="subtle"
-                    size="small"
-                    icon={<Dismiss20Regular />}
-                    onClick={() => setParentEntitySearch('')}
-                    title="Clear search"
-                  />
-                ) : null
-              }
-              style={{ width: '100%' }}
-            />
+          {/* Search Input */}
+          <div style={{ marginBottom: spacing.lg }}>
+            <div style={{ position: 'relative', width: '100%' }}>
+              <input
+                type="text"
+                placeholder={`Search ${detectedParentEntityType} records...`}
+                value={parentEntitySearch}
+                onChange={(e) => setParentEntitySearch(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: `${spacing.sm} ${spacing.md}`,
+                  paddingLeft: spacing.xl,
+                  paddingRight: spacing.xl,
+                  backgroundColor: colors.background.secondary,
+                  border: `1px solid ${colors.border.primary}`,
+                  borderRadius: borderRadius.md,
+                  color: colors.text.primary,
+                  fontSize: fontSize.md,
+                  fontFamily: fonts.system,
+                  outline: 'none',
+                }}
+              />
+              <div style={{
+                position: 'absolute',
+                left: spacing.sm,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: colors.text.secondary,
+                pointerEvents: 'none'
+              }}>
+                🔍
+              </div>
+              {isLoadingParentEntities ? (
+                <div style={{
+                  position: 'absolute',
+                  right: spacing.sm,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: colors.text.secondary
+                }}>
+                  ⏳
+                </div>
+              ) : parentEntitySearch ? (
+                <button
+                  type="button"
+                  onClick={() => setParentEntitySearch('')}
+                  title="Clear search"
+                  style={{
+                    position: 'absolute',
+                    right: spacing.sm,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    color: colors.text.secondary,
+                    cursor: 'pointer',
+                    fontSize: fontSize.sm,
+                    padding: spacing.xs
+                  }}
+                >
+                  ✕
+                </button>
+              ) : null}
+            </div>
             
             {/* Search Results Count */}
             {parentEntities.length > 0 && (
-              <Caption1 style={{ marginTop: tokens.spacingVerticalXS }}>
+              <div style={{ 
+                marginTop: spacing.xs, 
+                fontSize: fontSize.sm, 
+                color: colors.text.secondary 
+              }}>
                 {parentEntities.length} records found
-              </Caption1>
+              </div>
             )}
           </div>
 
           {/* Currently Selected */}
           {selectedParentEntity && (
-            <Card 
-              appearance="filled-alternative"
-              style={{ 
-                marginBottom: tokens.spacingVerticalL,
-                border: `2px solid ${tokens.colorBrandBackground}`,
-              }}
-            >
-              <CardHeader
-                image={<CheckmarkCircle20Filled color={tokens.colorPaletteGreenForeground1} />}
-                header={
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                    <div>
-                      <Body1 weight="semibold">{selectedParentEntity.name}</Body1>
-                      <Caption1>{selectedParentEntity.entityType} • {selectedParentEntity.id}</Caption1>
-                    </div>
-                    <Button
-                      appearance="subtle"
-                      size="small"
-                      onClick={handleClearSelection}
-                    >
-                      Clear Selection
-                    </Button>
+            <div style={{ 
+              marginBottom: spacing.lg,
+              padding: spacing.md,
+              backgroundColor: colors.background.secondary,
+              border: `2px solid ${colors.status.accent}`,
+              borderRadius: borderRadius.md,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
+                <div style={{ color: colors.status.success, fontSize: fontSize.lg }}>
+                  ✓
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ 
+                    fontWeight: fontWeight.semibold, 
+                    fontSize: fontSize.md,
+                    color: colors.text.primary,
+                    marginBottom: spacing.xs
+                  }}>
+                    {selectedParentEntity.name}
                   </div>
-                }
-              />
-            </Card>
+                  <div style={{ 
+                    fontSize: fontSize.sm, 
+                    color: colors.text.secondary 
+                  }}>
+                    {selectedParentEntity.entityType} • {selectedParentEntity.id}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleClearSelection}
+                  style={{
+                    ...commonStyles.button,
+                    padding: `${spacing.xs} ${spacing.sm}`,
+                    fontSize: fontSize.sm
+                  }}
+                >
+                  Clear Selection
+                </button>
+              </div>
+            </div>
           )}
 
           {/* Search Results */}
           {searchError ? (
-            <MessageBar intent="error">
-              <MessageBarBody>
-                <MessageBarTitle>Search Error</MessageBarTitle>
-                {searchError}
-              </MessageBarBody>
-            </MessageBar>
+            <div style={{ 
+              padding: spacing.md,
+              backgroundColor: colors.background.secondary,
+              border: `1px solid ${colors.status.error}`,
+              borderRadius: borderRadius.md,
+              color: colors.status.error
+            }}>
+              <div style={{ fontWeight: fontWeight.semibold, marginBottom: spacing.xs }}>
+                ⚠️ Search Error
+              </div>
+              <div>{searchError}</div>
+            </div>
           ) : parentEntities.length > 0 ? (
             <div>
               <div style={{
                 display: 'grid',
-                gap: tokens.spacingVerticalS,
-                maxHeight: '400px',
-                overflowY: 'auto',
-                borderRadius: '8px',
-                border: '1px solid #21262d',
+                gap: spacing.sm,
+                borderRadius: borderRadius.md,
+                border: `1px solid ${colors.border.primary}`,
+                padding: spacing.xs
               }}>
                 {parentEntities.map(entity => (
-                  <Card
+                  <div
                     key={entity.id}
-                    appearance="outline"
-                    style={{ cursor: 'pointer' }}
+                    style={{ 
+                      padding: spacing.md,
+                      backgroundColor: colors.background.secondary,
+                      border: `1px solid ${colors.border.secondary}`,
+                      borderRadius: borderRadius.sm,
+                      cursor: 'pointer',
+                      transition: 'background-color 0.2s ease'
+                    }}
                     onClick={() => {
                       onSelectParentEntity(entity)
                       setParentEntitySearch('')
                     }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = colors.background.surface
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = colors.background.secondary
+                    }}
                   >
-                    <CardHeader
-                      header={<Body1 weight="semibold">{entity.name}</Body1>}
-                      description={<Caption1 style={{ fontFamily: 'monospace' }}>{entity.id}</Caption1>}
-                    />
-                  </Card>
+                    <div style={{ 
+                      fontWeight: fontWeight.semibold, 
+                      fontSize: fontSize.md,
+                      color: colors.text.primary,
+                      marginBottom: spacing.xs
+                    }}>
+                      {entity.name}
+                    </div>
+                    <div style={{ 
+                      fontFamily: fonts.mono, 
+                      fontSize: fontSize.sm, 
+                      color: colors.text.secondary 
+                    }}>
+                      {entity.id}
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
           ) : parentEntitySearch && !isLoadingParentEntities ? (
-            <MessageBar intent="info">
-              <MessageBarBody>
-                No results found for "{parentEntitySearch}"
-              </MessageBarBody>
-            </MessageBar>
+            <div style={{ 
+              padding: spacing.md,
+              backgroundColor: colors.background.secondary,
+              border: `1px solid ${colors.border.secondary}`,
+              borderRadius: borderRadius.md,
+              color: colors.text.primary
+            }}>
+              <div>No results found for "{parentEntitySearch}"</div>
+            </div>
           ) : !parentEntitySearch && !isLoadingParentEntities ? (
             <div style={{
               textAlign: 'center',
-              padding: tokens.spacingVerticalXXL,
-              color: tokens.colorNeutralForeground3,
+              padding: spacing.xxl,
+              color: colors.text.secondary,
             }}>
-              <Text>Start typing to search for {detectedParentEntityType} records</Text>
+              <div>Start typing to search for {detectedParentEntityType} records</div>
             </div>
           ) : null}
         </div>
       )}
+
+      {/* Parent Entity Search Header - Moved to Bottom */}
+      <div style={{ marginTop: spacing.lg }}>
+        <h2 style={{ 
+          fontSize: fontSize.xl, 
+          fontWeight: fontWeight.semibold, 
+          color: colors.text.primary,
+          marginBottom: spacing.md,
+          margin: 0
+        }}>
+          🔍 Parent Entity Search
+        </h2>
+        
+        {/* Entity Context Cards */}
+        <div style={{ 
+          display: 'flex', 
+          gap: spacing.lg, 
+          marginBottom: spacing.lg,
+          flexWrap: 'wrap',
+        }}>
+          <div style={{ 
+            minWidth: '200px',
+            padding: spacing.md,
+            backgroundColor: colors.background.secondary,
+            border: `1px solid ${colors.border.secondary}`,
+            borderRadius: borderRadius.md,
+          }}>
+            <div style={{ 
+              fontSize: fontSize.md, 
+              fontWeight: fontWeight.medium,
+              color: colors.text.primary,
+              marginBottom: spacing.xs
+            }}>
+              Page/Form Entity
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs }}>
+              <span style={{
+                padding: `${spacing.xs} ${spacing.sm}`,
+                backgroundColor: colors.status.success,
+                color: colors.text.primary,
+                borderRadius: borderRadius.sm,
+                fontSize: fontSize.sm,
+              }}>
+                {getPageEntity()}
+              </span>
+              {import.meta.env.VITE_PCF_PAGE_TABLE && (
+                <span style={{ 
+                  fontSize: fontSize.sm, 
+                  color: colors.text.secondary 
+                }}>
+                  (from .env)
+                </span>
+              )}
+            </div>
+          </div>
+          
+          <div style={{ 
+            minWidth: '200px',
+            padding: spacing.md,
+            backgroundColor: colors.background.secondary,
+            border: `1px solid ${colors.border.secondary}`,
+            borderRadius: borderRadius.md,
+          }}>
+            <div style={{ 
+              fontSize: fontSize.md, 
+              fontWeight: fontWeight.medium,
+              color: colors.text.primary,
+              marginBottom: spacing.xs
+            }}>
+              Target Entity
+            </div>
+            <span style={{
+              padding: `${spacing.xs} ${spacing.sm}`,
+              backgroundColor: colors.status.info,
+              color: colors.text.primary,
+              borderRadius: borderRadius.sm,
+              fontSize: fontSize.sm,
+            }}>
+              {targetEntity}
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

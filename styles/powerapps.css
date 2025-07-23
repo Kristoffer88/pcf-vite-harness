@@ -74,7 +74,6 @@
 
 .webkitScroll {
   -webkit-overflow-scrolling: touch;
-  overflow: auto;
 }
 
 .forceNewStackContext {

@@ -3,6 +3,14 @@ import type { IInputs, IOutputs } from './generated/ManifestTypes'
 import DataSetInterfaces = ComponentFramework.PropertyHelper.DataSetApi
 type DataSet = ComponentFramework.PropertyTypes.DataSet
 
+// Enhanced record interface for test data
+interface EnhancedEntityRecord extends DataSetInterfaces.EntityRecord {
+  _entityReference?: {
+    _name?: string
+  }
+  _primaryFieldName?: string
+}
+
 export class dataset implements ComponentFramework.StandardControl<IInputs, IOutputs> {
   private _container: HTMLDivElement
   private _context: ComponentFramework.Context<IInputs>
@@ -65,15 +73,15 @@ export class dataset implements ComponentFramework.StandardControl<IInputs, IOut
           </div>
         </div>`
 
-        html += '<div style="display: grid; gap: 8px; max-height: 300px; overflow-y: auto;">'
+        html += '<div style="display: grid; gap: 8px;">'
 
         const recordKeys = Object.keys(sampleDataSet.records)
         recordKeys.forEach((key, index) => {
-          const record = sampleDataSet.records[key]
+          const record = sampleDataSet.records[key] as EnhancedEntityRecord
           // Check for _entityReference._name first (set by datasetGenerator)
           let displayName = ''
-          if ((record as any)._entityReference && (record as any)._entityReference._name) {
-            displayName = (record as any)._entityReference._name
+          if (record._entityReference && record._entityReference._name) {
+            displayName = record._entityReference._name
           } else if (record.getFormattedValue) {
             // Fallback to getFormattedValue
             displayName = record.getFormattedValue('name') || record.getFormattedValue('fullname') || ''
@@ -83,9 +91,9 @@ export class dataset implements ComponentFramework.StandardControl<IInputs, IOut
           if (!displayName) {
             const debugInfo = {
               recordId: key,
-              hasEntityReference: !!(record as any)._entityReference,
-              entityReferenceName: (record as any)._entityReference?._name,
-              primaryFieldName: (record as any)._primaryFieldName,
+              hasEntityReference: !!record._entityReference,
+              entityReferenceName: record._entityReference?._name,
+              primaryFieldName: record._primaryFieldName,
               recordKeys: Object.keys(record).slice(0, 10)
             }
             throw new Error(`Failed to get display name for record at index ${index}. Debug: ${JSON.stringify(debugInfo, null, 2)}`)
