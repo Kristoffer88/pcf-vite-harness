@@ -95,3 +95,14 @@ export {
   extractFieldNameFromColumn,
 } from './columnRelationshipAnalyzer'
 export type { ColumnAnalysisResult } from './columnRelationshipAnalyzer'
+
+// Batch Metadata Fetching
+export {
+  fetchEntityMetadataWithLookups,
+  fetchMultipleEntityMetadata,
+  clearBatchMetadataCache,
+  getBatchCacheStats,
+} from './batchMetadataFetcher'
+
+// Rate Limiting
+export { RateLimiter, metadataRateLimiter, dataRateLimiter } from './rateLimiter'

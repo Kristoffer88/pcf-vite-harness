@@ -4,6 +4,8 @@
  * Perfect for development tools that need to work with any custom entities
  */
 
+import { fetchEntityMetadataWithLookups } from './batchMetadataFetcher'
+
 export interface EntityMetadata {
   logicalName: string
   displayName: string
@@ -52,57 +54,41 @@ export async function discoverEntityMetadata(
     return cached
   }
 
+  // Check if we're already fetching this entity to avoid duplicate requests
+  const fetchKey = `fetching_${entityLogicalName}`
+  if (metadataCache.has(fetchKey)) {
+    console.log(`⏳ Already fetching metadata for ${entityLogicalName}, waiting...`)
+    // Wait a bit and try again from cache
+    await new Promise(resolve => setTimeout(resolve, 100))
+    return metadataCache.get(entityLogicalName) || null
+  }
+
+  // Mark as fetching
+  metadataCache.set(fetchKey, {} as EntityMetadata)
+
   if (!webAPI) {
     console.warn('⚠️ WebAPI not available for metadata discovery')
     return null
   }
 
   try {
-    console.log(`🔍 Discovering metadata for entity: ${entityLogicalName}`)
-
-    // Query entity definition with lookup attributes
-    // We need to make a direct HTTP request for metadata, not use retrieveRecord
-    const metadataUrl = `/api/data/v9.2/EntityDefinitions(LogicalName='${entityLogicalName}')?$select=LogicalName,DisplayName,EntitySetName&$expand=Attributes($filter=AttributeType eq Microsoft.Dynamics.CRM.AttributeTypeCode'Lookup';$select=LogicalName,DisplayName)`
-
-    const metadataResponse = await fetch(metadataUrl)
-    if (!metadataResponse.ok) {
-      throw new Error(`Failed to fetch metadata: ${metadataResponse.status}`)
+    // Use batch fetcher for efficiency - gets all lookup targets in one request
+    const metadata = await fetchEntityMetadataWithLookups(entityLogicalName)
+    
+    if (metadata) {
+      // Cache in our local cache too
+      metadataCache.set(entityLogicalName, metadata)
+      // Remove fetching marker
+      metadataCache.delete(fetchKey)
+      return metadata
     }
-    const response = await metadataResponse.json()
-
-    const lookupAttributes: LookupAttribute[] = []
-
-    if (response.Attributes && Array.isArray(response.Attributes)) {
-      for (const attr of response.Attributes) {
-        // Get the targets for this lookup attribute
-        const targets = await discoverLookupTargets(entityLogicalName, attr.LogicalName)
-
-        lookupAttributes.push({
-          logicalName: attr.LogicalName,
-          displayName: attr.DisplayName?.UserLocalizedLabel?.Label || attr.LogicalName,
-          targets: targets,
-          lookupFieldName: `_${attr.LogicalName}_value`,
-        })
-      }
-    }
-
-    const metadata: EntityMetadata = {
-      logicalName: entityLogicalName,
-      displayName: response.DisplayName?.UserLocalizedLabel?.Label || entityLogicalName,
-      entitySetName: response.EntitySetName || `${entityLogicalName}s`,
-      lookupAttributes,
-    }
-
-    // Cache the result
-    metadataCache.set(entityLogicalName, metadata)
-
-    console.log(
-      `✅ Discovered ${lookupAttributes.length} lookup attributes for ${entityLogicalName}`
-    )
-
-    return metadata
+    
+    // Fallback error
+    throw new Error('Failed to fetch metadata using batch fetcher')
   } catch (error) {
     console.error(`❌ Failed to discover metadata for ${entityLogicalName}:`, error)
+    // Remove fetching marker on error
+    metadataCache.delete(fetchKey)
     return null
   }
 }
