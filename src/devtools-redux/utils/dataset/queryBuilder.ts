@@ -22,6 +22,13 @@ function shouldSkipViewId(viewId: string | undefined): boolean {
     return true
   }
   
+  // Skip savedQuery in development environment to avoid 404 errors
+  // In development, we're using mock datasets with random UUIDs that don't exist in Dataverse
+  if (window.location.href.includes('localhost') || window.location.href.includes('127.0.0.1')) {
+    console.log(`🏗️ Skipping savedQuery in development: ${viewId}`)
+    return true
+  }
+  
   // Check if this looks like a real view ID (standard UUID format)
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
   if (uuidRegex.test(viewId)) {

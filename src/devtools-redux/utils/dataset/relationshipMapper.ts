@@ -17,34 +17,18 @@ export interface RelationshipMapping {
 }
 
 /**
- * Known relationship mappings discovered through testing
- * Key insight: Contact -> Account uses '_parentcustomerid_value' NOT '_parentaccountid_value'
+ * All relationship mappings are now discovered through metadata API calls
+ * No hardcoded mappings - everything is runtime discovery based
  */
-export const RELATIONSHIP_MAPPINGS: RelationshipMapping[] = [
-  {
-    relationshipName: 'account_contact',
-    lookupColumn: '_parentcustomerid_value',
-    parentEntity: 'account',
-    childEntity: 'contact',
-    description: 'Contacts related to an Account',
-  },
-  {
-    relationshipName: 'contact_account',
-    lookupColumn: '_parentcustomerid_value',
-    parentEntity: 'account',
-    childEntity: 'contact',
-    description: 'Account parent of Contact',
-  },
-  // Add more mappings as they are discovered
-]
+export const RELATIONSHIP_MAPPINGS: RelationshipMapping[] = []
 
 /**
  * Map a relationship name to its corresponding lookup column
- * Enhanced with runtime discovery fallback
+ * All mappings are now runtime-discovered - no static mappings
  */
 export function mapRelationshipToLookupColumn(relationshipName: string): string | null {
-  const mapping = RELATIONSHIP_MAPPINGS.find(m => m.relationshipName === relationshipName)
-  return mapping?.lookupColumn || null
+  // No static mappings - all are discovered at runtime
+  return null
 }
 
 /**
@@ -68,16 +52,10 @@ export async function mapRelationshipToLookupColumnWithDiscovery(
     console.log(`📋 Using environment variables - Page: ${envPageTable}, Target: ${envTargetTable}`)
   }
 
-  // First try static mapping
-  const staticMapping = mapRelationshipToLookupColumn(relationshipName)
-  if (staticMapping) {
-    console.log(`✅ Found static mapping for ${relationshipName}: ${staticMapping}`)
-    return staticMapping
-  }
-
-  // If no static mapping and we have entity information, try runtime discovery
+  // All mappings are now runtime-discovered through metadata API
+  // If we have entity information, try runtime discovery
   if (resolvedParentEntity && resolvedChildEntity && webAPI) {
-    console.log(`🔍 No static mapping found for ${relationshipName}, trying runtime discovery...`)
+    console.log(`🔍 Discovering relationship through metadata API: ${relationshipName}...`)
 
     const discoveredRelationship = await discoverRelationshipMultiStrategy(
       resolvedParentEntity,

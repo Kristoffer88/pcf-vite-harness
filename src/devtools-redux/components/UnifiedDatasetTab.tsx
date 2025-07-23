@@ -28,6 +28,7 @@ import {
   testWebAPIConnection,
 } from '../utils/dataset'
 import { injectDatasetRecords } from '../utils/dataset/datasetInjector'
+import { clearBatchMetadataCache } from '../utils/dataset/batchMetadataFetcher'
 import { detectDatasetParameters } from '../utils/datasetAnalyzer'
 import { 
   findPCFOnForms, 
@@ -53,7 +54,8 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
   onUpdateView,
 }) => {
   const [selectedDataset, setSelectedDataset] = useState<string | null>(null)
-  const [selectedParentEntity, setSelectedParentEntity] = useState<ParentEntity | null>(null)
+  
+  // State declarations - must be before useEffect hooks that use them
   const [parentEntities, setParentEntities] = useState<ParentEntity[]>([])
   const [parentEntitySearch, setParentEntitySearch] = useState('')
   const [isLoadingParentEntities, setIsLoadingParentEntities] = useState(false)
@@ -68,9 +70,7 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
     totalFormsToRefresh: 0,
     currentlyRefreshing: [],
   })
-  const [discoveredRelationships, setDiscoveredRelationships] = useState<DiscoveredRelationship[]>(
-    []
-  )
+  const [discoveredRelationships, setDiscoveredRelationships] = useState<DiscoveredRelationship[]>([])
   const [currentEntity, setCurrentEntity] = useState<string>('unknown')
   const [manualEntityOverride, setManualEntityOverride] = useState<string>('')
   const [discoveredForms, setDiscoveredForms] = useState<FormPCFMatch[]>([])
@@ -80,17 +80,158 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
   const [cacheStats, setCacheStats] = useState<{ active: boolean; size: number }>({ active: false, size: 0 })
   const [datasetAnalysisTrigger, setDatasetAnalysisTrigger] = useState(0)
   
+  // Memoize dataset analysis to prevent repeated calls - must be early to avoid temporal dead zone
+  const datasetAnalysis = useMemo(() => {
+    console.log('🔍 Dataset analysis memoization triggered:', {
+      hasContext: !!currentState?.context,
+      analysisTrigger: datasetAnalysisTrigger,
+      contextTimestamp: currentState?.context ? 'exists' : 'null'
+    })
+    
+    if (!currentState?.context) {
+      console.log('❌ No context available for dataset analysis')
+      return { datasets: [], totalRecords: 0, summary: 'No context available' }
+    }
+    
+    console.log('📊 Running fresh dataset parameter detection...')
+    const result = detectDatasetParameters(currentState.context)
+    console.log('✅ Dataset analysis complete:', {
+      datasetCount: result.datasets.length,
+      totalRecords: result.totalRecords,
+      summary: result.summary
+    })
+    
+    return result
+  }, [currentState?.context, datasetAnalysisTrigger])
+
+  // Define datasets immediately after datasetAnalysis to avoid temporal dead zone issues
+  const datasets = datasetAnalysis.datasets.map(ds => ({
+    key: ds.name,
+    dataset: {
+      ...ds,
+      type: 'DataSet',
+    },
+  }))
+  
+  // Initialize selectedParentEntity from localStorage
+  const [selectedParentEntity, setSelectedParentEntityInternal] = useState<ParentEntity | null>(() => {
+    try {
+      const saved = localStorage.getItem('pcf-devtools-selected-parent-entity')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        // Validate that it has required properties
+        if (parsed && typeof parsed.id === 'string' && typeof parsed.name === 'string') {
+          return parsed
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to load selected parent entity from localStorage:', error)
+    }
+    return null
+  })
+
+  // Wrapper to persist to localStorage and clear caches
+  const setSelectedParentEntity = useCallback((entity: ParentEntity | null) => {
+    const previousEntity = selectedParentEntity
+    
+    console.log('🔄 Parent entity selection changing:', {
+      from: previousEntity ? `${previousEntity.name} (${previousEntity.id})` : 'null',
+      to: entity ? `${entity.name} (${entity.id})` : 'null',
+      entityType: entity?.entityType || 'none'
+    })
+    
+    setSelectedParentEntityInternal(entity)
+    
+    // Clear caches when parent entity changes to ensure fresh data
+    if (previousEntity?.id !== entity?.id) {
+      console.log('🧹 Parent entity ID changed, clearing all caches')
+      console.log('   📋 Previous ID:', previousEntity?.id || 'none')
+      console.log('   📋 New ID:', entity?.id || 'none')
+      clearDiscoveryCache()
+      clearBatchMetadataCache()
+      console.log('✅ Cache clearing complete')
+    } else if (previousEntity?.id === entity?.id && entity) {
+      console.log('ℹ️ Same parent entity selected, no cache clearing needed')
+    }
+    
+    try {
+      if (entity) {
+        localStorage.setItem('pcf-devtools-selected-parent-entity', JSON.stringify(entity))
+      } else {
+        localStorage.removeItem('pcf-devtools-selected-parent-entity')
+      }
+    } catch (error) {
+      console.warn('Failed to persist selected parent entity:', error)
+    }
+  }, [selectedParentEntity])
+
+  // Validate selected parent entity when parent entities are loaded
+  useEffect(() => {
+    if (selectedParentEntity && parentEntities.length > 0) {
+      const isValid = parentEntities.some(entity => 
+        entity.id === selectedParentEntity.id && 
+        entity.entityType === selectedParentEntity.entityType
+      )
+      
+      if (!isValid) {
+        console.log('📋 Clearing invalid selected parent entity:', selectedParentEntity.name)
+        setSelectedParentEntity(null)
+      }
+    }
+  }, [parentEntities, selectedParentEntity, setSelectedParentEntity])
+
+  // Trigger dataset refresh when parent entity changes
+  useEffect(() => {
+    if (selectedParentEntity && datasets.length > 0) {
+      console.log('🚀 Parent entity changed, scheduling dataset refresh:', {
+        parentEntity: selectedParentEntity.name,
+        parentId: selectedParentEntity.id,
+        datasetCount: datasets.length,
+        delay: '100ms'
+      })
+      
+      // Add a small delay to ensure caches are cleared
+      const timer = setTimeout(() => {
+        console.log('⏰ Timer expired, triggering dataset analysis refresh now')
+        setDatasetAnalysisTrigger(prev => {
+          const newValue = prev + 1
+          console.log('📊 Dataset analysis trigger updated:', prev, '→', newValue)
+          return newValue
+        })
+      }, 100)
+      
+      return () => {
+        console.log('🛑 Cleanup: clearing dataset refresh timer')
+        clearTimeout(timer)
+      }
+    } else {
+      console.log('⏭️ Skipping dataset refresh trigger:', {
+        hasParentEntity: !!selectedParentEntity,
+        datasetCount: datasets.length,
+        reason: !selectedParentEntity ? 'no parent entity' : 'no datasets'
+      })
+    }
+  }, [selectedParentEntity?.id, datasets.length])
+
+  // Helper function to get the correct target entity
+  const getTargetEntity = useCallback(() => {
+    return import.meta.env.VITE_PCF_TARGET_TABLE || 
+           discoveredRelationships[0]?.childEntity || 
+           datasets[0]?.entityLogicalName || 
+           'unknown'
+  }, [discoveredRelationships, datasets])
+
+  // Helper function to get the correct page/form entity
+  const getPageEntity = useCallback(() => {
+    return import.meta.env.VITE_PCF_PAGE_TABLE || 
+           currentEntity || 
+           'unknown'
+  }, [currentEntity])
+
   // Refs to prevent duplicate operations
   const formDiscoveryInProgress = useRef(false)
   const relationshipDiscoveryInProgress = useRef(false)
 
-  // Memoize dataset analysis to prevent repeated calls
-  const datasetAnalysis = useMemo(() => {
-    if (!currentState?.context) {
-      return { datasets: [], totalRecords: 0, summary: 'No context available' }
-    }
-    return detectDatasetParameters(currentState.context)
-  }, [currentState?.context, datasetAnalysisTrigger])
   
   // Update cache stats periodically
   useEffect(() => {
@@ -117,14 +258,6 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
     setCacheStats({ active: false, size: 0 })
     console.log('✅ Form discovery cache cleared')
   }
-
-  const datasets = datasetAnalysis.datasets.map(ds => ({
-    key: ds.name,
-    dataset: {
-      ...ds,
-      type: 'DataSet',
-    },
-  }))
 
   // Detect parent entity type from relationships
   useEffect(() => {
@@ -182,13 +315,33 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
     return () => clearTimeout(debounceTimer)
   }, [parentEntitySearch, currentState?.webAPI, detectedParentEntityType])
 
-  // Enhanced entity detection with better logic for form context
-  const detectCurrentEntity = useCallback(() => {
+  // Cache for entity detection results
+  const entityDetectionCache = useRef<Map<string, { result: string; timestamp: number }>>(new Map())
+  const ENTITY_DETECTION_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+
+  // Memoized entity detection to prevent repeated calculations
+  const detectedEntity = useMemo(() => {
     const context = currentState?.context
 
     if (!context) {
       setCurrentEntity('unknown')
       return 'unknown'
+    }
+
+    // Create cache key from relevant context properties
+    const cacheKey = JSON.stringify({
+      pageEntity: context.page?.entityTypeName,
+      manualOverride: manualEntityOverride,
+      url: window.location.href,
+      datasetCount: datasetAnalysis.datasets.length
+    })
+
+    // Check cache first
+    const cached = entityDetectionCache.current.get(cacheKey)
+    if (cached && (Date.now() - cached.timestamp) < ENTITY_DETECTION_CACHE_TTL) {
+      console.log('✅ Using cached entity detection result:', cached.result)
+      setCurrentEntity(cached.result)
+      return cached.result
     }
 
     console.log('🔍 Analyzing context for entity detection...', {
@@ -201,26 +354,41 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
         window.location.href.includes('localhost') || window.location.href.includes('127.0.0.1'),
     })
 
-    // Strategy -2: Check for environment variable first (highest priority if set)
+    // Helper function to cache and return result
+    const cacheAndReturn = (result: string) => {
+      entityDetectionCache.current.set(cacheKey, {
+        result,
+        timestamp: Date.now()
+      })
+      setCurrentEntity(result)
+      return result
+    }
+
+    // Strategy 1: Use page table as currentEntity (for relationship discovery)  
+    // The page entity is the parent in parent->child relationships
     const envPageTable = import.meta.env.VITE_PCF_PAGE_TABLE
     if (envPageTable && envPageTable.trim() !== '') {
-      console.log(`📋 Using VITE_PCF_PAGE_TABLE environment variable: ${envPageTable}`)
-      setCurrentEntity(envPageTable)
-      return envPageTable
+      console.log(`📋 Using VITE_PCF_PAGE_TABLE for currentEntity: ${envPageTable}`)
+      return cacheAndReturn(envPageTable)
+    }
+
+    // Strategy 2: If no page table, use target table as currentEntity
+    const envTargetTable = import.meta.env.VITE_PCF_TARGET_TABLE  
+    if (envTargetTable && envTargetTable.trim() !== '') {
+      console.log(`📋 Using VITE_PCF_TARGET_TABLE for currentEntity: ${envTargetTable}`)
+      return cacheAndReturn(envTargetTable)
     }
 
     // Strategy -1: Check for manual entity override (second highest priority)
     if (manualEntityOverride && manualEntityOverride !== '' && manualEntityOverride !== 'auto') {
       console.log(`✅ Entity manually overridden: ${manualEntityOverride}`)
-      setCurrentEntity(manualEntityOverride)
-      return manualEntityOverride
+      return cacheAndReturn(manualEntityOverride)
     }
 
     // Strategy 0: Try context.page.entityTypeName first (most reliable in development and real PowerApps)
     if (context.page?.entityTypeName && context.page.entityTypeName !== 'systemuser') {
       console.log(`✅ Entity detected from context.page: ${context.page.entityTypeName}`)
-      setCurrentEntity(context.page.entityTypeName)
-      return context.page.entityTypeName
+      return cacheAndReturn(context.page.entityTypeName)
     }
 
     // Strategy 1: Try to extract from URL first (most reliable for form context in real PowerApps)
@@ -250,8 +418,7 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
           }
 
           console.log(`✅ Entity detected from URL pattern: ${entity}`)
-          setCurrentEntity(entity)
-          return entity
+          return cacheAndReturn(entity)
         }
       }
     } catch (error) {
@@ -283,8 +450,7 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
             const potentialParent = parts.slice(0, Math.ceil(parts.length / 2)).join('_')
             if (potentialParent !== 'systemuser' && potentialParent.length > 3) {
               console.log(`✅ Parent entity inferred from relationship: ${potentialParent}`)
-              setCurrentEntity(potentialParent)
-              return potentialParent
+              return cacheAndReturn(potentialParent)
             }
           }
         }
@@ -306,8 +472,7 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
       if (primaryEntity) {
         console.log(`✅ Entity inferred from dataset analysis: ${primaryEntity}`)
         console.log(`📋 All available entities:`, datasetEntities)
-        setCurrentEntity(primaryEntity)
-        return primaryEntity
+        return cacheAndReturn(primaryEntity)
       }
     }
 
@@ -315,8 +480,7 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
     const contextInfo = (context as any)?.mode?.contextInfo
     if (contextInfo?.entityTypeName && contextInfo.entityTypeName !== 'systemuser') {
       console.log(`✅ Entity detected from context mode: ${contextInfo.entityTypeName}`)
-      setCurrentEntity(contextInfo.entityTypeName)
-      return contextInfo.entityTypeName
+      return cacheAndReturn(contextInfo.entityTypeName)
     }
 
     console.warn('⚠️ Could not detect entity name using any strategy, defaulting to unknown')
@@ -326,14 +490,16 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
       url: window.location.href,
     })
 
-    setCurrentEntity('unknown')
-    return 'unknown'
+    return cacheAndReturn('unknown')
   }, [currentState, datasetAnalysis, manualEntityOverride])
 
-  // Run entity detection on mount and when context changes
+  // Separate function for form discovery calls
+  const detectCurrentEntity = useCallback(() => detectedEntity, [detectedEntity])
+
+  // Update current entity when detection result changes
   useEffect(() => {
-    detectCurrentEntity()
-  }, [detectCurrentEntity])
+    setCurrentEntity(detectedEntity)
+  }, [detectedEntity])
 
   // Discover forms when manifest is available
   useEffect(() => {
@@ -346,6 +512,15 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
         return
       }
       
+      // Skip form discovery entirely if we have target table configured
+      const envTargetTable = import.meta.env.VITE_PCF_TARGET_TABLE
+      const envPageTable = import.meta.env.VITE_PCF_PAGE_TABLE
+      if (envTargetTable && envPageTable) {
+        console.log('🚀 Skipping form discovery - using environment configuration')
+        console.log(`📋 Target table: ${envTargetTable}, Page table: ${envPageTable}`)
+        return
+      }
+
       // Prevent duplicate discovery operations
       if (formDiscoveryInProgress.current) {
         console.log('⏳ Form discovery already in progress, skipping...')
@@ -362,10 +537,13 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
         // Extract publisher from namespace if possible (e.g., "test" from "test.dataset")
         const publisher = manifest.namespace?.split('.')[0]
         
+        // Get the page entity to enable early termination in form discovery
+        const pageEntity = import.meta.env.VITE_PCF_PAGE_TABLE || detectCurrentEntity()
+        
         const forms = await findPCFOnForms(manifest, {
           publisher: publisher || undefined,
-          // You can also filter by entity if needed
-          // entityLogicalName: 'account'
+          // Add entity constraint to enable early termination optimization
+          entityLogicalName: pageEntity !== 'unknown' ? pageEntity : undefined,
         })
         
         console.log(`✅ Discovered ${forms.length} forms with PCF control`)
@@ -501,7 +679,16 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
       }
       
       console.log(
-        `🚀 Auto-discovering relationships for ${currentEntity} with ${datasets.length} datasets`
+        `🚀 Auto-discovering relationships for ${currentEntity} with ${datasets.length} datasets`,
+        { 
+          currentEntity, 
+          datasets: datasets.map(d => ({ 
+            key: d.key, 
+            entityLogicalName: d.dataset.entityLogicalName 
+          })),
+          hasWebAPI: !!currentState?.webAPI,
+          hasContext: !!currentState?.context
+        }
       )
 
       const discoverRelationships = async () => {
@@ -514,7 +701,12 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
           if (dataset.entityLogicalName && 
               dataset.entityLogicalName !== currentEntity && 
               dataset.entityLogicalName !== 'unknown') {
-            console.log(`🔍 Attempting discovery: ${currentEntity} -> ${dataset.entityLogicalName}`)
+            console.log(`🔍 Attempting discovery: ${currentEntity} -> ${dataset.entityLogicalName}`, {
+              currentEntity,
+              datasetEntity: dataset.entityLogicalName,
+              condition1: dataset.entityLogicalName !== currentEntity,
+              condition2: dataset.entityLogicalName !== 'unknown'
+            })
 
             try {
               // Import the discovery function and try to discover the relationship
@@ -560,12 +752,26 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
   }, [datasets.length, currentEntity, currentState?.webAPI])
 
   const handleRefreshDatasets = useCallback(async () => {
+    console.log('🎯 Refresh button clicked - validating prerequisites:', {
+      hasContext: !!currentState?.context,
+      hasWebAPI: !!currentState?.webAPI,
+      datasetCount: datasets.length,
+      currentEntity,
+      selectedParent: selectedParentEntity ? `${selectedParentEntity.name} (${selectedParentEntity.id})` : 'none'
+    })
+    
     if (!currentState?.context || !currentState?.webAPI || datasets.length === 0) {
       console.warn('⚠️ Cannot refresh: missing context, webAPI, or datasets')
       return
     }
 
     console.log(`🚀 Starting dataset refresh for entity: ${currentEntity}`)
+    console.log('📋 Refresh context:', {
+      totalDatasets: datasets.length,
+      datasetNames: datasets.map(d => d.key),
+      parentEntityFilter: selectedParentEntity?.id || 'none',
+      refreshTime: new Date().toISOString()
+    })
 
     setRefreshState({
       isRefreshing: true,
@@ -673,6 +879,7 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
           if (queryResult.success) {
             successCount++
             console.log(`✅ Success for ${key}: ${queryResult.entities.length} records`)
+            console.log(`🔍 Records retrieved:`, queryResult.entities.slice(0, 3).map(e => ({ id: e.id, name: e.name || e.displayName || 'unnamed' })))
             
             // Log the dataset state before injection
             const datasetBefore = context.parameters?.[key]
@@ -681,6 +888,8 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
               recordCount: Object.keys(datasetBefore?.records || {}).length,
               records: datasetBefore?.records ? Object.keys(datasetBefore.records).slice(0, 5) : []
             })
+            
+            console.log(`💉 Starting injection of ${queryResult.entities.length} records into ${key}...`)
             
             // Inject the retrieved records into the dataset
             const injected = await injectDatasetRecords({
@@ -691,7 +900,7 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
             })
             
             if (injected) {
-              console.log(`💉 Successfully injected records into dataset: ${key}`)
+              console.log(`✨ Successfully injected records into dataset: ${key}`)
               
               // Log the dataset state after injection
               const datasetAfter = context.parameters?.[key]
@@ -944,9 +1153,14 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
           <div style={{ fontSize: fontSize.xs, color: colors.text.secondary, marginBottom: '4px' }}>
             Page/Form Entity:{' '}
             <span style={{ color: colors.status.success, fontWeight: 'bold' }}>
-              {currentEntity}
+              {getPageEntity()}
             </span>
-            {manualEntityOverride && manualEntityOverride !== 'auto' && !selectedForm && (
+            {import.meta.env.VITE_PCF_PAGE_TABLE && (
+              <span style={{ color: colors.text.secondary, fontSize: '10px', marginLeft: '4px' }}>
+                (from env)
+              </span>
+            )}
+            {!import.meta.env.VITE_PCF_PAGE_TABLE && manualEntityOverride && manualEntityOverride !== 'auto' && !selectedForm && (
               <span style={{ color: colors.status.warning, fontSize: '10px', marginLeft: '4px' }}>
                 (manual)
               </span>
@@ -955,8 +1169,18 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
           <div style={{ fontSize: fontSize.xs, color: colors.text.secondary, marginBottom: '4px' }}>
             Target Entity:{' '}
             <span style={{ color: colors.status.info, fontWeight: 'bold' }}>
-              {datasets[0]?.entityLogicalName || 'unknown'}
+              {getTargetEntity()}
             </span>
+            {import.meta.env.VITE_PCF_TARGET_TABLE && (
+              <span style={{ color: colors.text.secondary, fontSize: fontSize.xs, marginLeft: '4px' }}>
+                (from env)
+              </span>
+            )}
+            {!import.meta.env.VITE_PCF_TARGET_TABLE && discoveredRelationships[0]?.childEntity && (
+              <span style={{ color: colors.text.secondary, fontSize: fontSize.xs, marginLeft: '4px' }}>
+                (discovered)
+              </span>
+            )}
           </div>
           <div style={{ fontSize: fontSize.xs, color: colors.text.secondary, marginBottom: '8px' }}>
             Datasets: {datasets.length} | Relationships: {discoveredRelationships.length}
@@ -1201,19 +1425,19 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
                 ))}
               </select>
             ) : (
-              // No forms discovered
+              // Form discovery disabled due to environment configuration
               <div style={{
                 padding: '8px',
                 fontSize: '11px',
-                color: '#ff7b72',
-                backgroundColor: 'rgba(251, 98, 94, 0.1)',
-                border: '1px solid rgba(251, 98, 94, 0.3)',
+                color: '#7c8db5',
+                backgroundColor: 'rgba(124, 141, 181, 0.1)',
+                border: '1px solid rgba(124, 141, 181, 0.3)',
                 borderRadius: '3px',
                 marginBottom: '8px',
               }}>
-                <div>❌ No forms discovered</div>
-                <div style={{ fontSize: '10px', marginTop: '4px', color: '#f85149' }}>
-                  Check browser console for detailed error logs
+                <div>ℹ️ Form discovery disabled</div>
+                <div style={{ fontSize: '10px', marginTop: '4px', color: '#7c8db5' }}>
+                  Using environment variables instead (VITE_PCF_PAGE_TABLE, VITE_PCF_TARGET_TABLE)
                 </div>
               </div>
             )}
