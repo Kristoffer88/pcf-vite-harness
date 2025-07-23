@@ -4,24 +4,48 @@
  */
 
 import type { EnhancedDatasetResult, QueryResult } from './types'
+import { fetchEntityMetadata, getEntityPrimaryKey, getEntityPrimaryName, type EntityMetadataInfo } from './entityMetadata'
 
 /**
  * Convert WebAPI entities to dataset records format
  */
-export function convertEntitiesToDatasetRecords(entities: ComponentFramework.WebApi.Entity[]): {
+export async function convertEntitiesToDatasetRecords(
+  entities: ComponentFramework.WebApi.Entity[],
+  webAPI?: ComponentFramework.WebApi
+): Promise<{
   [id: string]: any
-} {
+}> {
   const records: { [id: string]: any } = {}
   console.log(`🔄 Converting ${entities.length} entities to dataset records`)
 
   const recordIds = new Set<string>()
   let duplicateCount = 0
 
-  entities.forEach((entity, index) => {
-    const primaryKey = findPrimaryKey(entity)
-    if (primaryKey) {
-      const recordId = entity[primaryKey] as string
-      
+  // Get entity metadata for proper field mapping
+  let entityMetadata: EntityMetadataInfo | null = null
+  if (entities.length > 0 && entities[0]) {
+    const entityType = detectEntityType(entities[0])
+    if (entityType) {
+      entityMetadata = await fetchEntityMetadata(entityType, webAPI)
+    }
+  }
+
+  for (const [index, entity] of entities.entries()) {
+    let recordId: string | null = null
+    
+    if (entityMetadata) {
+      recordId = getEntityPrimaryKey(entity, entityMetadata)
+    }
+    
+    // Fallback to old method if metadata approach fails
+    if (!recordId) {
+      const primaryKey = findPrimaryKey(entity)
+      if (primaryKey) {
+        recordId = entity[primaryKey] as string
+      }
+    }
+    
+    if (recordId) {
       // Check for duplicates
       if (recordIds.has(recordId)) {
         duplicateCount++
@@ -29,14 +53,14 @@ export function convertEntitiesToDatasetRecords(entities: ComponentFramework.Web
       }
       recordIds.add(recordId)
       
-      records[recordId] = convertEntityToRecord(entity)
+      records[recordId] = await convertEntityToRecord(entity, entityMetadata, webAPI)
       if (index < 5) {
-        console.log(`✅ Converted entity ${index + 1}: ${primaryKey} = ${recordId}`)
+        console.log(`✅ Converted entity ${index + 1}: ${entityMetadata?.PrimaryIdAttribute || 'id'} = ${recordId}`)
       }
     } else {
       console.warn(`⚠️ Could not find primary key for entity ${index + 1}:`, Object.keys(entity).slice(0, 10))
     }
-  })
+  }
   
   // Log available ID fields for debugging
   if (entities.length > 0) {
@@ -58,9 +82,10 @@ export function convertEntitiesToDatasetRecords(entities: ComponentFramework.Web
 /**
  * Create dataset columns from entities
  */
-export function createDatasetColumnsFromEntities(
-  entities: ComponentFramework.WebApi.Entity[]
-): ComponentFramework.PropertyHelper.DataSetApi.Column[] {
+export async function createDatasetColumnsFromEntities(
+  entities: ComponentFramework.WebApi.Entity[],
+  webAPI?: ComponentFramework.WebApi
+): Promise<ComponentFramework.PropertyHelper.DataSetApi.Column[]> {
   if (entities.length === 0) {
     return []
   }
@@ -93,10 +118,10 @@ export function createDatasetColumnsFromEntities(
 /**
  * Merge query results with existing dataset
  */
-export function mergeDatasetResults(
+export async function mergeDatasetResults(
   originalDataset: ComponentFramework.PropertyTypes.DataSet,
   queryResult: QueryResult
-): EnhancedDatasetResult {
+): Promise<EnhancedDatasetResult> {
   if (!queryResult.success) {
     return {
       originalDataset,
@@ -108,7 +133,7 @@ export function mergeDatasetResults(
   }
 
   // Convert entities to records
-  const newRecords = convertEntitiesToDatasetRecords(queryResult.entities)
+  const newRecords = await convertEntitiesToDatasetRecords(queryResult.entities)
 
   // Get existing records
   const existingRecords = originalDataset.records || {}
@@ -117,7 +142,7 @@ export function mergeDatasetResults(
   const mergedRecords = { ...existingRecords, ...newRecords }
 
   // Update columns if needed
-  const newColumns = createDatasetColumnsFromEntities(queryResult.entities)
+  const newColumns = await createDatasetColumnsFromEntities(queryResult.entities)
   const columnsUpdated = newColumns.length > 0
 
   return {
@@ -132,11 +157,11 @@ export function mergeDatasetResults(
 /**
  * Create enhanced context with new dataset data
  */
-export function createEnhancedContext(
+export async function createEnhancedContext(
   originalContext: ComponentFramework.Context<any>,
   datasetKey: string,
   enhancedResult: EnhancedDatasetResult
-): ComponentFramework.Context<any> {
+): Promise<ComponentFramework.Context<any>> {
   // This is a simplified version - in a real implementation,
   // you would need to properly clone and modify the context
   const enhancedContext = { ...originalContext }
@@ -148,13 +173,13 @@ export function createEnhancedContext(
     if (dataset.records) {
       Object.assign(
         dataset.records,
-        convertEntitiesToDatasetRecords(enhancedResult.queryResult.entities)
+        await convertEntitiesToDatasetRecords(enhancedResult.queryResult.entities)
       )
     }
 
     // Update columns if needed
     if (enhancedResult.columnsUpdated && dataset.columns) {
-      const newColumns = createDatasetColumnsFromEntities(enhancedResult.queryResult.entities)
+      const newColumns = await createDatasetColumnsFromEntities(enhancedResult.queryResult.entities)
       dataset.columns.push(...newColumns)
     }
   }
@@ -163,6 +188,31 @@ export function createEnhancedContext(
 }
 
 // Helper functions
+
+function detectEntityType(entity: ComponentFramework.WebApi.Entity): string | null {
+  // Try to detect entity type from @odata.context
+  const odataContext = entity['@odata.context'] as string | undefined
+  if (odataContext) {
+    const match = odataContext.match(/\/([a-z_]+)s?\(/i)
+    if (match) {
+      return match[1] || null
+    }
+  }
+  
+  // Fallback: Look for entity type indicators in the data
+  const keys = Object.keys(entity)
+  for (const key of keys) {
+    if (key.endsWith('id') && !key.includes('@') && !key.includes('.')) {
+      // Extract entity name from primary key pattern
+      const entityName = key.substring(0, key.length - 2)
+      if (entityName && !entityName.includes('_')) {
+        return entityName
+      }
+    }
+  }
+  
+  return null
+}
 
 function findPrimaryKey(entity: ComponentFramework.WebApi.Entity): string | null {
   // Try to detect entity type from @odata.context
@@ -205,8 +255,21 @@ function findPrimaryKey(entity: ComponentFramework.WebApi.Entity): string | null
   return null
 }
 
-function convertEntityToRecord(entity: ComponentFramework.WebApi.Entity): any {
+async function convertEntityToRecord(
+  entity: ComponentFramework.WebApi.Entity,
+  metadata: EntityMetadataInfo | null,
+  webAPI?: ComponentFramework.WebApi
+): Promise<any> {
   const record: any = {}
+
+  // If we have metadata, ensure we include the primary name field
+  if (metadata) {
+    const primaryName = getEntityPrimaryName(entity, metadata)
+    record[metadata.PrimaryNameAttribute] = primaryName
+    
+    // Also set a standard 'name' field for compatibility
+    record.name = primaryName
+  }
 
   Object.entries(entity).forEach(([key, value]) => {
     // Skip system attributes

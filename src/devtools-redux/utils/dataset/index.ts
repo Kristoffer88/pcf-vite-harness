@@ -76,3 +76,13 @@ export {
   batchInjectDatasets,
 } from './datasetInjector'
 export type { DatasetInjectionOptions } from './datasetInjector'
+
+// Entity Metadata
+export {
+  fetchEntityMetadata,
+  getEntityPrimaryKey,
+  getEntityPrimaryName,
+  clearEntityMetadataCache,
+  getCachedEntityMetadata,
+} from './entityMetadata'
+export type { EntityMetadataInfo } from './entityMetadata'

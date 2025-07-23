@@ -5,6 +5,7 @@
 
 import type { QueryResult } from './types'
 import { convertEntitiesToDatasetRecords, createDatasetColumnsFromEntities } from './datasetEnhancer'
+import { fetchEntityMetadata, getEntityPrimaryKey, type EntityMetadataInfo } from './entityMetadata'
 
 export interface DatasetInjectionOptions {
   context: ComponentFramework.Context<any>
@@ -37,7 +38,7 @@ export async function injectDatasetRecords(options: DatasetInjectionOptions): Pr
     console.log(`📊 Existing records before injection:`, Object.keys(dataset.records || {}).length)
 
     // Convert entities to dataset records format
-    const newRecords = convertEntitiesToDatasetRecords(queryResult.entities)
+    const newRecords = await convertEntitiesToDatasetRecords(queryResult.entities, context.webAPI)
     console.log(`🔄 Converted ${Object.keys(newRecords).length} entities to dataset records`)
     
     // Clear existing records and add new ones
@@ -59,7 +60,7 @@ export async function injectDatasetRecords(options: DatasetInjectionOptions): Pr
 
     // Update columns if needed
     if (queryResult.entities.length > 0) {
-      const newColumns = createDatasetColumnsFromEntities(queryResult.entities)
+      const newColumns = await createDatasetColumnsFromEntities(queryResult.entities, context.webAPI)
       if (newColumns.length > 0 && dataset.columns) {
         // Update existing columns or add new ones
         dataset.columns.length = 0
@@ -131,9 +132,16 @@ function updateDatasetMetadata(dataset: any, queryResult: QueryResult): void {
         if (!record) return null
         
         const formattedKey = `${columnName}@OData.Community.Display.V1.FormattedValue`
+        // Note: We can't use async in find, so we'll use the record data directly
         const entity = queryResult.entities.find(e => {
-          const primaryKey = findPrimaryKey(e)
-          return primaryKey && e[primaryKey] === recordId
+          // Try to match by common ID fields
+          const idFields = Object.keys(e).filter(k => k.endsWith('id') && !k.includes('@'))
+          for (const idField of idFields) {
+            if (e[idField] === recordId) {
+              return true
+            }
+          }
+          return false
         })
         
         return entity ? (entity[formattedKey] || record[columnName]) : record[columnName]
@@ -173,25 +181,41 @@ function detectEntityType(entity: ComponentFramework.WebApi.Entity): string | nu
 /**
  * Find primary key attribute in entity
  */
-function findPrimaryKey(entity: ComponentFramework.WebApi.Entity): string | null {
+async function findPrimaryKey(
+  entity: ComponentFramework.WebApi.Entity,
+  webAPI?: ComponentFramework.WebApi
+): Promise<string | null> {
   // Detect entity type from the data
   const entityType = detectEntityType(entity)
   
+  if (entityType && webAPI) {
+    // Fetch metadata to get the actual primary key attribute
+    const metadata = await fetchEntityMetadata(entityType, webAPI)
+    if (metadata) {
+      const primaryKeyValue = getEntityPrimaryKey(entity, metadata)
+      if (primaryKeyValue) {
+        console.log(`🔑 Found primary key using metadata: ${metadata.PrimaryIdAttribute} = ${primaryKeyValue}`)
+        return metadata.PrimaryIdAttribute
+      }
+    }
+  }
+  
+  // Fallback to pattern-based detection
   if (entityType) {
-    // For standard and custom entities, the primary key is always entityname + 'id'
+    // For standard and custom entities, the primary key is usually entityname + 'id'
     const expectedPrimaryKey = `${entityType}id`
     
     // Check if this field exists and has a GUID value
     if (entity[expectedPrimaryKey]) {
       const value = entity[expectedPrimaryKey]
       if (typeof value === 'string' && value.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-        console.log(`🔑 Found primary key: ${expectedPrimaryKey} = ${value}`)
+        console.log(`🔑 Found primary key (pattern): ${expectedPrimaryKey} = ${value}`)
         return expectedPrimaryKey
       }
     }
   }
   
-  // Fallback: Look for any field ending with 'id' that contains a GUID
+  // Final fallback: Look for any field ending with 'id' that contains a GUID
   const keys = Object.keys(entity)
   const idFields = keys.filter(k => k.endsWith('id') && !k.includes('@'))
   
