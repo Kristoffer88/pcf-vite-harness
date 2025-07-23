@@ -56,6 +56,18 @@ export async function mapRelationshipToLookupColumnWithDiscovery(
   childEntity?: string,
   webAPI?: ComponentFramework.WebApi
 ): Promise<string | null> {
+  // Check for environment variable overrides
+  const envPageTable = import.meta.env.VITE_PCF_PAGE_TABLE as string
+  const envTargetTable = import.meta.env.VITE_PCF_TARGET_TABLE as string
+  
+  // Use environment variables if available and not already provided
+  const resolvedParentEntity = parentEntity || envPageTable
+  const resolvedChildEntity = childEntity || envTargetTable
+  
+  if ((envPageTable || envTargetTable) && (!parentEntity || !childEntity)) {
+    console.log(`📋 Using environment variables - Page: ${envPageTable}, Target: ${envTargetTable}`)
+  }
+
   // First try static mapping
   const staticMapping = mapRelationshipToLookupColumn(relationshipName)
   if (staticMapping) {
@@ -64,12 +76,12 @@ export async function mapRelationshipToLookupColumnWithDiscovery(
   }
 
   // If no static mapping and we have entity information, try runtime discovery
-  if (parentEntity && childEntity && webAPI) {
+  if (resolvedParentEntity && resolvedChildEntity && webAPI) {
     console.log(`🔍 No static mapping found for ${relationshipName}, trying runtime discovery...`)
 
     const discoveredRelationship = await discoverRelationshipMultiStrategy(
-      parentEntity,
-      childEntity,
+      resolvedParentEntity,
+      resolvedChildEntity,
       webAPI
     )
 

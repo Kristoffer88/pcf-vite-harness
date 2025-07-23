@@ -39,6 +39,12 @@ export async function discoverEntityMetadata(
   entityLogicalName: string,
   webAPI?: ComponentFramework.WebApi
 ): Promise<EntityMetadata | null> {
+  // Validate entity name
+  if (!entityLogicalName || entityLogicalName === 'unknown' || entityLogicalName.trim() === '') {
+    console.warn(`⚠️ Invalid entity name for metadata discovery: "${entityLogicalName}"`)
+    return null
+  }
+
   // Check cache first
   const cached = metadataCache.get(entityLogicalName)
   if (cached) {
@@ -108,6 +114,12 @@ async function discoverLookupTargets(
   entityLogicalName: string,
   attributeLogicalName: string
 ): Promise<string[]> {
+  // Validate entity name
+  if (!entityLogicalName || entityLogicalName === 'unknown' || entityLogicalName.trim() === '') {
+    console.warn(`⚠️ Invalid entity name for lookup targets discovery: "${entityLogicalName}"`)
+    return []
+  }
+
   try {
     // Query the specific lookup attribute to get its targets
     const metadataUrl = `/api/data/v9.2/EntityDefinitions(LogicalName='${entityLogicalName}')/Attributes(LogicalName='${attributeLogicalName}')/Microsoft.Dynamics.CRM.LookupAttributeMetadata?$select=Targets`
@@ -133,6 +145,13 @@ export async function discoverRelationshipLookupColumn(
   childEntity: string,
   webAPI?: ComponentFramework.WebApi
 ): Promise<DiscoveredRelationship | null> {
+  // Validate entity names
+  if (!parentEntity || parentEntity === 'unknown' || parentEntity.trim() === '' ||
+      !childEntity || childEntity === 'unknown' || childEntity.trim() === '') {
+    console.warn(`⚠️ Invalid entity names for relationship discovery: parent="${parentEntity}", child="${childEntity}"`)
+    return null
+  }
+
   // Check cache first
   const cacheKey = `${parentEntity}->${childEntity}`
   const cached = relationshipCache.get(cacheKey)
@@ -227,31 +246,39 @@ export async function discoverRelationshipMultiStrategy(
   childEntity: string,
   webAPI?: ComponentFramework.WebApi
 ): Promise<DiscoveredRelationship | null> {
-  console.log(`🎯 Multi-strategy discovery: ${parentEntity} -> ${childEntity}`)
+  // Check for environment variable overrides
+  const envPageTable = import.meta.env.VITE_PCF_PAGE_TABLE as string
+  const envTargetTable = import.meta.env.VITE_PCF_TARGET_TABLE as string
+  
+  // Use environment variables if available
+  const resolvedParentEntity = parentEntity || envPageTable
+  const resolvedChildEntity = childEntity || envTargetTable
+  
+  console.log(`🎯 Multi-strategy discovery: ${resolvedParentEntity} -> ${resolvedChildEntity}`)
 
   // Strategy 1: Direct metadata discovery
-  let relationship = await discoverRelationshipLookupColumn(parentEntity, childEntity, webAPI)
+  let relationship = await discoverRelationshipLookupColumn(resolvedParentEntity, resolvedChildEntity, webAPI)
   if (relationship) {
     console.log(`✅ Strategy 1 (metadata) successful`)
     return relationship
   }
 
   // Strategy 2: Try reverse relationship (parent -> child might be child -> parent)
-  relationship = await discoverRelationshipLookupColumn(childEntity, parentEntity, webAPI)
+  relationship = await discoverRelationshipLookupColumn(resolvedChildEntity, resolvedParentEntity, webAPI)
   if (relationship) {
     console.log(`✅ Strategy 2 (reverse) successful`)
     return relationship
   }
 
   // Strategy 3: Pattern-based guessing for common scenarios
-  const patternGuess = guessRelationshipPattern(parentEntity, childEntity)
+  const patternGuess = guessRelationshipPattern(resolvedParentEntity, resolvedChildEntity)
   if (patternGuess) {
     console.log(`✅ Strategy 3 (pattern) guessed: ${patternGuess.lookupColumn}`)
-    relationshipCache.set(`${parentEntity}->${childEntity}`, patternGuess)
+    relationshipCache.set(`${resolvedParentEntity}->${resolvedChildEntity}`, patternGuess)
     return patternGuess
   }
 
-  console.warn(`❌ All strategies failed for ${parentEntity} -> ${childEntity}`)
+  console.warn(`❌ All strategies failed for ${resolvedParentEntity} -> ${resolvedChildEntity}`)
   return null
 }
 

@@ -5,7 +5,7 @@
  */
 
 import type React from 'react'
-import { memo, useCallback, useEffect, useState } from 'react'
+import { memo, useCallback, useEffect, useState, useMemo, useRef } from 'react'
 import type { PCFDevToolsConnector } from '../PCFDevToolsConnector'
 import {
   borderRadius,
@@ -31,6 +31,7 @@ import { injectDatasetRecords } from '../utils/dataset/datasetInjector'
 import { detectDatasetParameters } from '../utils/datasetAnalyzer'
 import { 
   findPCFOnForms, 
+  formDiscoveryCache,
   type FormPCFMatch,
   ENTITY_TYPE_CODES 
 } from '../../utils/pcfDiscovery'
@@ -76,11 +77,46 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
   const [isLoadingForms, setIsLoadingForms] = useState<boolean>(false)
   const [selectedForm, setSelectedForm] = useState<FormPCFMatch | null>(null)
   const [formDiscoveryError, setFormDiscoveryError] = useState<string | null>(null)
+  const [cacheStats, setCacheStats] = useState<{ active: boolean; size: number }>({ active: false, size: 0 })
+  const [datasetAnalysisTrigger, setDatasetAnalysisTrigger] = useState(0)
+  
+  // Refs to prevent duplicate operations
+  const formDiscoveryInProgress = useRef(false)
+  const relationshipDiscoveryInProgress = useRef(false)
 
-  // Analyze datasets and detect entity with improved logic
-  const datasetAnalysis = currentState?.context
-    ? detectDatasetParameters(currentState.context)
-    : { datasets: [], totalRecords: 0, summary: 'No context available' }
+  // Memoize dataset analysis to prevent repeated calls
+  const datasetAnalysis = useMemo(() => {
+    if (!currentState?.context) {
+      return { datasets: [], totalRecords: 0, summary: 'No context available' }
+    }
+    return detectDatasetParameters(currentState.context)
+  }, [currentState?.context, datasetAnalysisTrigger])
+  
+  // Update cache stats periodically
+  useEffect(() => {
+    const updateCacheStats = () => {
+      const stats = formDiscoveryCache.getCacheStats()
+      setCacheStats({
+        active: stats.size > 0,
+        size: stats.size
+      })
+    }
+    
+    // Initial update
+    updateCacheStats()
+    
+    // Update every 5 seconds
+    const interval = setInterval(updateCacheStats, 5000)
+    
+    return () => clearInterval(interval)
+  }, [])
+  
+  // Clear form discovery cache function
+  const handleClearFormCache = () => {
+    formDiscoveryCache.clear()
+    setCacheStats({ active: false, size: 0 })
+    console.log('✅ Form discovery cache cleared')
+  }
 
   const datasets = datasetAnalysis.datasets.map(ds => ({
     key: ds.name,
@@ -159,12 +195,21 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
       pageEntity: context.page?.entityTypeName,
       datasetEntities: datasetAnalysis.datasets.map(ds => ds.entityLogicalName),
       manualOverride: manualEntityOverride,
+      envPageTable: import.meta.env.VITE_PCF_PAGE_TABLE,
       url: window.location.href,
       isDevelopment:
         window.location.href.includes('localhost') || window.location.href.includes('127.0.0.1'),
     })
 
-    // Strategy -1: Check for manual entity override first (highest priority)
+    // Strategy -2: Check for environment variable first (highest priority if set)
+    const envPageTable = import.meta.env.VITE_PCF_PAGE_TABLE
+    if (envPageTable && envPageTable.trim() !== '') {
+      console.log(`📋 Using VITE_PCF_PAGE_TABLE environment variable: ${envPageTable}`)
+      setCurrentEntity(envPageTable)
+      return envPageTable
+    }
+
+    // Strategy -1: Check for manual entity override (second highest priority)
     if (manualEntityOverride && manualEntityOverride !== '' && manualEntityOverride !== 'auto') {
       console.log(`✅ Entity manually overridden: ${manualEntityOverride}`)
       setCurrentEntity(manualEntityOverride)
@@ -300,13 +345,28 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
         console.log('📋 Cannot discover forms: missing manifest or WebAPI')
         return
       }
+      
+      // Prevent duplicate discovery operations
+      if (formDiscoveryInProgress.current) {
+        console.log('⏳ Form discovery already in progress, skipping...')
+        return
+      }
 
+      formDiscoveryInProgress.current = true
       setIsLoadingForms(true)
       setFormDiscoveryError(null)
       
       try {
         console.log(`🔍 Discovering forms for PCF: ${manifest.namespace}.${manifest.constructor}`)
-        const forms = await findPCFOnForms(manifest)
+        
+        // Extract publisher from namespace if possible (e.g., "test" from "test.dataset")
+        const publisher = manifest.namespace?.split('.')[0]
+        
+        const forms = await findPCFOnForms(manifest, {
+          publisher: publisher || undefined,
+          // You can also filter by entity if needed
+          // entityLogicalName: 'account'
+        })
         
         console.log(`✅ Discovered ${forms.length} forms with PCF control`)
         setDiscoveredForms(forms)
@@ -341,6 +401,7 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
         }
       } finally {
         setIsLoadingForms(false)
+        formDiscoveryInProgress.current = false
       }
     }
     
@@ -417,6 +478,9 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
         // This will cause the dataset analyzer to re-run and pick up the new entity type
         setCurrentEntity(entityName)
         
+        // Trigger dataset re-analysis
+        setDatasetAnalysisTrigger(prev => prev + 1)
+        
         // Also trigger a small delay to ensure the UI updates
         setTimeout(() => {
           console.log('🔄 Forcing dataset re-analysis...')
@@ -430,17 +494,26 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
   // Auto-discover relationships when datasets are available
   useEffect(() => {
     if (datasets.length > 0 && currentEntity !== 'unknown' && currentState?.webAPI) {
+      // Prevent duplicate discovery operations
+      if (relationshipDiscoveryInProgress.current) {
+        console.log('⏳ Relationship discovery already in progress, skipping...')
+        return
+      }
+      
       console.log(
         `🚀 Auto-discovering relationships for ${currentEntity} with ${datasets.length} datasets`
       )
 
       const discoverRelationships = async () => {
+        relationshipDiscoveryInProgress.current = true
         const context = currentState.context
         const webAPI = currentState.webAPI
 
         // Try to discover relationships for each dataset
         for (const { dataset } of datasets) {
-          if (dataset.entityLogicalName && dataset.entityLogicalName !== currentEntity) {
+          if (dataset.entityLogicalName && 
+              dataset.entityLogicalName !== currentEntity && 
+              dataset.entityLogicalName !== 'unknown') {
             console.log(`🔍 Attempting discovery: ${currentEntity} -> ${dataset.entityLogicalName}`)
 
             try {
@@ -472,6 +545,7 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
           const current = getDiscoveredRelationships()
           setDiscoveredRelationships(current)
           console.log(`🔍 Auto-discovery complete: ${current.length} relationships found`)
+          relationshipDiscoveryInProgress.current = false
         }, 1000)
 
         return timer
@@ -519,7 +593,40 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
       // Process each dataset
       for (const { key, dataset } of datasets) {
         try {
-          console.log(`🔍 Processing dataset: ${key} (${dataset.entityLogicalName})`)
+          const targetEntity = dataset.entityLogicalName || currentEntity || 'unknown'
+          
+          // Skip datasets with unknown entity
+          if (targetEntity === 'unknown') {
+            console.warn(`⚠️ Skipping dataset ${key} with unknown entity type`)
+            errorCount++
+            setRefreshState(prev => ({
+              ...prev,
+              errorCount: errorCount,
+              refreshResults: [
+                ...prev.refreshResults,
+                {
+                  subgridInfo: {
+                    formId: '',
+                    formName: '',
+                    entityTypeCode: 0,
+                    controlId: key,
+                    targetEntity: 'unknown',
+                    viewId: dataset.viewId,
+                    relationshipName: dataset.relationshipName,
+                    isCustomView: false,
+                    allowViewSelection: false,
+                  },
+                  queryResult: null,
+                  query: '',
+                  error: 'Cannot refresh dataset with unknown entity type. Please select a form or set VITE_PCF_TARGET_TABLE environment variable.',
+                  success: false,
+                },
+              ],
+            }))
+            continue
+          }
+          
+          console.log(`🔍 Processing dataset: ${key} (${targetEntity})`)
 
           // Create SubgridInfo from dataset for query building
           const subgridInfo = {
@@ -527,7 +634,7 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
             formName: 'Current PCF Context',
             entityTypeCode: 0,
             controlId: key,
-            targetEntity: dataset.entityLogicalName || 'unknown',
+            targetEntity: targetEntity,
             viewId: dataset.viewId,
             relationshipName:
               selectedParentEntity && detectedParentEntityType
@@ -623,7 +730,7 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
               formName: 'Current PCF Context',
               entityTypeCode: 0,
               controlId: key,
-              targetEntity: dataset.entityLogicalName || 'unknown',
+              targetEntity: dataset.entityLogicalName || currentEntity || 'unknown',
               isCustomView: false,
               allowViewSelection: false,
               enableViewPicker: false,
@@ -976,6 +1083,44 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
               </div>
             )}
 
+            {/* Cache Status and Clear Button */}
+            {cacheStats.active && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '8px',
+                marginBottom: '12px',
+                backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                border: '1px solid rgba(34, 197, 94, 0.3)',
+                borderRadius: '3px',
+                fontSize: '11px',
+                color: '#22c55e',
+              }}>
+                <span>✅ Cache active ({cacheStats.size} entries)</span>
+                <button
+                  onClick={handleClearFormCache}
+                  style={{
+                    padding: '2px 8px',
+                    fontSize: '10px',
+                    backgroundColor: 'transparent',
+                    border: '1px solid rgba(34, 197, 94, 0.5)',
+                    borderRadius: '3px',
+                    color: '#22c55e',
+                    cursor: 'pointer',
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(34, 197, 94, 0.2)'
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent'
+                  }}
+                >
+                  Clear Cache
+                </button>
+              </div>
+            )}
+            
             {/* Form Selection */}
             <label
               style={{

@@ -70,10 +70,26 @@ export class dataset implements ComponentFramework.StandardControl<IInputs, IOut
         const recordKeys = Object.keys(sampleDataSet.records)
         recordKeys.forEach((key, index) => {
           const record = sampleDataSet.records[key]
-          const primaryField = record.getFormattedValue
-            ? record.getFormattedValue('name') || record.getFormattedValue('fullname')
-            : null
-          const displayName = primaryField || `Record ${index + 1}`
+          // Check for _entityReference._name first (set by datasetGenerator)
+          let displayName = ''
+          if ((record as any)._entityReference && (record as any)._entityReference._name) {
+            displayName = (record as any)._entityReference._name
+          } else if (record.getFormattedValue) {
+            // Fallback to getFormattedValue
+            displayName = record.getFormattedValue('name') || record.getFormattedValue('fullname') || ''
+          }
+          
+          // Throw exception if we can't find a name
+          if (!displayName) {
+            const debugInfo = {
+              recordId: key,
+              hasEntityReference: !!(record as any)._entityReference,
+              entityReferenceName: (record as any)._entityReference?._name,
+              primaryFieldName: (record as any)._primaryFieldName,
+              recordKeys: Object.keys(record).slice(0, 10)
+            }
+            throw new Error(`Failed to get display name for record at index ${index}. Debug: ${JSON.stringify(debugInfo, null, 2)}`)
+          }
 
           html += `
             <div style="

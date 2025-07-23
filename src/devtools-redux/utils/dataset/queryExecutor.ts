@@ -18,6 +18,7 @@ export async function executeDatasetQuery(
   if (!validation.isValid) {
     return {
       entities: [],
+      entityLogicalName: query.entityLogicalName,
       success: false,
       error: `Query validation failed: ${validation.errors.join(', ')}`,
     }
@@ -27,6 +28,7 @@ export async function executeDatasetQuery(
     if (!webAPI) {
       return {
         entities: [],
+        entityLogicalName: query.entityLogicalName,
         success: false,
         error: 'WebAPI is not available',
       }
@@ -44,6 +46,7 @@ export async function executeDatasetQuery(
 
     return {
       entities: result.entities,
+      entityLogicalName: query.entityLogicalName,
       totalCount: result.entities.length,
       nextLink: result.nextLink,
       success: true,
@@ -53,6 +56,7 @@ export async function executeDatasetQuery(
 
     return {
       entities: [],
+      entityLogicalName: query.entityLogicalName,
       success: false,
       error: error instanceof Error ? error.message : String(error),
     }

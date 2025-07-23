@@ -4,6 +4,7 @@
  */
 
 import type { QueryResult } from './types'
+import type { PCFDataset } from '../../../types/dataset'
 import { convertEntitiesToDatasetRecords, createDatasetColumnsFromEntities } from './datasetEnhancer'
 import { fetchEntityMetadata, getEntityPrimaryKey, type EntityMetadataInfo } from './entityMetadata'
 
@@ -38,7 +39,7 @@ export async function injectDatasetRecords(options: DatasetInjectionOptions): Pr
     console.log(`📊 Existing records before injection:`, Object.keys(dataset.records || {}).length)
 
     // Convert entities to dataset records format
-    const newRecords = await convertEntitiesToDatasetRecords(queryResult.entities, context.webAPI)
+    const newRecords = await convertEntitiesToDatasetRecords(queryResult.entities, queryResult.entityLogicalName, context.webAPI)
     console.log(`🔄 Converted ${Object.keys(newRecords).length} entities to dataset records`)
     
     // Clear existing records and add new ones
@@ -60,7 +61,7 @@ export async function injectDatasetRecords(options: DatasetInjectionOptions): Pr
 
     // Update columns if needed
     if (queryResult.entities.length > 0) {
-      const newColumns = await createDatasetColumnsFromEntities(queryResult.entities, context.webAPI)
+      const newColumns = await createDatasetColumnsFromEntities(queryResult.entities, queryResult.entityLogicalName, context.webAPI)
       if (newColumns.length > 0 && dataset.columns) {
         // Update existing columns or add new ones
         dataset.columns.length = 0
@@ -107,21 +108,15 @@ export async function injectDatasetRecords(options: DatasetInjectionOptions): Pr
 /**
  * Update dataset metadata based on query results
  */
-function updateDatasetMetadata(dataset: any, queryResult: QueryResult): void {
-  // Update entity type if detected
-  if (queryResult.entities.length > 0) {
-    const firstEntity = queryResult.entities[0]
-    if (!firstEntity) return
-    const entityType = detectEntityType(firstEntity)
-    
-    if (entityType && dataset.getTargetEntityType) {
-      // Override the getTargetEntityType function
-      Object.defineProperty(dataset, 'getTargetEntityType', {
-        value: () => entityType,
-        writable: true,
-        configurable: true
-      })
-    }
+function updateDatasetMetadata(dataset: Partial<PCFDataset>, queryResult: QueryResult): void {
+  // Update entity type from query result
+  if (queryResult.entityLogicalName && dataset.getTargetEntityType) {
+    // Override the getTargetEntityType function
+    Object.defineProperty(dataset, 'getTargetEntityType', {
+      value: () => queryResult.entityLogicalName,
+      writable: true,
+      configurable: true
+    })
   }
 
   // Add formatted values helper
@@ -150,87 +145,6 @@ function updateDatasetMetadata(dataset: any, queryResult: QueryResult): void {
       configurable: true
     })
   }
-}
-
-/**
- * Detect entity type from entity data or metadata
- */
-function detectEntityType(entity: ComponentFramework.WebApi.Entity): string | null {
-  // Check @odata.context if available (most reliable)
-  const context = entity['@odata.context'] as string | undefined
-  if (context) {
-    // Extract entity name from context like "#/accounts(" or "#/pum_gantttasks("
-    const match = context.match(/\/([a-z_]+)s?\(/i)
-    if (match) {
-      return match[1] ?? null
-    }
-  }
-  
-  // Fallback: Look for common entity type patterns in keys
-  const keys = Object.keys(entity)
-  for (const key of keys) {
-    if (key.endsWith('id') && !key.includes('_') && !key.includes('@')) {
-      // Extract entity name from primary key
-      return key.substring(0, key.length - 2)
-    }
-  }
-  
-  return null
-}
-
-/**
- * Find primary key attribute in entity
- */
-async function findPrimaryKey(
-  entity: ComponentFramework.WebApi.Entity,
-  webAPI?: ComponentFramework.WebApi
-): Promise<string | null> {
-  // Detect entity type from the data
-  const entityType = detectEntityType(entity)
-  
-  if (entityType && webAPI) {
-    // Fetch metadata to get the actual primary key attribute
-    const metadata = await fetchEntityMetadata(entityType, webAPI)
-    if (metadata) {
-      const primaryKeyValue = getEntityPrimaryKey(entity, metadata)
-      if (primaryKeyValue) {
-        console.log(`🔑 Found primary key using metadata: ${metadata.PrimaryIdAttribute} = ${primaryKeyValue}`)
-        return metadata.PrimaryIdAttribute
-      }
-    }
-  }
-  
-  // Fallback to pattern-based detection
-  if (entityType) {
-    // For standard and custom entities, the primary key is usually entityname + 'id'
-    const expectedPrimaryKey = `${entityType}id`
-    
-    // Check if this field exists and has a GUID value
-    if (entity[expectedPrimaryKey]) {
-      const value = entity[expectedPrimaryKey]
-      if (typeof value === 'string' && value.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-        console.log(`🔑 Found primary key (pattern): ${expectedPrimaryKey} = ${value}`)
-        return expectedPrimaryKey
-      }
-    }
-  }
-  
-  // Final fallback: Look for any field ending with 'id' that contains a GUID
-  const keys = Object.keys(entity)
-  const idFields = keys.filter(k => k.endsWith('id') && !k.includes('@'))
-  
-  for (const key of idFields) {
-    const value = entity[key]
-    if (typeof value === 'string' && value.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-      console.log(`🔑 Found primary key (fallback): ${key} = ${value}`)
-      return key
-    }
-  }
-  
-  console.warn(`⚠️ No primary key found for entity type: ${entityType}`)
-  console.warn(`⚠️ Available ID fields:`, idFields)
-  
-  return null
 }
 
 /**

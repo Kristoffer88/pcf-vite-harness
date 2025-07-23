@@ -10,6 +10,11 @@ import {
   type ViewMetadata,
   type AttributeMetadata,
 } from './datasetMetadataFetcher'
+import {
+  fetchEntityMetadata,
+  getEntityPrimaryName,
+  type EntityMetadataInfo,
+} from './entityMetadata'
 
 export interface DatasetGenerationOptions {
   viewId: string
@@ -137,6 +142,12 @@ async function populateDatasetRecords(
   onProgress?: (step: string, details?: any) => void
 ): Promise<void> {
   try {
+    // Fetch entity metadata first
+    const entityMetadata = await fetchEntityMetadata(viewMetadata.entityName)
+    if (!entityMetadata) {
+      throw new Error(`Failed to fetch metadata for entity: ${viewMetadata.entityName}`)
+    }
+    
     // Build select clause from view columns
     const selectColumns = viewMetadata.columns.map(col => col.name).join(',')
     
@@ -157,7 +168,7 @@ async function populateDatasetRecords(
       data.value.forEach((entity: any, index: number) => {
         const recordId = entity[`${viewMetadata.entityName}id`]
         if (recordId) {
-          const record = createDatasetRecord(entity, viewMetadata.entityName, dataset.columns)
+          const record = createDatasetRecord(entity, viewMetadata.entityName, dataset.columns, entityMetadata)
           dataset.records[recordId] = record
           dataset.sortedRecordIds.push(recordId)
           
@@ -187,10 +198,12 @@ async function populateDatasetRecords(
 function createDatasetRecord(
   entity: any,
   entityName: string,
-  columns: any[]
+  columns: any[],
+  entityMetadata: EntityMetadataInfo
 ): any {
   const recordId = entity[`${entityName}id`]
-  const primaryFieldName = findPrimaryFieldName(columns) || 'name'
+  const primaryFieldName = entityMetadata.PrimaryNameAttribute || 'name'
+  const primaryNameValue = getEntityPrimaryName(entity, entityMetadata)
 
   const record = {
     _record: {
@@ -209,7 +222,7 @@ function createDatasetRecord(
     _entityReference: {
       _etn: entityName,
       _id: recordId,
-      _name: entity[primaryFieldName] || '',
+      _name: primaryNameValue,
     },
   }
 

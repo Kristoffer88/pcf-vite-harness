@@ -9,6 +9,12 @@ function formatGuid(guid: string): string {
  * Helper function to get entity metadata from Dataverse
  */
 async function getEntityMetadata(entityLogicalName: string): Promise<any> {
+  // Validate entity name
+  if (!entityLogicalName || entityLogicalName === 'unknown' || entityLogicalName.trim() === '') {
+    console.warn(`⚠️ Invalid entity name for metadata fetch: "${entityLogicalName}"`)
+    return null
+  }
+
   const response = await fetch(
     `/api/data/v9.2/EntityDefinitions(LogicalName='${entityLogicalName}')`
   )
@@ -360,19 +366,34 @@ export function createMockContext<TInputs>(options?: {
 
   console.log('🔧 Creating mock context...', { entityType })
 
+  // Check for environment variable overrides
+  const envTargetTable = (import.meta.env.VITE_PCF_TARGET_TABLE as string) || entityType
+  const envPageTable = (import.meta.env.VITE_PCF_PAGE_TABLE as string) || entityType
+  
+  if (envTargetTable !== entityType) {
+    console.log(`📋 Using VITE_PCF_TARGET_TABLE environment variable: ${envTargetTable}`)
+  }
+
   // Create sampleDataSet with minimal configuration
-  // The actual entity type and columns will be determined by discovered form data
+  // Use environment variable if available, otherwise will be updated when form is discovered
   const sampleDataSet = createMockDataSet({
     name: 'sampleDataSet',
     displayName: 'Dataset_Display_Key',
-    entityLogicalName: 'unknown', // Will be updated when form is discovered
+    entityLogicalName: envTargetTable !== 'unknown' ? envTargetTable : 'unknown',
     columns: [], // Will be populated based on discovered entity
     ...datasetOptions,
   })
   
+  // Set the initial _targetEntityType
+  ;(sampleDataSet as any)._targetEntityType = envTargetTable !== 'unknown' ? envTargetTable : undefined
+  
   // Make getTargetEntityType configurable
   Object.defineProperty(sampleDataSet, 'getTargetEntityType', {
     value: function() {
+      const envValue = import.meta.env.VITE_PCF_TARGET_TABLE as string
+      if (envValue && envValue !== 'unknown') {
+        return envValue
+      }
       return (this as any)._targetEntityType || (this as any).entityLogicalName || 'unknown'
     },
     writable: true,
@@ -397,7 +418,7 @@ export function createMockContext<TInputs>(options?: {
       },
     },
     page: {
-      entityTypeName: entityType,
+      entityTypeName: envPageTable,
       entityId: crypto.randomUUID(),
       isVisible: true,
     } as any,

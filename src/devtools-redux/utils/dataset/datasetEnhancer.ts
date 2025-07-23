@@ -4,46 +4,34 @@
  */
 
 import type { EnhancedDatasetResult, QueryResult } from './types'
+import type { DataverseEntity } from '../../../types/dataverse'
+import type { DatasetRecord, DatasetColumn, DatasetFieldValue, BaseFieldValue, DatasetColumnType } from '../../../types/dataset'
 import { fetchEntityMetadata, getEntityPrimaryKey, getEntityPrimaryName, type EntityMetadataInfo } from './entityMetadata'
+import { FORMATTED_VALUE_SUFFIX } from '../../../types/dataverse'
 
 /**
  * Convert WebAPI entities to dataset records format
  */
 export async function convertEntitiesToDatasetRecords(
-  entities: ComponentFramework.WebApi.Entity[],
+  entities: DataverseEntity[],
+  entityLogicalName: string,
   webAPI?: ComponentFramework.WebApi
-): Promise<{
-  [id: string]: any
-}> {
-  const records: { [id: string]: any } = {}
+): Promise<Record<string, DatasetRecord>> {
+  const records: Record<string, DatasetRecord> = {}
   console.log(`🔄 Converting ${entities.length} entities to dataset records`)
 
   const recordIds = new Set<string>()
   let duplicateCount = 0
 
   // Get entity metadata for proper field mapping
-  let entityMetadata: EntityMetadataInfo | null = null
-  if (entities.length > 0 && entities[0]) {
-    const entityType = detectEntityType(entities[0])
-    if (entityType) {
-      entityMetadata = await fetchEntityMetadata(entityType, webAPI)
-    }
+  const entityMetadata = await fetchEntityMetadata(entityLogicalName, webAPI)
+
+  if (!entityMetadata) {
+    throw new Error(`Failed to fetch metadata for entity: ${entityLogicalName}`)
   }
 
   for (const [index, entity] of entities.entries()) {
-    let recordId: string | null = null
-    
-    if (entityMetadata) {
-      recordId = getEntityPrimaryKey(entity, entityMetadata)
-    }
-    
-    // Fallback to old method if metadata approach fails
-    if (!recordId) {
-      const primaryKey = findPrimaryKey(entity)
-      if (primaryKey) {
-        recordId = entity[primaryKey] as string
-      }
-    }
+    const recordId = getEntityPrimaryKey(entity, entityMetadata)
     
     if (recordId) {
       // Check for duplicates
@@ -55,7 +43,7 @@ export async function convertEntitiesToDatasetRecords(
       
       records[recordId] = await convertEntityToRecord(entity, entityMetadata, webAPI)
       if (index < 5) {
-        console.log(`✅ Converted entity ${index + 1}: ${entityMetadata?.PrimaryIdAttribute || 'id'} = ${recordId}`)
+        console.log(`✅ Converted entity ${index + 1}: ${entityMetadata.PrimaryIdAttribute} = ${recordId}`)
       }
     } else {
       console.warn(`⚠️ Could not find primary key for entity ${index + 1}:`, Object.keys(entity).slice(0, 10))
@@ -83,15 +71,16 @@ export async function convertEntitiesToDatasetRecords(
  * Create dataset columns from entities
  */
 export async function createDatasetColumnsFromEntities(
-  entities: ComponentFramework.WebApi.Entity[],
+  entities: DataverseEntity[],
+  entityLogicalName: string,
   webAPI?: ComponentFramework.WebApi
-): Promise<ComponentFramework.PropertyHelper.DataSetApi.Column[]> {
+): Promise<DatasetColumn[]> {
   if (entities.length === 0) {
     return []
   }
 
   const sampleEntity = entities[0]
-  const columns: ComponentFramework.PropertyHelper.DataSetApi.Column[] = []
+  const columns: DatasetColumn[] = []
 
   Object.keys(sampleEntity || {}).forEach(attributeName => {
     // Skip system attributes that start with @
@@ -99,7 +88,7 @@ export async function createDatasetColumnsFromEntities(
       return
     }
 
-    const column: ComponentFramework.PropertyHelper.DataSetApi.Column = {
+    const column: DatasetColumn = {
       name: attributeName,
       displayName: formatDisplayName(attributeName),
       dataType: inferDataType(sampleEntity?.[attributeName]),
@@ -133,7 +122,7 @@ export async function mergeDatasetResults(
   }
 
   // Convert entities to records
-  const newRecords = await convertEntitiesToDatasetRecords(queryResult.entities)
+  const newRecords = await convertEntitiesToDatasetRecords(queryResult.entities, queryResult.entityLogicalName)
 
   // Get existing records
   const existingRecords = originalDataset.records || {}
@@ -142,7 +131,7 @@ export async function mergeDatasetResults(
   const mergedRecords = { ...existingRecords, ...newRecords }
 
   // Update columns if needed
-  const newColumns = await createDatasetColumnsFromEntities(queryResult.entities)
+  const newColumns = await createDatasetColumnsFromEntities(queryResult.entities, queryResult.entityLogicalName)
   const columnsUpdated = newColumns.length > 0
 
   return {
@@ -173,13 +162,13 @@ export async function createEnhancedContext(
     if (dataset.records) {
       Object.assign(
         dataset.records,
-        await convertEntitiesToDatasetRecords(enhancedResult.queryResult.entities)
+        await convertEntitiesToDatasetRecords(enhancedResult.queryResult.entities, enhancedResult.queryResult.entityLogicalName)
       )
     }
 
     // Update columns if needed
     if (enhancedResult.columnsUpdated && dataset.columns) {
-      const newColumns = await createDatasetColumnsFromEntities(enhancedResult.queryResult.entities)
+      const newColumns = await createDatasetColumnsFromEntities(enhancedResult.queryResult.entities, enhancedResult.queryResult.entityLogicalName)
       dataset.columns.push(...newColumns)
     }
   }
@@ -189,105 +178,73 @@ export async function createEnhancedContext(
 
 // Helper functions
 
-function detectEntityType(entity: ComponentFramework.WebApi.Entity): string | null {
-  // Try to detect entity type from @odata.context
-  const odataContext = entity['@odata.context'] as string | undefined
-  if (odataContext) {
-    const match = odataContext.match(/\/([a-z_]+)s?\(/i)
-    if (match) {
-      return match[1] || null
-    }
-  }
-  
-  // Fallback: Look for entity type indicators in the data
-  const keys = Object.keys(entity)
-  for (const key of keys) {
-    if (key.endsWith('id') && !key.includes('@') && !key.includes('.')) {
-      // Extract entity name from primary key pattern
-      const entityName = key.substring(0, key.length - 2)
-      if (entityName && !entityName.includes('_')) {
-        return entityName
-      }
-    }
-  }
-  
-  return null
-}
-
-function findPrimaryKey(entity: ComponentFramework.WebApi.Entity): string | null {
-  // Try to detect entity type from @odata.context
-  let entityType: string | null = null
-  const odataContext = entity['@odata.context'] as string | undefined
-  if (odataContext) {
-    const match = odataContext.match(/\/([a-z_]+)s?\(/i)
-    if (match) {
-      entityType = match[1] || null
-    }
-  }
-  
-  if (entityType) {
-    // For Dataverse entities, the primary key is always entityname + 'id'
-    const expectedPrimaryKey = `${entityType}id`
-    
-    // Check if this field exists and has a GUID value
-    if (entity[expectedPrimaryKey]) {
-      const value = entity[expectedPrimaryKey]
-      if (typeof value === 'string' && value.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-        return expectedPrimaryKey
-      }
-    }
-  }
-  
-  // Fallback: Look for any field ending with 'id' that contains a GUID and is not a relationship
-  const keys = Object.keys(entity)
-  for (const key of keys) {
-    if (key.endsWith('id') && !key.includes('@') && !key.includes('.')) {
-      const value = entity[key]
-      if (typeof value === 'string' && value.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-        // Skip relationship fields
-        if (!key.includes('parent') && !key.includes('related') && !key.includes('regarding') && !key.includes('owner')) {
-          return key
-        }
-      }
-    }
-  }
-  
-  return null
-}
-
 async function convertEntityToRecord(
-  entity: ComponentFramework.WebApi.Entity,
-  metadata: EntityMetadataInfo | null,
+  entity: DataverseEntity,
+  metadata: EntityMetadataInfo,
   webAPI?: ComponentFramework.WebApi
-): Promise<any> {
-  const record: any = {}
-
-  // If we have metadata, ensure we include the primary name field
-  if (metadata) {
-    const primaryName = getEntityPrimaryName(entity, metadata)
-    record[metadata.PrimaryNameAttribute] = primaryName
-    
-    // Also set a standard 'name' field for compatibility
-    record.name = primaryName
+): Promise<DatasetRecord> {
+  // Get primary key and name from metadata
+  const recordId = getEntityPrimaryKey(entity, metadata)
+  const primaryName = getEntityPrimaryName(entity, metadata)
+  const entityType = metadata.LogicalName
+  
+  // Create PCF-compatible record structure
+  const record: DatasetRecord = {
+    _record: {
+      initialized: 2,
+      identifier: {
+        etn: entityType,
+        id: {
+          guid: recordId || ''
+        }
+      },
+      fields: {} as any
+    },
+    _columnAliasNameMap: {},
+    _primaryFieldName: metadata.PrimaryNameAttribute,
+    _isDirty: false,
+    _entityReference: {
+      _etn: entityType,
+      _id: recordId || '',
+      _name: primaryName
+    }
   }
 
+  // Process fields into the _record.fields structure
   Object.entries(entity).forEach(([key, value]) => {
     // Skip system attributes
     if (key.startsWith('@')) {
       return
     }
 
-    // Handle formatted values
-    const formattedKey = `${key}@OData.Community.Display.V1.FormattedValue`
-    if (entity[formattedKey]) {
-      record[key] = {
-        raw: value,
-        formatted: entity[formattedKey],
+    // Create field object
+    const field: DatasetFieldValue = {
+      value: value,
+      timestamp: new Date().toISOString(),
+      validationResult: {
+        errorId: null,
+        errorMessage: null,
+        isValueValid: true,
+        userInput: null,
+        isOfflineSyncError: false
       }
-    } else {
-      record[key] = value
+    } as DatasetFieldValue
+
+    // Handle formatted values
+    const formattedKey = `${key}${FORMATTED_VALUE_SUFFIX}`
+    if (entity[formattedKey]) {
+      (field as any).formatted = entity[formattedKey]
     }
+
+    record._record.fields[key] = field
   })
+
+  // Also set fields directly on record for backward compatibility
+  record[metadata.PrimaryNameAttribute] = primaryName
+  // Only set 'name' field if it's different from the primary name attribute
+  if (metadata.PrimaryNameAttribute !== 'name') {
+    record.name = primaryName
+  }
 
   return record
 }
@@ -301,7 +258,7 @@ function formatDisplayName(attributeName: string): string {
     .trim()
 }
 
-function inferDataType(value: any): string {
+function inferDataType(value: any): DatasetColumnType {
   if (value === null || value === undefined) {
     return 'SingleLine.Text'
   }

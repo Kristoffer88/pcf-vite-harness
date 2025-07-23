@@ -72,6 +72,30 @@ export function detectDatasetParameters(
         `✅ Found dataset: ${paramName} with ${recordCount} records and ${columns.length} columns`
       )
 
+      // Check for environment variable override first
+      const envTargetTable = import.meta.env.VITE_PCF_TARGET_TABLE
+      
+      // Try multiple sources for entity type
+      let entityLogicalName = 
+        dataset._targetEntityType ||  // First check our custom property
+        dataset.getTargetEntityType?.() || // Then try the getter
+        dataset.entityLogicalName || // Then the direct property
+        undefined
+      
+      // Environment variable takes precedence
+      if (envTargetTable) {
+        console.log(`📋 Using VITE_PCF_TARGET_TABLE environment variable: ${envTargetTable}`)
+        entityLogicalName = envTargetTable
+      }
+      
+      console.log(`📊 Dataset ${paramName} entity detection:`, {
+        _targetEntityType: dataset._targetEntityType,
+        getTargetEntityType: dataset.getTargetEntityType?.(),
+        entityLogicalName: dataset.entityLogicalName,
+        envTargetTable,
+        resolved: entityLogicalName
+      })
+
       const datasetInfo: DatasetInfo = {
         name: paramName,
         records,
@@ -84,7 +108,7 @@ export function detectDatasetParameters(
         recordCount,
         columnCount: columns.length,
         hasData: recordCount > 0,
-        entityLogicalName: dataset.getTargetEntityType?.() || dataset._targetEntityType,
+        entityLogicalName,
         viewId: dataset._viewId || dataset.getViewId?.(),
         isUserView: dataset.isUserView?.(),
         relationshipName: dataset._relationshipName,

@@ -3,17 +3,13 @@
  * Fetches and caches entity metadata including PrimaryIdAttribute and PrimaryNameAttribute
  */
 
-export interface EntityMetadataInfo {
-  LogicalName: string
-  PrimaryIdAttribute: string
-  PrimaryNameAttribute: string
-  LogicalCollectionName?: string
-  DisplayName?: {
-    UserLocalizedLabel?: {
-      Label: string
-    }
-  }
-}
+import type { EntityMetadata, DataverseEntity } from '../../../types/dataverse'
+
+// Re-export for backward compatibility
+export type EntityMetadataInfo = Pick<
+  EntityMetadata,
+  'LogicalName' | 'PrimaryIdAttribute' | 'PrimaryNameAttribute' | 'LogicalCollectionName' | 'DisplayName'
+>
 
 // Cache for entity metadata to avoid repeated API calls
 const entityMetadataCache = new Map<string, EntityMetadataInfo>()
@@ -25,6 +21,12 @@ export async function fetchEntityMetadata(
   entityLogicalName: string,
   webAPI?: ComponentFramework.WebApi
 ): Promise<EntityMetadataInfo | null> {
+  // Validate entity name before proceeding
+  if (!entityLogicalName || entityLogicalName === 'unknown' || entityLogicalName.trim() === '') {
+    console.warn(`⚠️ Invalid entity name for metadata fetch: "${entityLogicalName}"`)
+    return null
+  }
+
   // Check cache first
   const cached = entityMetadataCache.get(entityLogicalName)
   if (cached) {
@@ -64,7 +66,8 @@ export async function fetchEntityMetadata(
       LogicalName: entityLogicalName,
       PrimaryIdAttribute: `${entityLogicalName}id`,
       PrimaryNameAttribute: 'name',
-      LogicalCollectionName: `${entityLogicalName}s`
+      LogicalCollectionName: `${entityLogicalName}s`,
+      DisplayName: undefined
     }
     
     // Cache the fallback
@@ -78,7 +81,7 @@ export async function fetchEntityMetadata(
  * Get primary key value from an entity record
  */
 export function getEntityPrimaryKey(
-  entity: ComponentFramework.WebApi.Entity,
+  entity: DataverseEntity,
   metadata: EntityMetadataInfo
 ): string | null {
   const primaryKey = metadata.PrimaryIdAttribute
@@ -103,7 +106,7 @@ export function getEntityPrimaryKey(
  * Get primary name value from an entity record
  */
 export function getEntityPrimaryName(
-  entity: ComponentFramework.WebApi.Entity,
+  entity: DataverseEntity,
   metadata: EntityMetadataInfo
 ): string {
   const nameAttribute = metadata.PrimaryNameAttribute
@@ -139,7 +142,15 @@ export function getEntityPrimaryName(
     }
   }
   
-  return 'Unnamed Record'
+  // Instead of returning a fallback, throw an error with debugging info
+  const debugInfo = {
+    entity: entity,
+    metadata: metadata,
+    nameAttribute: metadata.PrimaryNameAttribute,
+    entityKeys: Object.keys(entity).slice(0, 20),
+    attemptedFields: nameLikeFields
+  };
+  throw new Error(`Failed to find primary name for entity. Debug info: ${JSON.stringify(debugInfo, null, 2)}`)
 }
 
 /**

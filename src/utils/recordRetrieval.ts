@@ -302,6 +302,13 @@ export async function getRecordCountForView(viewId: string): Promise<number | nu
  * Helper: Get collection name for entity logical name
  */
 async function getCollectionNameForEntity(entityLogicalName: string): Promise<string> {
+  // Validate entity name
+  if (!entityLogicalName || entityLogicalName === 'unknown' || entityLogicalName.trim() === '') {
+    console.warn(`⚠️ Invalid entity name for collection lookup: "${entityLogicalName}"`)
+    // Return a default collection name instead of failing
+    return entityLogicalName.endsWith('s') ? entityLogicalName : `${entityLogicalName}s`
+  }
+
   try {
     const response = await fetch(
       `/api/data/v9.2/EntityDefinitions(LogicalName='${entityLogicalName}')?$select=LogicalCollectionName`
