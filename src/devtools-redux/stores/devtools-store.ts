@@ -57,7 +57,7 @@ export const useDevToolsStore = create<DevToolsStore>()(
   subscribeWithSelector(
     immer((set, get) => ({
     // Initial State
-    isOpen: false,
+    isOpen: false, // Devtools closed by default, data loads in background
     activeTab: 'data' as DevToolsTab,
     currentState: null,
     

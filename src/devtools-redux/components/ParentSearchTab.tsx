@@ -79,8 +79,12 @@ const ParentSearchTabComponent: React.FC<ParentSearchTabProps> = ({
         
         const metadata = await metadataResponse.json()
         
-        const primaryId = metadata.PrimaryIdAttribute || `${detectedParentEntityType}id`
-        const primaryName = metadata.PrimaryNameAttribute || `${detectedParentEntityType}name`
+        if (!metadata.PrimaryIdAttribute || !metadata.PrimaryNameAttribute) {
+          throw new Error(`Incomplete metadata for ${detectedParentEntityType}: missing PrimaryIdAttribute or PrimaryNameAttribute`)
+        }
+        
+        const primaryId = metadata.PrimaryIdAttribute
+        const primaryName = metadata.PrimaryNameAttribute
         
         let query = `$select=${primaryId},${primaryName}&$orderby=${primaryName}`
         

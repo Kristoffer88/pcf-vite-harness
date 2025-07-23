@@ -5,6 +5,7 @@
 
 import { validateQuery } from './queryBuilder'
 import type { DatasetQuery, QueryResult } from './types'
+import { fetchEntityMetadata } from './entityMetadata'
 
 /**
  * Execute a dataset query using the WebAPI
@@ -48,9 +49,22 @@ export async function executeDatasetQuery(
 
     console.log(`✅ Query successful: ${result.entities.length} records retrieved`)
 
+    // Fetch entity metadata to get primaryIdAttribute
+    let primaryIdAttribute: string | undefined
+    try {
+      const metadata = await fetchEntityMetadata(query.entityLogicalName, webAPI)
+      if (metadata) {
+        primaryIdAttribute = metadata.PrimaryIdAttribute
+        console.log(`🔑 Primary ID attribute for ${query.entityLogicalName}: ${primaryIdAttribute}`)
+      }
+    } catch (error) {
+      console.warn(`⚠️ Could not fetch metadata for ${query.entityLogicalName}:`, error)
+    }
+
     return {
       entities: result.entities,
       entityLogicalName: query.entityLogicalName,
+      primaryIdAttribute,
       totalCount: result.entities.length,
       nextLink: result.nextLink,
       success: true,

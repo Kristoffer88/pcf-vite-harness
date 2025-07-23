@@ -189,6 +189,17 @@ export async function buildDatasetRefreshQueryWithDiscovery(
         `📋 Available info: parentEntity=${parentEntity}, childEntity=${subgrid.targetEntity}, parentRecordId=${parentRecordId}`
       )
     }
+  } else if (!subgrid.relationshipName && parentRecordId && parentEntity) {
+    // If no relationship name but we have parent info, try to build a filter
+    // This handles cases where we know the parent but don't have the explicit relationship
+    console.log(`🔍 No relationship name provided, attempting to build filter from parent info`)
+    console.log(`📋 Parent: ${parentEntity} (${parentRecordId}), Child: ${subgrid.targetEntity}`)
+    
+    // Common pattern: lookup field is _parentEntity_value
+    const potentialLookupField = `_${parentEntity}_value`
+    odataQuery += `&$filter=${potentialLookupField} eq ${parentRecordId}`
+    console.log(`✅ Applied direct parent filter: ${potentialLookupField} eq ${parentRecordId}`)
+    discoveredLookupColumn = potentialLookupField
   }
 
   return {

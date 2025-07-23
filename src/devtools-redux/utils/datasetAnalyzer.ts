@@ -37,7 +37,11 @@ export interface DatasetAnalysisResult {
 export function detectDatasetParameters(
   context: ComponentFramework.Context<any>
 ): DatasetAnalysisResult {
-  console.log('🔍 Analyzing context parameters for datasets...')
+  console.log('🔍 Analyzing context parameters for datasets...', {
+    hasContext: !!context,
+    hasParameters: !!context?.parameters,
+    parameterKeys: context?.parameters ? Object.keys(context.parameters) : []
+  })
 
   if (!context?.parameters) {
     console.log('⚠️ No parameters found in context')

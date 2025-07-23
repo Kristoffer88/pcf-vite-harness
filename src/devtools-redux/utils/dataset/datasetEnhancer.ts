@@ -50,14 +50,8 @@ export async function convertEntitiesToDatasetRecords(
     }
   }
   
-  // Log available ID fields for debugging
-  if (entities.length > 0) {
-    const sampleEntity = entities[0]
-    if (sampleEntity) {
-      const idFields = Object.keys(sampleEntity).filter(k => k.endsWith('id') && !k.includes('@'))
-      console.log(`🔑 Available ID fields in entities:`, idFields)
-    }
-  }
+  // Log primary ID field for debugging
+  console.log(`🔑 Using primary ID field: ${entityMetadata.PrimaryIdAttribute} for entity ${entityLogicalName}`)
   
   if (duplicateCount > 0) {
     console.warn(`⚠️ Found ${duplicateCount} duplicate record IDs!`)

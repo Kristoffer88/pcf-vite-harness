@@ -15,6 +15,7 @@ import {
   fontSize,
   spacing,
 } from '../../styles/theme'
+import { EnvConfigGenerator } from '../../utils/envConfigGenerator'
 
 interface LeftPanelProps {
   datasets: Array<{ key: string; dataset: any }>
@@ -27,6 +28,8 @@ interface LeftPanelProps {
   availableViews: any[]
   selectedViewId: string | null
   currentState: any
+  discoveredRelationships?: any[]
+  targetEntity?: string
   onSelectDataset: (key: string) => void
   onRefreshDatasets: () => void
   onSelectView: (viewId: string) => void
@@ -42,6 +45,9 @@ const LeftPanelComponent: React.FC<LeftPanelProps> = ({
   selectedParentEntity,
   availableViews,
   selectedViewId,
+  currentState,
+  discoveredRelationships = [],
+  targetEntity,
   onSelectDataset,
   onRefreshDatasets,
   onSelectView,
@@ -266,11 +272,65 @@ const LeftPanelComponent: React.FC<LeftPanelProps> = ({
           {refreshState.isRefreshing ? '🔄 Refreshing...' : '🔄 Refresh All Datasets'}
         </button>
 
+        {/* Configuration Controls */}
+        <div style={{ 
+          display: 'flex', 
+          gap: '4px', 
+          marginBottom: '8px' 
+        }}>
+          <button
+            onClick={async () => {
+              // Generate env config from current state
+              const envData = {
+                pageEntity: getPageEntity(),
+                targetEntity: targetEntity || currentEntity,
+                parentEntityType: detectedParentEntityType || undefined,
+                parentEntityId: selectedParentEntity?.id,
+                parentEntityName: selectedParentEntity?.name,
+                viewId: selectedViewId || undefined,
+                datasetKey: selectedDataset || undefined,
+                relationships: discoveredRelationships
+              }
+              
+              const success = await EnvConfigGenerator.copyToClipboard(envData)
+              if (success) {
+                alert('Environment configuration copied to clipboard!\n\nPaste it into your .env file and restart the development server.')
+              } else {
+                alert('Failed to copy to clipboard. Check console for details.')
+              }
+            }}
+            disabled={!refreshState.lastRefresh}
+            style={{
+              width: '100%',
+              padding: '6px 12px',
+              backgroundColor: refreshState.lastRefresh ? '#059669' : '#374151',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: refreshState.lastRefresh ? 'pointer' : 'not-allowed',
+              fontSize: '11px',
+              fontWeight: '600',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+            }}
+            title="Copy environment configuration to clipboard"
+          >
+            📋 Copy Config to Clipboard
+          </button>
+        </div>
+
         {/* Status */}
         {refreshState.lastRefresh && (
           <div style={{ fontSize: '10px', color: colors.text.secondary }}>
             Last refresh: {refreshState.lastRefresh.toLocaleTimeString()} • ✅{' '}
             {refreshState.successCount} • ❌ {refreshState.errorCount}
+          </div>
+        )}
+        {!refreshState.lastRefresh && !refreshState.isRefreshing && datasets.length > 0 && (
+          <div style={{ fontSize: '10px', color: colors.status.info, fontStyle: 'italic' }}>
+            Auto-refresh will start in a moment...
           </div>
         )}
       </div>

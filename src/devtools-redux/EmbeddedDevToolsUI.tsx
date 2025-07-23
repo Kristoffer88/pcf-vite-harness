@@ -3,8 +3,7 @@
  * Provides a simple, built-in devtools interface
  */
 
-import type React from 'react'
-import { memo, useCallback, useEffect } from 'react'
+import React, { memo, useCallback, useEffect } from 'react'
 import { LifecycleTriggers } from './components/LifecycleTriggers'
 import { UnifiedDatasetTab } from './components/UnifiedDatasetTab'
 import { RelationshipsTab, type ParentEntity } from './components/RelationshipsTab'
@@ -38,9 +37,16 @@ interface EmbeddedDevToolsUIProps {
 const EmbeddedDevToolsUIComponent: React.FC<EmbeddedDevToolsUIProps> = ({ connector }) => {
   const { triggerUpdateView } = usePCFLifecycle()
   
+  // Register the updateView callback with the connector
+  useEffect(() => {
+    connector.setPCFUpdateViewCallback(triggerUpdateView)
+  }, [connector, triggerUpdateView])
+  
   // Zustand stores - using individual property access to prevent re-render loops
   const isOpen = useDevToolsStore((state) => state.isOpen)
   const activeTab = useDevToolsStore((state) => state.activeTab)
+  
+  console.log('🔧 EmbeddedDevToolsUI render', { isOpen, activeTab })
   const currentState = useDevToolsStore((state) => state.currentState)
   const selectedParentEntity = useDevToolsStore((state) => state.selectedParentEntity)
   const discoveredRelationships = useDevToolsStore((state) => state.discoveredRelationships)

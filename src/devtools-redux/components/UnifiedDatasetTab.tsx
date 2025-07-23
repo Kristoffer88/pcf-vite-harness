@@ -5,7 +5,7 @@
  */
 
 import type React from 'react'
-import { memo, useCallback, useEffect, useMemo, useRef } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { PCFDevToolsConnector } from '../PCFDevToolsConnector'
 import {
   borderRadius,
@@ -36,6 +36,7 @@ import {
 import { EntityDetectionPanel } from './EntityDetectionPanel'
 import { LeftPanel, RightPanel } from './dataset'
 import { useDatasetStore } from '../stores'
+import { EnvConfigGenerator } from '../utils/envConfigGenerator'
 interface UnifiedDatasetTabProps {
   connector: PCFDevToolsConnector
   currentState: any
@@ -76,6 +77,13 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
   targetEntity,
   onTargetEntityUpdate,
 }) => {
+  console.log('🎯 UnifiedDatasetTab mounted/rendered', {
+    hasCurrentState: !!currentState,
+    hasContext: !!currentState?.context,
+    hasWebAPI: !!currentState?.webAPI,
+    currentEntity,
+    targetEntity
+  })
   // Zustand stores - using individual selectors to avoid reference equality issues
   const selectedDataset = useDatasetStore((state) => state.selectedDataset)
   const availableViews = useDatasetStore((state) => state.availableViews)
@@ -117,13 +125,21 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
   }, [currentState?.context, datasetAnalysisTrigger])
 
   // Define datasets immediately after datasetAnalysis to avoid temporal dead zone issues
-  const datasets = useMemo(() => datasetAnalysis.datasets.map(ds => ({
-    key: ds.name,
-    dataset: {
-      ...ds,
-      type: 'DataSet',
-    },
-  })), [datasetAnalysis.datasets])
+  const datasets = useMemo(() => {
+    const result = datasetAnalysis.datasets.map(ds => ({
+      key: ds.name,
+      dataset: {
+        ...ds,
+        type: 'DataSet',
+      },
+    }))
+    console.log('📦 Datasets memoized:', {
+      count: result.length,
+      names: result.map(d => d.key),
+      hasRecords: result.map(d => ({ name: d.key, recordCount: d.dataset.recordCount }))
+    })
+    return result
+  }, [datasetAnalysis.datasets])
 
   // Trigger dataset refresh when parent entity changes
   useEffect(() => {
@@ -654,7 +670,81 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
       console.log(`🔄 Triggering PCF updateView after dataset refresh`)
       await onUpdateView()
     }
-  }, [currentState, datasets, currentEntity, selectedParentEntity, onUpdateView])
+  }, [currentState, datasets, currentEntity, selectedParentEntity, onUpdateView, getPageEntity, getTargetEntity, detectedParentEntityType, discoveredRelationships])
+
+  // Load configuration from environment on mount
+  const [envConfigLoaded, setEnvConfigLoaded] = useState(false)
+  
+  useEffect(() => {
+    if (!envConfigLoaded && currentState?.context) {
+      console.log('🔍 Checking for environment configuration...')
+      
+      // Load parent entity from env
+      const parentEntity = EnvConfigGenerator.loadParentEntityFromEnv()
+      if (parentEntity) {
+        console.log('📂 Loading parent entity from env:', parentEntity)
+        onSelectParentEntity(parentEntity)
+      }
+      
+      // Load parent entity type
+      const parentEntityType = import.meta.env.VITE_PCF_PARENT_ENTITY_TYPE
+      if (parentEntityType) {
+        onDetectedParentEntityTypeUpdate(parentEntityType)
+      }
+      
+      // Load default view ID
+      const defaultViewId = import.meta.env.VITE_PCF_DEFAULT_VIEW_ID
+      if (defaultViewId) {
+        console.log('📂 Loading default view ID from env:', defaultViewId)
+        setSelectedViewId(defaultViewId)
+      }
+      
+      // Load relationships from env
+      const envRelationships = EnvConfigGenerator.parseRelationshipsFromEnv()
+      if (envRelationships.length > 0) {
+        console.log('📂 Loading relationships from env:', envRelationships.length)
+        onDiscoveredRelationshipsUpdate(envRelationships)
+      }
+      
+      setEnvConfigLoaded(true)
+    }
+  }, [envConfigLoaded, currentState?.context])
+
+  // Automatically refresh datasets on initial mount based on env config
+  useEffect(() => {
+    const autoRefreshEnabled = EnvConfigGenerator.isAutoRefreshEnabled()
+    const autoRefreshDelay = EnvConfigGenerator.getAutoRefreshDelay()
+    
+    console.log('🔍 Auto-refresh check:', {
+      datasetsLength: datasets.length,
+      hasContext: !!currentState?.context,
+      hasWebAPI: !!currentState?.webAPI,
+      lastRefresh: refreshState.lastRefresh,
+      isRefreshing: refreshState.isRefreshing,
+      envConfigLoaded,
+      autoRefreshEnabled,
+      autoRefreshDelay,
+      datasets: datasets.map(d => d.key)
+    })
+    
+    if (
+      envConfigLoaded && // Only check after env config is checked
+      autoRefreshEnabled && // Check if auto-refresh is enabled in env
+      datasets.length > 0 && 
+      currentState?.context && 
+      currentState?.webAPI && 
+      !refreshState.lastRefresh && // Only auto-refresh if never refreshed
+      !refreshState.isRefreshing
+    ) {
+      console.log(`🚀 Auto-refreshing datasets (enabled in env, delay: ${autoRefreshDelay}ms)`)
+      const timer = setTimeout(() => {
+        handleRefreshDatasets()
+      }, autoRefreshDelay)
+
+      return () => clearTimeout(timer)
+    }
+    return undefined
+  }, [datasets.length, currentState?.context, currentState?.webAPI, refreshState.lastRefresh, refreshState.isRefreshing, handleRefreshDatasets, envConfigLoaded])
 
   const handleSelectDataset = useCallback((key: string) => {
     setSelectedDataset(key)
@@ -675,6 +765,8 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
         availableViews={availableViews}
         selectedViewId={selectedViewId}
         currentState={currentState}
+        discoveredRelationships={discoveredRelationships}
+        targetEntity={targetEntity}
         onSelectDataset={handleSelectDataset}
         onRefreshDatasets={handleRefreshDatasets}
         onSelectView={(viewId) => {

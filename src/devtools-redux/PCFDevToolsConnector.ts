@@ -5,6 +5,7 @@
  */
 
 import { type LifecycleEvent, type LifecycleStats, lifecycleHooks } from './hooks/LifecycleHooks'
+import { BackgroundDataLoader } from './utils/backgroundDataLoader'
 
 interface PCFManifest {
   namespace: string
@@ -235,6 +236,21 @@ export class PCFDevToolsConnector {
       },
       this.state
     )
+
+    // Start background data loading
+    BackgroundDataLoader.initialize(context, async () => {
+      // First try to use the actual PCF component updateView if available
+      if (this.pcfUpdateViewCallback) {
+        console.log('🔄 Using actual PCF component updateView')
+        await this.pcfUpdateViewCallback()
+      } else {
+        console.log('⚠️ PCF updateView callback not available, using lifecycle hooks')
+        // Fallback to lifecycle hooks (for monitoring only)
+        await lifecycleHooks.executeUpdateView(context)
+      }
+    }).catch(error => {
+      console.error('Background data loading failed:', error)
+    })
   }
 
   async logUpdateView(context: ComponentFramework.Context<any>) {
@@ -637,6 +653,14 @@ export class PCFDevToolsConnector {
       },
       this.state
     )
+  }
+
+  // Set the actual PCF component updateView callback
+  private pcfUpdateViewCallback?: () => Promise<void>
+  
+  setPCFUpdateViewCallback(callback: () => Promise<void>) {
+    this.pcfUpdateViewCallback = callback
+    console.log('🔄 PCF updateView callback registered with DevTools')
   }
 
   // Enhanced Methods

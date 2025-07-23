@@ -68,6 +68,13 @@ export const PCFLifecycleProvider: React.FC<PCFLifecycleProviderProps> = ({
         {},
         containerRef.current
       )
+      
+      // Create updateView callback for background loader
+      const updateViewCallback = async () => {
+        if (pcfComponentRef.current) {
+          await pcfComponentRef.current.updateView(context)
+        }
+      }
 
       // Update view
       await pcfComponentRef.current.updateView(context)

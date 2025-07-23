@@ -204,8 +204,11 @@ function createDefaultWebAPI(): ComponentFramework.WebApi {
         }
 
         const result = await response.json()
-        const primaryIdAttribute =
-          metadata.PrimaryIdAttribute || `${entityLogicalName.toLowerCase()}id`
+        const primaryIdAttribute = metadata.PrimaryIdAttribute
+
+        if (!primaryIdAttribute) {
+          throw new Error(`No PrimaryIdAttribute found in metadata for ${entityLogicalName}`)
+        }
 
         console.log(`✅ Created record for ${entityLogicalName}`)
         return {
@@ -301,7 +304,14 @@ function createMockDataSet(
     columns?: any[]
   } & Partial<ComponentFramework.PropertyTypes.DataSet>
 ): ComponentFramework.PropertyTypes.DataSet {
-  const viewId = crypto.randomUUID()
+  // Use view ID from environment if available
+  const viewId = import.meta.env.VITE_PCF_DEFAULT_VIEW_ID || undefined
+  
+  if (viewId) {
+    console.log(`📋 Using VITE_PCF_DEFAULT_VIEW_ID from environment: ${viewId}`)
+  } else {
+    console.log(`📊 No VITE_PCF_DEFAULT_VIEW_ID found, dataset will use default view`)
+  }
 
   const defaultColumns = [
     {
@@ -315,7 +325,7 @@ function createMockDataSet(
   ]
 
   return {
-    getViewId: () => viewId,
+    getViewId: () => viewId || '',
     getTargetEntityType: () => options?.entityLogicalName || 'account',
     isUserView: () => false,
     loading: false,

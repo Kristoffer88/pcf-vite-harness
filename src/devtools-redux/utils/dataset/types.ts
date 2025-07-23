@@ -17,6 +17,7 @@ export interface DatasetQuery {
 export interface QueryResult {
   entities: ComponentFramework.WebApi.Entity[]
   entityLogicalName: string
+  primaryIdAttribute?: string
   totalCount?: number
   nextLink?: string
   success: boolean

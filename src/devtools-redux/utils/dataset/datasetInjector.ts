@@ -132,24 +132,16 @@ function updateDatasetMetadata(dataset: Partial<PCFDataset>, queryResult: QueryR
   }
 
   // Add formatted values helper
-  if (!dataset.getFormattedValue && queryResult.entities.length > 0) {
+  if (!dataset.getFormattedValue && queryResult.entities.length > 0 && queryResult.primaryIdAttribute) {
+    const primaryIdAttribute = queryResult.primaryIdAttribute
     Object.defineProperty(dataset, 'getFormattedValue', {
       value: (recordId: string, columnName: string) => {
         const record = dataset.records?.[recordId]
         if (!record) return null
         
         const formattedKey = `${columnName}@OData.Community.Display.V1.FormattedValue`
-        // Note: We can't use async in find, so we'll use the record data directly
-        const entity = queryResult.entities.find(e => {
-          // Try to match by common ID fields
-          const idFields = Object.keys(e).filter(k => k.endsWith('id') && !k.includes('@'))
-          for (const idField of idFields) {
-            if (e[idField] === recordId) {
-              return true
-            }
-          }
-          return false
-        })
+        // Find the entity by primary ID attribute
+        const entity = queryResult.entities.find(e => e[primaryIdAttribute] === recordId)
         
         return entity ? (entity[formattedKey] || record[columnName]) : record[columnName]
       },
