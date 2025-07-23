@@ -30,15 +30,16 @@ describe('Dataset Injection', () => {
     // Create a query result with sample records
     const queryResult: QueryResult = {
       success: true,
+      entityLogicalName: 'task',
       entities: [
         {
-          taskid: '123e4567-e89b-12d3-a456-426614174000',
+          activityid: '123e4567-e89b-12d3-a456-426614174000',
           subject: 'Task 1',
           scheduledstart: '2024-01-01T00:00:00Z',
           'subject@OData.Community.Display.V1.FormattedValue': 'Task 1',
         },
         {
-          taskid: '223e4567-e89b-12d3-a456-426614174001',
+          activityid: '223e4567-e89b-12d3-a456-426614174001',
           subject: 'Task 2',
           scheduledstart: '2024-01-02T00:00:00Z',
           'subject@OData.Community.Display.V1.FormattedValue': 'Task 2',
@@ -82,6 +83,7 @@ describe('Dataset Injection', () => {
 
     const emptyResult: QueryResult = {
       success: true,
+      entityLogicalName: 'task',
       entities: [],
     }
 
@@ -108,6 +110,7 @@ describe('Dataset Injection', () => {
 
     const queryResult: QueryResult = {
       success: true,
+      entityLogicalName: 'account',
       entities: [
         {
           accountid: '123e4567-e89b-12d3-a456-426614174000',

@@ -79,7 +79,7 @@ describe('Dataset Refresh Integration Tests', () => {
         console.log('🔍 Using account ID:', accountId)
 
         // Now fetch contacts for this account using the lookup column
-        const contactsUrl = `${dataverseUrl}/api/data/v9.1/contacts?$select=fullname,contactid&$filter=parentaccountid/accountid eq ${accountId}&$top=10`
+        const contactsUrl = `${dataverseUrl}/api/data/v9.1/contacts?$select=fullname,contactid&$filter=_parentcustomerid_value eq '${accountId}'&$top=10`
         console.log('🌐 Testing relationship URL:', contactsUrl)
 
         const contactResponse = await fetch(contactsUrl)
@@ -91,6 +91,9 @@ describe('Dataset Refresh Integration Tests', () => {
           recordCount: contactData.value?.length,
         })
 
+        if (!contactResponse.ok) {
+          console.log('❌ Contact query failed:', contactData)
+        }
         expect(contactResponse.ok).toBe(true)
         expect(contactData.value).toBeDefined()
         expect(Array.isArray(contactData.value)).toBe(true)
@@ -148,7 +151,7 @@ describe('Dataset Refresh Integration Tests', () => {
         const parentAccountId = parentData.value[0].accountid
 
         // Build filtered query for related contacts
-        const filteredQuery = `${dataverseUrl}/api/data/v9.1/contacts?$select=fullname,contactid&$filter=_parentaccountid_value eq ${parentAccountId}&$top=10`
+        const filteredQuery = `${dataverseUrl}/api/data/v9.1/contacts?$select=fullname,contactid&$filter=_parentcustomerid_value eq '${parentAccountId}'&$top=10`
         console.log('🏗️ Constructed filtered query:', filteredQuery)
 
         const response = await fetch(filteredQuery)
@@ -160,6 +163,9 @@ describe('Dataset Refresh Integration Tests', () => {
           query: filteredQuery,
         })
 
+        if (!response.ok) {
+          console.log('❌ Filtered query failed:', data)
+        }
         expect(response.ok).toBe(true)
         expect(data.value).toBeDefined()
         expect(Array.isArray(data.value)).toBe(true)

@@ -21,9 +21,16 @@ export interface DatasetInjectionOptions {
 export async function injectDatasetRecords(options: DatasetInjectionOptions): Promise<boolean> {
   const { context, datasetName, queryResult, onUpdateView } = options
 
-  if (!queryResult.success || !queryResult.entities || queryResult.entities.length === 0) {
-    console.warn(`⚠️ No records to inject for dataset: ${datasetName}`)
+  if (!queryResult.success) {
+    console.warn(`⚠️ Query failed for dataset: ${datasetName}`)
     return false
+  }
+
+  // Even if there are no records to inject, we should clear existing records
+  const hasRecordsToInject = queryResult.entities && queryResult.entities.length > 0
+  
+  if (!hasRecordsToInject) {
+    console.log(`🧹 No records to inject for dataset: ${datasetName}, but clearing existing records`)
   }
 
   try {
@@ -35,22 +42,27 @@ export async function injectDatasetRecords(options: DatasetInjectionOptions): Pr
       return false
     }
 
-    console.log(`💉 Injecting ${queryResult.entities.length} records into dataset: ${datasetName}`)
+    console.log(`💉 Injecting ${queryResult.entities?.length || 0} records into dataset: ${datasetName}`)
     console.log(`📊 Existing records before injection:`, Object.keys(dataset.records || {}).length)
 
-    // Convert entities to dataset records format
-    const newRecords = await convertEntitiesToDatasetRecords(queryResult.entities, queryResult.entityLogicalName, context.webAPI)
-    console.log(`🔄 Converted ${Object.keys(newRecords).length} entities to dataset records`)
+    let newRecords = {}
     
-    // Clear existing records and add new ones
+    if (hasRecordsToInject) {
+      // Convert entities to dataset records format
+      newRecords = await convertEntitiesToDatasetRecords(queryResult.entities!, queryResult.entityLogicalName, context.webAPI)
+      console.log(`🔄 Converted ${Object.keys(newRecords).length} entities to dataset records`)
+    }
+    
+    // Clear existing records and add new ones (even if newRecords is empty)
     if (dataset.records) {
       // Clear existing records
-      console.log(`🧹 Clearing ${Object.keys(dataset.records).length} existing records`)
+      const existingCount = Object.keys(dataset.records).length
+      console.log(`🧹 Clearing ${existingCount} existing records`)
       Object.keys(dataset.records).forEach(key => {
         delete dataset.records[key]
       })
       
-      // Add new records
+      // Add new records (might be empty)
       Object.assign(dataset.records, newRecords)
       console.log(`✅ Added ${Object.keys(newRecords).length} new records`)
     } else {

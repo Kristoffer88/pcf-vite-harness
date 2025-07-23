@@ -25,26 +25,34 @@ export async function fetchEntityMetadataWithLookups(
   try {
     console.log(`🚀 Batch-fetching metadata for ${entityLogicalName}...`)
     
-    // Single request that gets entity info and all lookup attributes with their targets
-    const metadataUrl = `/api/data/v9.2/EntityDefinitions(LogicalName='${entityLogicalName}')?` +
-      `$select=LogicalName,DisplayName,EntitySetName,PrimaryIdAttribute,PrimaryNameAttribute&` +
-      `$expand=Attributes(` +
-        `$filter=(AttributeType eq 'Lookup' or AttributeType eq 'Customer' or AttributeType eq 'Owner') and IsValidForRead eq true;` +
-        `$select=LogicalName,DisplayName,AttributeType,Targets` +
-      `)`
+    // First get basic entity metadata
+    const entityUrl = `/api/data/v9.2/EntityDefinitions(LogicalName='${entityLogicalName}')?` +
+      `$select=LogicalName,DisplayName,EntitySetName,PrimaryIdAttribute,PrimaryNameAttribute`
 
-    const response = await fetch(metadataUrl)
-    if (!response.ok) {
-      throw new Error(`Failed to fetch metadata: ${response.status} ${response.statusText}`)
+    const entityResponse = await fetch(entityUrl)
+    if (!entityResponse.ok) {
+      throw new Error(`Failed to fetch entity metadata: ${entityResponse.status} ${entityResponse.statusText}`)
     }
 
-    const data = await response.json()
+    const entityData = await entityResponse.json()
+    
+    // Then fetch lookup attributes separately with proper type casting
+    const lookupUrl = `/api/data/v9.2/EntityDefinitions(LogicalName='${entityLogicalName}')/Attributes/Microsoft.Dynamics.CRM.LookupAttributeMetadata?` +
+      `$select=LogicalName,DisplayName,AttributeType,Targets&` +
+      `$filter=IsValidForRead eq true`
+
+    const lookupResponse = await fetch(lookupUrl)
+    if (!lookupResponse.ok) {
+      throw new Error(`Failed to fetch lookup attributes: ${lookupResponse.status} ${lookupResponse.statusText}`)
+    }
+
+    const lookupData = await lookupResponse.json()
     
     // Process lookup attributes
     const lookupAttributes: LookupAttribute[] = []
     
-    if (data.Attributes && Array.isArray(data.Attributes)) {
-      for (const attr of data.Attributes) {
+    if (lookupData.value && Array.isArray(lookupData.value)) {
+      for (const attr of lookupData.value) {
         // Targets are directly included in the response
         const targets = attr.Targets || []
         
@@ -63,8 +71,8 @@ export async function fetchEntityMetadataWithLookups(
 
     const metadata: EntityMetadata = {
       logicalName: entityLogicalName,
-      displayName: data.DisplayName?.UserLocalizedLabel?.Label || entityLogicalName,
-      entitySetName: data.EntitySetName || `${entityLogicalName}s`,
+      displayName: entityData.DisplayName?.UserLocalizedLabel?.Label || entityLogicalName,
+      entitySetName: entityData.EntitySetName || `${entityLogicalName}s`,
       lookupAttributes,
     }
 
@@ -73,7 +81,7 @@ export async function fetchEntityMetadataWithLookups(
     
     console.log(
       `✅ Batch-fetched metadata for ${entityLogicalName}: ` +
-      `${lookupAttributes.length} lookups in 1 request (saved ${lookupAttributes.length - 1} API calls)`
+      `${lookupAttributes.length} lookups in 2 requests`
     )
 
     return metadata

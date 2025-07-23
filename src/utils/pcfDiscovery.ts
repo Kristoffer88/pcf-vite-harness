@@ -378,7 +378,7 @@ export async function findPCFOnForms(
     // For custom entities, objecttypecode is the logical name
     url += ` and objecttypecode eq '${filterOptions.entityLogicalName}'`
   } else if (filterOptions.entityTypeCode) {
-    url += ` and objecttypecode eq ${filterOptions.entityTypeCode}`
+    url += ` and objecttypecode eq '${filterOptions.entityTypeCode}'`
   }
 
   console.log('📡 Fetching forms from:', url)
@@ -420,6 +420,13 @@ export async function findPCFOnForms(
         entityTypeCode: form.objecttypecode,
         controls: matchingControls,
       })
+      
+      // Early termination optimization: if we found a match and have specific entity constraints,
+      // we can stop searching as we likely found what we need
+      if (filterOptions.entityTypeCode || filterOptions.entityLogicalName) {
+        console.log(`🚀 Early termination: found match for specific entity constraint, stopping search`)
+        break
+      }
     }
   }
 
@@ -449,7 +456,7 @@ export async function getPCFControlsOnForm(formId: string): Promise<PCFControlIn
  * Get all forms for a specific entity that contain PCF controls
  */
 export async function getPCFFormsForEntity(entityTypeCode: number): Promise<FormPCFMatch[]> {
-  const url = `/api/data/v9.2/systemforms?$select=formid,name,objecttypecode,formxml&$filter=objecttypecode eq ${entityTypeCode} and (contains(formxml,'customControl') or contains(formxml,'customcontroldefinition'))`
+  const url = `/api/data/v9.2/systemforms?$select=formid,name,objecttypecode,formxml&$filter=objecttypecode eq '${entityTypeCode}' and (contains(formxml,'customControl') or contains(formxml,'customcontroldefinition'))`
 
   const response = await fetch(url)
   if (!response.ok) {

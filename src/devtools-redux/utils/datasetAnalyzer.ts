@@ -3,6 +3,8 @@
  * Analyzes PCF dataset parameters and provides metadata
  */
 
+type DatasetColumn = ComponentFramework.PropertyHelper.DataSetApi.Column
+
 export interface DatasetInfo {
   name: string
   records: Record<string, any>
@@ -99,7 +101,7 @@ export function detectDatasetParameters(
       // Debug log columns to understand structure
       if (columns.length > 0) {
         console.log(`📊 Columns in dataset ${paramName}:`)
-        columns.forEach((col: any) => {
+        columns.forEach((col: DatasetColumn) => {
           console.log(`  - ${col.name} (${col.dataType || 'unknown'})`)
           if (col.name?.endsWith('id') || col.name?.includes('_value')) {
             console.log(`    ⚠️ Potential lookup field pattern`)
@@ -110,7 +112,7 @@ export function detectDatasetParameters(
       const datasetInfo: DatasetInfo = {
         name: paramName,
         records,
-        columns: columns.map((col: any) => ({
+        columns: columns.map((col: DatasetColumn) => ({
           name: col.name || '',
           displayName: col.displayName || col.name || '',
           dataType: col.dataType || 'unknown',
