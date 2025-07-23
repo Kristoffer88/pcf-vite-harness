@@ -5,6 +5,7 @@
 
 import type React from 'react'
 import { memo, useCallback, useEffect, useState } from 'react'
+import { FluentProvider, webDarkTheme } from '@fluentui/react-components'
 import { LifecycleTriggers } from './components/LifecycleTriggers'
 import { UnifiedDatasetTab } from './components/UnifiedDatasetTab'
 import { RelationshipsTab, type ParentEntity } from './components/RelationshipsTab'
@@ -161,23 +162,24 @@ const EmbeddedDevToolsUIComponent: React.FC<EmbeddedDevToolsUIProps> = ({ connec
   }
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        height: '400px',
-        backgroundColor: colors.background.primary,
-        color: colors.text.primary,
-        borderTop: `1px solid ${colors.border.primary}`,
-        display: 'flex',
-        flexDirection: 'column',
-        zIndex: zIndex.devtools,
-        fontFamily: fonts.system,
-        fontSize: fontSize.lg,
-      }}
-    >
+    <FluentProvider theme={webDarkTheme}>
+      <div
+        style={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: '400px',
+          backgroundColor: colors.background.primary,
+          color: colors.text.primary,
+          borderTop: `1px solid ${colors.border.primary}`,
+          display: 'flex',
+          flexDirection: 'column',
+          zIndex: zIndex.devtools,
+          fontFamily: fonts.system,
+          fontSize: fontSize.lg,
+        }}
+      >
       {/* Header */}
       <div
         style={{
@@ -403,7 +405,8 @@ const EmbeddedDevToolsUIComponent: React.FC<EmbeddedDevToolsUIProps> = ({ connec
       >
         <span>PCF Component DevTools</span>
       </div>
-    </div>
+      </div>
+    </FluentProvider>
   )
 }
 
