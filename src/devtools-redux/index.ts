@@ -3,7 +3,7 @@
  * Export all DevTools functionality
  */
 
-export { DatasetRefreshTool } from './components/DatasetRefreshToolSimple'
+export { DatasetRefreshTool } from './components/DatasetRefreshTool'
 export { LifecycleTriggers } from './components/LifecycleTriggers'
 // Export PCF lifecycle context
 export { PCFLifecycleProvider, usePCFLifecycle } from './contexts/PCFLifecycleContext'

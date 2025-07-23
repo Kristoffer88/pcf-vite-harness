@@ -31,11 +31,9 @@ import { injectDatasetRecords } from '../utils/dataset/datasetInjector'
 import { clearBatchMetadataCache } from '../utils/dataset/batchMetadataFetcher'
 import { detectDatasetParameters } from '../utils/datasetAnalyzer'
 import { 
-  findPCFOnForms, 
-  formDiscoveryCache,
-  type FormPCFMatch,
-  ENTITY_TYPE_CODES 
+  type FormPCFMatch
 } from '../../utils/pcfDiscovery'
+import { EntityDetectionPanel } from './EntityDetectionPanel'
 interface UnifiedDatasetTabProps {
   connector: PCFDevToolsConnector
   currentState: any
@@ -46,6 +44,683 @@ interface ParentEntity {
   id: string
   name: string
   entityType: string
+}
+
+// Component Props Interfaces
+interface DatasetListItemProps {
+  datasetKey: string
+  dataset: any
+  isSelected: boolean
+  refreshResult?: any
+  onClick: (key: string) => void
+}
+
+interface LeftPanelProps {
+  datasets: Array<{ key: string; dataset: any }>
+  selectedDataset: string | null
+  refreshState: DatasetRefreshState
+  datasetAnalysis: any
+  currentEntity: string
+  detectedParentEntityType: string | null
+  parentEntitySearch: string
+  selectedParentEntity: ParentEntity | null
+  isLoadingParentEntities: boolean
+  parentEntitySuggestions: ParentEntity[]
+  availableViews: any[]
+  selectedViewId: string | null
+  currentState: any
+  onSelectDataset: (key: string) => void
+  onRefreshDatasets: () => void
+  onClearCache: () => void
+  onParentEntitySearch: (value: string) => void
+  onSelectParentEntity: (entity: ParentEntity | null) => void
+  onSelectView: (viewId: string) => void
+}
+
+interface RightPanelProps {
+  currentState: any
+  selectedDataset: string | null
+  datasets: Array<{ key: string; dataset: any }>
+  currentEntity: string
+  selectedForm: FormPCFMatch | null
+  selectedParentEntity: ParentEntity | null
+  discoveredRelationships: DiscoveredRelationship[]
+  onEntityChange: (entity: string) => void
+  onFormSelect: (form: FormPCFMatch | null) => void
+}
+
+// DatasetListItem Component
+const DatasetListItem: React.FC<DatasetListItemProps> = ({ 
+  datasetKey, 
+  dataset, 
+  isSelected, 
+  refreshResult, 
+  onClick 
+}) => {
+  return (
+    <div
+      onClick={() => onClick(datasetKey)}
+      style={{
+        padding: '12px',
+        cursor: 'pointer',
+        backgroundColor: isSelected ? '#1f6feb' : 'transparent',
+        borderLeft: isSelected ? '3px solid #58a6ff' : '3px solid transparent',
+        borderBottom: '1px solid #21262d',
+        fontSize: '12px',
+        transition: 'all 0.1s ease',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          marginBottom: '8px',
+        }}
+      >
+        <div
+          style={{
+            fontWeight: '600',
+            color: isSelected ? '#ffffff' : '#e6edf3',
+            fontSize: '13px',
+          }}
+        >
+          {datasetKey}
+        </div>
+        <div
+          style={{
+            fontSize: '10px',
+            padding: '2px 6px',
+            borderRadius: '3px',
+            backgroundColor: refreshResult
+              ? refreshResult.queryResult.success
+                ? '#22c55e'
+                : '#ef4444'
+              : dataset.hasData
+                ? '#6b7280'
+                : '#9ca3af',
+            color: '#ffffff',
+          }}
+        >
+          {refreshResult
+            ? refreshResult.queryResult.success
+              ? `${refreshResult.queryResult.entities.length} records`
+              : 'Error'
+            : `${dataset.recordCount || 0} records`}
+        </div>
+      </div>
+
+      <div
+        style={{
+          color: isSelected ? '#b1bac4' : '#7d8590',
+          fontSize: '11px',
+          marginBottom: '4px',
+        }}
+      >
+        <div>Entity: {dataset.entityLogicalName || 'unknown'}</div>
+        {dataset.viewId && <div>View: {dataset.viewId.substring(0, 8)}...</div>}
+        {dataset.relationshipName && (
+          <div>Relationship: {dataset.relationshipName}</div>
+        )}
+      </div>
+
+      {refreshResult?.errorAnalysis && (
+        <div
+          style={{
+            fontSize: '10px',
+            color: '#ff7b72',
+            backgroundColor: '#3a1e1e',
+            padding: '4px',
+            borderRadius: '2px',
+            marginTop: '4px',
+          }}
+        >
+          Error: {refreshResult.queryResult.error}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// LeftPanel Component
+const LeftPanel: React.FC<LeftPanelProps> = ({
+  datasets,
+  selectedDataset,
+  refreshState,
+  datasetAnalysis,
+  currentEntity,
+  detectedParentEntityType,
+  parentEntitySearch,
+  selectedParentEntity,
+  isLoadingParentEntities,
+  parentEntitySuggestions,
+  availableViews,
+  selectedViewId,
+  currentState,
+  onSelectDataset,
+  onRefreshDatasets,
+  onClearCache,
+  onParentEntitySearch,
+  onSelectParentEntity,
+  onSelectView,
+}) => {
+  const getPageEntity = () => {
+    const envValue = import.meta.env.VITE_PCF_PAGE_TABLE
+    if (envValue) return envValue
+    return currentEntity || 'unknown'
+  }
+
+  return (
+    <div
+      style={{
+        width: '350px',
+        borderRight: `1px solid ${colors.border.primary}`,
+        overflow: 'auto',
+        backgroundColor: colors.background.primary,
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      {/* Header with Entity Info */}
+      <div
+        style={{
+          ...commonStyles.container.panel,
+          ...commonStyles.text.label,
+          borderBottom: `1px solid ${colors.border.primary}`,
+        }}
+      >
+        <div style={{ marginBottom: '8px' }}>
+          <strong>📊 Dataset Management</strong>
+        </div>
+        <div style={{ fontSize: fontSize.xs, color: colors.text.secondary, marginBottom: '4px' }}>
+          Page/Form Entity:{' '}
+          <span style={{ color: colors.status.success, fontWeight: 'bold' }}>
+            {getPageEntity()}
+          </span>
+          {import.meta.env.VITE_PCF_PAGE_TABLE && (
+            <span style={{ color: colors.text.secondary, fontSize: '10px', marginLeft: '4px' }}>
+              (from env)
+            </span>
+          )}
+        </div>
+        <div style={{ fontSize: fontSize.xs, color: colors.text.secondary, marginBottom: '4px' }}>
+          Target Entity:{' '}
+          <span style={{ color: colors.status.info, fontWeight: 'bold' }}>
+            {currentEntity}
+          </span>
+        </div>
+
+        {/* Parent Entity Selection */}
+        <div style={{ marginTop: '12px' }}>
+          {!detectedParentEntityType && datasets.length > 0 && (
+            <div style={{ 
+              padding: '8px', 
+              backgroundColor: '#1a3d1a', 
+              border: '1px solid #2ea043',
+              borderRadius: '4px',
+              fontSize: '11px',
+              marginBottom: '8px'
+            }}>
+              <div style={{ color: '#7ee787', marginBottom: '4px' }}>
+                💡 No parent entity detected. Click "Refresh All Datasets" to discover relationships from metadata.
+              </div>
+              <div style={{ fontSize: '10px', color: '#7ee787' }}>
+                Or add VITE_PCF_PAGE_TABLE=your_parent_entity to .env file
+              </div>
+            </div>
+          )}
+          
+        {detectedParentEntityType && (
+          <div style={{ position: 'relative' }}>
+            <label
+              style={{
+                fontSize: '11px',
+                color: colors.text.secondary,
+                marginBottom: '4px',
+                display: 'block',
+              }}
+            >
+              Parent Entity ({detectedParentEntityType}):
+            </label>
+            <div style={{ position: 'relative' }}>
+              <input
+                type="text"
+                value={parentEntitySearch}
+                onChange={e => onParentEntitySearch(e.target.value)}
+                placeholder={`Search ${detectedParentEntityType}...`}
+                style={{
+                  width: '100%',
+                  padding: '8px 32px 8px 12px',
+                  fontSize: '12px',
+                  backgroundColor: '#21262d',
+                  border: '1px solid #30363d',
+                  borderRadius: '4px',
+                  color: '#e6edf3',
+                  outline: 'none',
+                  transition: 'border-color 0.2s',
+                }}
+                onFocus={e => e.target.style.borderColor = '#58a6ff'}
+                onBlur={e => e.target.style.borderColor = '#30363d'}
+              />
+              {isLoadingParentEntities && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    right: '8px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    fontSize: '10px',
+                    color: colors.text.secondary,
+                  }}
+                >
+                  Loading...
+                </div>
+              )}
+              {!isLoadingParentEntities && parentEntitySearch && (
+                <button
+                  onClick={() => onParentEntitySearch('')}
+                  style={{
+                    position: 'absolute',
+                    right: '8px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    color: '#7d8590',
+                    cursor: 'pointer',
+                    padding: '0 4px',
+                    fontSize: '14px',
+                  }}
+                  title="Clear search"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {/* Suggestions dropdown */}
+            {parentEntitySuggestions.length > 0 && parentEntitySearch.length > 0 && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: '-12px',
+                  right: '-12px',
+                  backgroundColor: '#161b22',
+                  border: '1px solid #30363d',
+                  borderRadius: '6px',
+                  marginTop: '4px',
+                  maxHeight: '300px',
+                  overflowY: 'auto',
+                  zIndex: 100,
+                  boxShadow: '0 8px 16px rgba(0, 0, 0, 0.4)',
+                }}
+              >
+                {parentEntitySuggestions.map(entity => (
+                  <div
+                    key={entity.id}
+                    onClick={() => {
+                      onSelectParentEntity(entity)
+                      onParentEntitySearch('') // Clear search to close dropdown
+                    }}
+                    style={{
+                      padding: '10px 12px',
+                      fontSize: '12px',
+                      cursor: 'pointer',
+                      borderBottom: '1px solid #21262d',
+                      ':hover': {
+                        backgroundColor: '#21262d',
+                      },
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#21262d')}
+                    onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+                  >
+                    <div style={{ flex: 1 }}>
+                      <div style={{ color: '#e6edf3', fontWeight: '500', marginBottom: '2px' }}>{entity.name}</div>
+                      <div style={{ color: '#7d8590', fontSize: '10px' }}>
+                        {entity.entityType} • {entity.id}
+                      </div>
+                    </div>
+                    <div style={{ color: '#58a6ff', fontSize: '16px' }}>✓</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {selectedParentEntity && (
+              <div
+                style={{
+                  marginTop: '8px',
+                  padding: '8px 12px',
+                  backgroundColor: '#1a3d1a',
+                  border: '1px solid #2ea043',
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ color: '#7ee787', fontWeight: '500', marginBottom: '2px' }}>
+                      ✓ {selectedParentEntity.name}
+                    </div>
+                    <div style={{ color: '#5ea85e', fontSize: '10px' }}>
+                      {selectedParentEntity.entityType} • {selectedParentEntity.id}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => onSelectParentEntity(null)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#7ee787',
+                      cursor: 'pointer',
+                      padding: '4px',
+                      fontSize: '16px',
+                      lineHeight: '1',
+                    }}
+                    title="Remove parent entity filter"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        </div>
+
+        {/* View Selection */}
+        {availableViews.length > 0 && (
+          <div style={{ marginTop: '12px' }}>
+            <label
+              style={{
+                fontSize: '11px',
+                color: colors.text.secondary,
+                marginBottom: '4px',
+                display: 'block',
+              }}
+            >
+              Select View:
+            </label>
+            <select
+              value={selectedViewId || ''}
+              onChange={e => onSelectView(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '4px 6px',
+                fontSize: '11px',
+                backgroundColor: '#21262d',
+                border: '1px solid #30363d',
+                borderRadius: '3px',
+                color: '#e6edf3',
+              }}
+            >
+              <option value="">Select a view...</option>
+              {availableViews.map(view => (
+                <option key={view.savedqueryid} value={view.savedqueryid}>
+                  {view.name} {view.isdefault ? '(Default)' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+
+      {/* Refresh Controls */}
+      <div
+        style={{
+          padding: '12px',
+          borderBottom: `1px solid ${colors.border.primary}`,
+          backgroundColor: '#1a1f2e',
+        }}
+      >
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+          <button
+            onClick={onRefreshDatasets}
+            disabled={refreshState.isRefreshing || datasets.length === 0}
+            style={{
+              flex: 1,
+              padding: '8px 12px',
+              backgroundColor: refreshState.isRefreshing ? '#475569' : '#3b82f6',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: refreshState.isRefreshing ? 'not-allowed' : 'pointer',
+              fontSize: '12px',
+              fontWeight: '600',
+            }}
+          >
+            {refreshState.isRefreshing ? '🔄 Refreshing...' : '🔄 Refresh All Datasets'}
+          </button>
+
+          <button
+            onClick={onClearCache}
+            style={{
+              padding: '8px 12px',
+              backgroundColor: '#6b7280',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '11px',
+            }}
+            title="Clear relationship discovery cache"
+          >
+            🧹 Clear Cache
+          </button>
+        </div>
+
+        {/* Status */}
+        {refreshState.lastRefresh && (
+          <div style={{ fontSize: '10px', color: colors.text.secondary }}>
+            Last refresh: {refreshState.lastRefresh.toLocaleTimeString()} • ✅{' '}
+            {refreshState.successCount} • ❌ {refreshState.errorCount}
+          </div>
+        )}
+      </div>
+
+      {/* Dataset List */}
+      <div style={{ flex: 1, overflow: 'auto' }}>
+        {datasets.length === 0 ? (
+          <div
+            style={{
+              padding: '16px',
+              color: colors.text.secondary,
+              fontSize: '12px',
+              fontStyle: 'italic',
+              textAlign: 'center',
+            }}
+          >
+            {datasetAnalysis.summary}
+          </div>
+        ) : (
+          datasets.map(({ key, dataset }) => {
+            const isSelected = selectedDataset === key
+            const refreshResult = refreshState.refreshResults.find(
+              r => r.subgridInfo.controlId === key
+            )
+
+            return (
+              <DatasetListItem
+                key={key}
+                datasetKey={key}
+                dataset={dataset}
+                isSelected={isSelected}
+                refreshResult={refreshResult}
+                onClick={onSelectDataset}
+              />
+            )
+          })
+        )}
+      </div>
+    </div>
+  )
+}
+
+// RightPanel Component
+const RightPanel: React.FC<RightPanelProps> = ({
+  currentState,
+  selectedDataset,
+  datasets,
+  currentEntity,
+  selectedForm,
+  selectedParentEntity,
+  discoveredRelationships,
+  onEntityChange,
+  onFormSelect,
+}) => {
+  const selectedDatasetObj = datasets.find(d => d.key === selectedDataset)
+  const selectedDatasetDetails = selectedDatasetObj?.dataset
+
+  return (
+    <div
+      style={{
+        flex: 1,
+        overflow: 'auto',
+        backgroundColor: '#0d1117',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      {/* Header */}
+      <div
+        style={{
+          padding: '12px 16px',
+          borderBottom: '1px solid #21262d',
+          backgroundColor: '#161b22',
+        }}
+      >
+        <h3
+          style={{
+            margin: 0,
+            fontSize: '14px',
+            fontWeight: '600',
+            color: '#e6edf3',
+          }}
+        >
+          {selectedDataset ? `Dataset: ${selectedDataset}` : 'Dataset Discovery & Details'}
+        </h3>
+      </div>
+
+      {/* Content */}
+      <div style={{ flex: 1, padding: '16px', overflow: 'auto' }}>
+        {!selectedDataset ? (
+          <div
+            style={{
+              color: '#7d8590',
+              fontSize: '12px',
+              textAlign: 'center',
+              marginTop: '24px',
+            }}
+          >
+            {datasets.length === 0 ? (
+              <>
+                <div style={{ marginBottom: '16px', fontSize: '14px', color: '#e6edf3' }}>
+                  📊 No datasets detected on this form
+                </div>
+                <div style={{ maxWidth: '500px', margin: '0 auto', textAlign: 'left' }}>
+                  <h4 style={{ color: '#e6edf3', marginBottom: '8px' }}>Getting Started:</h4>
+                  <ol style={{ paddingLeft: '20px', lineHeight: '1.6' }}>
+                    <li>Add dataset parameters to your PCF component</li>
+                    <li>Configure them in the control manifest</li>
+                    <li>Bind them to Dataverse entities in the app designer</li>
+                    <li>Refresh this page to see the datasets</li>
+                  </ol>
+                </div>
+              </>
+            ) : (
+              'Select a dataset from the list to view details'
+            )}
+          </div>
+        ) : selectedDatasetDetails && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Dataset Info */}
+            <div
+              style={{
+                backgroundColor: '#161b22',
+                border: '1px solid #21262d',
+                borderRadius: '6px',
+                padding: '12px',
+              }}
+            >
+              <h4
+                style={{
+                  margin: '0 0 8px 0',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  color: '#e6edf3',
+                }}
+              >
+                Dataset Information
+              </h4>
+              <div style={{ fontSize: '11px', color: '#7d8590' }}>
+                <div>Entity: {selectedDatasetDetails.entityLogicalName || 'unknown'}</div>
+                <div>Records: {selectedDatasetDetails.recordCount || 0}</div>
+                {selectedDatasetDetails.viewId && (
+                  <div>View ID: {selectedDatasetDetails.viewId}</div>
+                )}
+                {selectedDatasetDetails.relationshipName && (
+                  <div>Relationship: {selectedDatasetDetails.relationshipName}</div>
+                )}
+              </div>
+            </div>
+
+            {/* Discovered Relationships */}
+            {discoveredRelationships.length > 0 && (
+              <div
+                style={{
+                  backgroundColor: '#161b22',
+                  border: '1px solid #21262d',
+                  borderRadius: '6px',
+                  padding: '12px',
+                }}
+              >
+                <h4
+                  style={{
+                    margin: '0 0 8px 0',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    color: '#e6edf3',
+                  }}
+                >
+                  Discovered Relationships
+                </h4>
+                <div style={{ fontSize: '11px' }}>
+                  {discoveredRelationships
+                    .filter(rel => 
+                      rel.parentEntity === selectedDatasetDetails.entityLogicalName ||
+                      rel.childEntity === selectedDatasetDetails.entityLogicalName
+                    )
+                    .map((rel, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          padding: '8px',
+                          marginBottom: '4px',
+                          backgroundColor: '#0d1117',
+                          borderRadius: '4px',
+                          border: '1px solid #21262d',
+                        }}
+                      >
+                        <div style={{ color: '#e6edf3', marginBottom: '4px' }}>
+                          {rel.parentEntity} → {rel.childEntity}
+                        </div>
+                        <div style={{ color: '#7d8590', fontSize: '10px' }}>
+                          Type: {rel.type} | Field: {rel.lookupFieldName}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
 }
 
 const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
@@ -72,12 +747,7 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
   })
   const [discoveredRelationships, setDiscoveredRelationships] = useState<DiscoveredRelationship[]>([])
   const [currentEntity, setCurrentEntity] = useState<string>('unknown')
-  const [manualEntityOverride, setManualEntityOverride] = useState<string>('')
-  const [discoveredForms, setDiscoveredForms] = useState<FormPCFMatch[]>([])
-  const [isLoadingForms, setIsLoadingForms] = useState<boolean>(false)
   const [selectedForm, setSelectedForm] = useState<FormPCFMatch | null>(null)
-  const [formDiscoveryError, setFormDiscoveryError] = useState<string | null>(null)
-  const [cacheStats, setCacheStats] = useState<{ active: boolean; size: number }>({ active: false, size: 0 })
   const [datasetAnalysisTrigger, setDatasetAnalysisTrigger] = useState(0)
   
   // Memoize dataset analysis to prevent repeated calls - must be early to avoid temporal dead zone
@@ -229,38 +899,30 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
   }, [currentEntity])
 
   // Refs to prevent duplicate operations
-  const formDiscoveryInProgress = useRef(false)
   const relationshipDiscoveryInProgress = useRef(false)
 
-  
-  // Update cache stats periodically
+  // Update current entity when datasets change
   useEffect(() => {
-    const updateCacheStats = () => {
-      const stats = formDiscoveryCache.getCacheStats()
-      setCacheStats({
-        active: stats.size > 0,
-        size: stats.size
-      })
+    if (datasets.length > 0 && datasets[0]?.dataset?.entityLogicalName) {
+      const entityName = datasets[0].dataset.entityLogicalName
+      console.log('📋 Updating current entity from dataset:', entityName)
+      setCurrentEntity(entityName)
     }
-    
-    // Initial update
-    updateCacheStats()
-    
-    // Update every 5 seconds
-    const interval = setInterval(updateCacheStats, 5000)
-    
-    return () => clearInterval(interval)
-  }, [])
-  
-  // Clear form discovery cache function
-  const handleClearFormCache = () => {
-    formDiscoveryCache.clear()
-    setCacheStats({ active: false, size: 0 })
-    console.log('✅ Form discovery cache cleared')
-  }
+  }, [datasets])
 
-  // Detect parent entity type from relationships
+  
+
+  // Detect parent entity type from relationships or environment
   useEffect(() => {
+    // First check environment variable - PAGE_TABLE is the parent entity
+    const envPageTable = import.meta.env.VITE_PCF_PAGE_TABLE
+    if (envPageTable) {
+      setDetectedParentEntityType(envPageTable)
+      console.log(`🔍 Using parent entity from VITE_PCF_PAGE_TABLE: ${envPageTable}`)
+      return
+    }
+
+    // Then check discovered relationships
     if (datasets.length > 0 && discoveredRelationships.length > 0) {
       const targetEntity = datasets[0]?.dataset?.entityLogicalName
       if (targetEntity) {
@@ -274,7 +936,15 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
         }
       }
     }
-  }, [datasets, discoveredRelationships])
+    
+    // If no parent entity detected and we have WebAPI, try to discover from metadata
+    const targetEntity = datasets[0]?.dataset?.entityLogicalName
+    if (targetEntity && !detectedParentEntityType && currentState?.webAPI) {
+      console.log(`🔍 No parent entity detected, will discover from metadata after refresh`)
+      // The relationship discovery will happen when user clicks refresh
+      // This will populate discoveredRelationships and trigger parent entity detection
+    }
+  }, [datasets, discoveredRelationships, detectedParentEntityType])
 
   // Load parent entities when parent type is detected
   useEffect(() => {
@@ -315,359 +985,25 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
     return () => clearTimeout(debounceTimer)
   }, [parentEntitySearch, currentState?.webAPI, detectedParentEntityType])
 
-  // Cache for entity detection results
-  const entityDetectionCache = useRef<Map<string, { result: string; timestamp: number }>>(new Map())
-  const ENTITY_DETECTION_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+  // Callbacks for EntityDetectionPanel
+  const handleEntityChange = useCallback((entity: string) => {
+    setCurrentEntity(entity)
+  }, [])
 
-  // Memoized entity detection to prevent repeated calculations
-  const detectedEntity = useMemo(() => {
-    const context = currentState?.context
-
-    if (!context) {
-      setCurrentEntity('unknown')
-      return 'unknown'
+  const handleFormSelect = useCallback((form: FormPCFMatch | null) => {
+    setSelectedForm(form)
+    if (form) {
+      // Clear relationship cache when switching forms
+      clearDiscoveryCache()
+      setDiscoveredRelationships([])
     }
+  }, [])
 
-    // Create cache key from relevant context properties
-    const cacheKey = JSON.stringify({
-      pageEntity: context.page?.entityTypeName,
-      manualOverride: manualEntityOverride,
-      url: window.location.href,
-      datasetCount: datasetAnalysis.datasets.length
-    })
+  const handleDatasetAnalysisTrigger = useCallback(() => {
+    setDatasetAnalysisTrigger(prev => prev + 1)
+  }, [])
 
-    // Check cache first
-    const cached = entityDetectionCache.current.get(cacheKey)
-    if (cached && (Date.now() - cached.timestamp) < ENTITY_DETECTION_CACHE_TTL) {
-      console.log('✅ Using cached entity detection result:', cached.result)
-      setCurrentEntity(cached.result)
-      return cached.result
-    }
 
-    console.log('🔍 Analyzing context for entity detection...', {
-      pageEntity: context.page?.entityTypeName,
-      datasetEntities: datasetAnalysis.datasets.map(ds => ds.entityLogicalName),
-      manualOverride: manualEntityOverride,
-      envPageTable: import.meta.env.VITE_PCF_PAGE_TABLE,
-      url: window.location.href,
-      isDevelopment:
-        window.location.href.includes('localhost') || window.location.href.includes('127.0.0.1'),
-    })
-
-    // Helper function to cache and return result
-    const cacheAndReturn = (result: string) => {
-      entityDetectionCache.current.set(cacheKey, {
-        result,
-        timestamp: Date.now()
-      })
-      setCurrentEntity(result)
-      return result
-    }
-
-    // Strategy 1: Use page table as currentEntity (for relationship discovery)  
-    // The page entity is the parent in parent->child relationships
-    const envPageTable = import.meta.env.VITE_PCF_PAGE_TABLE
-    if (envPageTable && envPageTable.trim() !== '') {
-      console.log(`📋 Using VITE_PCF_PAGE_TABLE for currentEntity: ${envPageTable}`)
-      return cacheAndReturn(envPageTable)
-    }
-
-    // Strategy 2: If no page table, use target table as currentEntity
-    const envTargetTable = import.meta.env.VITE_PCF_TARGET_TABLE  
-    if (envTargetTable && envTargetTable.trim() !== '') {
-      console.log(`📋 Using VITE_PCF_TARGET_TABLE for currentEntity: ${envTargetTable}`)
-      return cacheAndReturn(envTargetTable)
-    }
-
-    // Strategy -1: Check for manual entity override (second highest priority)
-    if (manualEntityOverride && manualEntityOverride !== '' && manualEntityOverride !== 'auto') {
-      console.log(`✅ Entity manually overridden: ${manualEntityOverride}`)
-      return cacheAndReturn(manualEntityOverride)
-    }
-
-    // Strategy 0: Try context.page.entityTypeName first (most reliable in development and real PowerApps)
-    if (context.page?.entityTypeName && context.page.entityTypeName !== 'systemuser') {
-      console.log(`✅ Entity detected from context.page: ${context.page.entityTypeName}`)
-      return cacheAndReturn(context.page.entityTypeName)
-    }
-
-    // Strategy 1: Try to extract from URL first (most reliable for form context in real PowerApps)
-    try {
-      const url = window.location.href
-
-      // Look for various URL patterns
-      const urlPatterns = [
-        /\/main\.aspx.*[?&]etn=([^&]+)/, // Classic Dynamics URL
-        /\/main\.aspx.*[?&]etc=(\d+)/, // Entity type code
-        /entity=([a-z_]+)/, // Modern URL pattern
-        /\/([a-z_]+)\/.*\/form/, // Form URL pattern
-        /pagetype=entityrecord.*etn=([^&]+)/, // Entity record page
-      ]
-
-      for (const pattern of urlPatterns) {
-        const match = url.match(pattern)
-        if (match && match[1] && match[1] !== 'systemuser' && match[1] !== 'systemusers') {
-          let entity = match[1]
-
-          // If it's a numeric entity type code, we'll need to skip this pattern
-          if (/^\d+$/.test(entity)) continue
-
-          // Convert common plural forms back to singular
-          if (entity.endsWith('s') && entity !== 'systemusers') {
-            entity = entity.slice(0, -1)
-          }
-
-          console.log(`✅ Entity detected from URL pattern: ${entity}`)
-          return cacheAndReturn(entity)
-        }
-      }
-    } catch (error) {
-      console.warn('Could not extract entity from URL:', error)
-    }
-
-    // Strategy 2: Analyze dataset relationships to infer parent entity
-    const datasetEntities = datasetAnalysis.datasets
-      .map((ds: any) => ds.entityLogicalName)
-      .filter((entity: string) => entity && entity !== 'unknown' && entity !== 'systemuser')
-
-    if (datasetEntities.length > 0) {
-      console.log('📊 Available dataset entities:', datasetEntities)
-
-      // Strategy 2a: Look for common parent entity patterns
-      // If we have relationships like "account_contacts", the parent is likely "account"
-      const relationshipPatterns = datasetAnalysis.datasets
-        .filter(ds => ds.relationshipName)
-        .map(ds => ds.relationshipName)
-
-      console.log('🔗 Relationship patterns found:', relationshipPatterns)
-
-      // Try to extract parent entity from relationship names
-      for (const relationship of relationshipPatterns) {
-        if (relationship && relationship.includes('_')) {
-          const parts = relationship.split('_')
-          if (parts.length >= 2) {
-            // Try the first part as potential parent entity
-            const potentialParent = parts.slice(0, Math.ceil(parts.length / 2)).join('_')
-            if (potentialParent !== 'systemuser' && potentialParent.length > 3) {
-              console.log(`✅ Parent entity inferred from relationship: ${potentialParent}`)
-              return cacheAndReturn(potentialParent)
-            }
-          }
-        }
-      }
-
-      // Strategy 2b: Find the most likely parent entity (prefer custom entities)
-      const primaryEntity =
-        datasetEntities.find((entity: string) => {
-          // Prefer custom entities (usually have underscores) over system entities
-          return entity.includes('_') && !entity.includes('systemuser') && entity.length > 5
-        }) ||
-        datasetEntities.find(
-          (entity: string) =>
-            // Look for entities that seem like primary entities
-            !entity.includes('systemuser') && entity.length > 3
-        ) ||
-        datasetEntities[0]
-
-      if (primaryEntity) {
-        console.log(`✅ Entity inferred from dataset analysis: ${primaryEntity}`)
-        console.log(`📋 All available entities:`, datasetEntities)
-        return cacheAndReturn(primaryEntity)
-      }
-    }
-
-    // Strategy 3: Try to determine from context mode or client info
-    const contextInfo = (context as any)?.mode?.contextInfo
-    if (contextInfo?.entityTypeName && contextInfo.entityTypeName !== 'systemuser') {
-      console.log(`✅ Entity detected from context mode: ${contextInfo.entityTypeName}`)
-      return cacheAndReturn(contextInfo.entityTypeName)
-    }
-
-    console.warn('⚠️ Could not detect entity name using any strategy, defaulting to unknown')
-    console.log('🔍 Available context info:', {
-      page: context.page,
-      parameters: Object.keys(context.parameters || {}),
-      url: window.location.href,
-    })
-
-    return cacheAndReturn('unknown')
-  }, [currentState, datasetAnalysis, manualEntityOverride])
-
-  // Separate function for form discovery calls
-  const detectCurrentEntity = useCallback(() => detectedEntity, [detectedEntity])
-
-  // Update current entity when detection result changes
-  useEffect(() => {
-    setCurrentEntity(detectedEntity)
-  }, [detectedEntity])
-
-  // Discover forms when manifest is available
-  useEffect(() => {
-    const discoverForms = async () => {
-      const manifest = currentState?.manifest
-      const webAPI = currentState?.webAPI
-      
-      if (!manifest || !webAPI) {
-        console.log('📋 Cannot discover forms: missing manifest or WebAPI')
-        return
-      }
-      
-      // Skip form discovery entirely if we have target table configured
-      const envTargetTable = import.meta.env.VITE_PCF_TARGET_TABLE
-      const envPageTable = import.meta.env.VITE_PCF_PAGE_TABLE
-      if (envTargetTable && envPageTable) {
-        console.log('🚀 Skipping form discovery - using environment configuration')
-        console.log(`📋 Target table: ${envTargetTable}, Page table: ${envPageTable}`)
-        return
-      }
-
-      // Prevent duplicate discovery operations
-      if (formDiscoveryInProgress.current) {
-        console.log('⏳ Form discovery already in progress, skipping...')
-        return
-      }
-
-      formDiscoveryInProgress.current = true
-      setIsLoadingForms(true)
-      setFormDiscoveryError(null)
-      
-      try {
-        console.log(`🔍 Discovering forms for PCF: ${manifest.namespace}.${manifest.constructor}`)
-        
-        // Extract publisher from namespace if possible (e.g., "test" from "test.dataset")
-        const publisher = manifest.namespace?.split('.')[0]
-        
-        // Get the page entity to enable early termination in form discovery
-        const pageEntity = import.meta.env.VITE_PCF_PAGE_TABLE || detectCurrentEntity()
-        
-        const forms = await findPCFOnForms(manifest, {
-          publisher: publisher || undefined,
-          // Add entity constraint to enable early termination optimization
-          entityLogicalName: pageEntity !== 'unknown' ? pageEntity : undefined,
-        })
-        
-        console.log(`✅ Discovered ${forms.length} forms with PCF control`)
-        setDiscoveredForms(forms)
-        
-        // If we have forms and no form is selected, auto-select the first one
-        if (forms.length > 0 && !selectedForm) {
-          setSelectedForm(forms[0])
-          // Update entity based on the form
-          updateEntityFromForm(forms[0])
-        }
-      } catch (error) {
-        console.error('❌ Form discovery failed:', error)
-        
-        // Log detailed error information
-        if (error instanceof Error) {
-          console.error('Error details:', {
-            message: error.message,
-            stack: error.stack,
-            type: error.constructor.name
-          })
-        }
-        
-        // Check specific error types
-        if (error instanceof TypeError && error.message.includes('fetch')) {
-          console.error('Network error: Unable to fetch forms. Check if proxy is running.')
-          setFormDiscoveryError('Network error: Unable to connect to Dataverse. Check proxy configuration.')
-        } else if (error instanceof Response) {
-          console.error(`HTTP error: ${error.status} ${error.statusText}`)
-          setFormDiscoveryError(`HTTP error ${error.status}: Unable to fetch forms.`)
-        } else {
-          setFormDiscoveryError(`Form discovery failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
-        }
-      } finally {
-        setIsLoadingForms(false)
-        formDiscoveryInProgress.current = false
-      }
-    }
-    
-    // Only run if we have WebAPI (indicates we might have Dataverse connection)
-    if (currentState?.webAPI) {
-      discoverForms()
-    }
-  }, [currentState?.manifest, currentState?.webAPI])
-
-  // Helper to update entity from selected form
-  const updateEntityFromForm = (form: FormPCFMatch) => {
-    // Clear relationship cache when switching forms
-    clearDiscoveryCache()
-    setDiscoveredRelationships([])
-    // Map entity type code to logical name
-    let entityName: string
-    
-    // Check if entityTypeCode is a string (custom entity) or number (system entity)
-    if (typeof form.entityTypeCode === 'string') {
-      // For custom entities, the objecttypecode is the logical name
-      entityName = form.entityTypeCode
-    } else {
-      // For system entities, map the numeric code
-      const entityMap: Record<number, string> = {
-        [ENTITY_TYPE_CODES.ACCOUNT]: 'account',
-        [ENTITY_TYPE_CODES.CONTACT]: 'contact',
-        [ENTITY_TYPE_CODES.OPPORTUNITY]: 'opportunity',
-        [ENTITY_TYPE_CODES.LEAD]: 'lead',
-        [ENTITY_TYPE_CODES.CASE]: 'incident',
-        // Add more mappings as needed
-      }
-      entityName = entityMap[form.entityTypeCode] || form.entityLogicalName || 'unknown'
-    }
-    
-    console.log(`📋 Form "${form.formName}" is for entity: ${entityName} (type code: ${form.entityTypeCode})`)
-    
-    setManualEntityOverride(entityName)
-    setCurrentEntity(entityName)
-    
-    // Update dataset configuration from discovered subgrid info
-    if (form.controls.length > 0 && form.controls[0].dataSet) {
-      const datasetConfig = form.controls[0].dataSet
-      console.log(`📊 Discovered dataset configuration:`, datasetConfig)
-      
-      // Update the context with the discovered dataset configuration
-      if (currentState?.context?.parameters?.sampleDataSet) {
-        const dataset = currentState.context.parameters.sampleDataSet
-        
-        // Update the target entity type
-        if (datasetConfig.targetEntityType && dataset.getTargetEntityType) {
-          // Override the getTargetEntityType function to return discovered entity
-          Object.defineProperty(dataset, 'getTargetEntityType', {
-            value: () => datasetConfig.targetEntityType,
-            writable: true,
-            configurable: true
-          })
-          
-          // Add custom properties for the dataset analyzer to pick up
-          ;(dataset as any)._targetEntityType = datasetConfig.targetEntityType
-          ;(dataset as any)._relationshipName = datasetConfig.relationshipName
-          ;(dataset as any)._viewId = datasetConfig.viewId
-          
-          console.log(`✅ Updated dataset entity type to: ${datasetConfig.targetEntityType}`)
-          
-          // Log current dataset state
-          console.log('📊 Dataset state after update:', {
-            getTargetEntityType: dataset.getTargetEntityType?.(),
-            _targetEntityType: (dataset as any)._targetEntityType,
-            name: dataset.name
-          })
-        }
-        
-        // Force a re-render by updating a state variable
-        // This will cause the dataset analyzer to re-run and pick up the new entity type
-        setCurrentEntity(entityName)
-        
-        // Trigger dataset re-analysis
-        setDatasetAnalysisTrigger(prev => prev + 1)
-        
-        // Also trigger a small delay to ensure the UI updates
-        setTimeout(() => {
-          console.log('🔄 Forcing dataset re-analysis...')
-          setSelectedDataset(null)
-          setTimeout(() => setSelectedDataset('sampleDataSet'), 50)
-        }, 100)
-      }
-    }
-  }
 
   // Auto-discover relationships when datasets are available
   useEffect(() => {
@@ -1128,784 +1464,57 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
 
   return (
     <div style={{ display: 'flex', flex: 1, overflow: 'hidden', height: '100%' }}>
-      {/* Left Panel - Dataset List & Controls */}
-      <div
-        style={{
-          width: '350px',
-          borderRight: `1px solid ${colors.border.primary}`,
-          overflow: 'auto',
-          backgroundColor: colors.background.primary,
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
-        {/* Header with Entity Info */}
-        <div
-          style={{
-            ...commonStyles.container.panel,
-            ...commonStyles.text.label,
-            borderBottom: `1px solid ${colors.border.primary}`,
-          }}
-        >
-          <div style={{ marginBottom: '8px' }}>
-            <strong>📊 Dataset Management</strong>
-          </div>
-          <div style={{ fontSize: fontSize.xs, color: colors.text.secondary, marginBottom: '4px' }}>
-            Page/Form Entity:{' '}
-            <span style={{ color: colors.status.success, fontWeight: 'bold' }}>
-              {getPageEntity()}
-            </span>
-            {import.meta.env.VITE_PCF_PAGE_TABLE && (
-              <span style={{ color: colors.text.secondary, fontSize: '10px', marginLeft: '4px' }}>
-                (from env)
-              </span>
-            )}
-            {!import.meta.env.VITE_PCF_PAGE_TABLE && manualEntityOverride && manualEntityOverride !== 'auto' && !selectedForm && (
-              <span style={{ color: colors.status.warning, fontSize: '10px', marginLeft: '4px' }}>
-                (manual)
-              </span>
-            )}
-          </div>
-          <div style={{ fontSize: fontSize.xs, color: colors.text.secondary, marginBottom: '4px' }}>
-            Target Entity:{' '}
-            <span style={{ color: colors.status.info, fontWeight: 'bold' }}>
-              {getTargetEntity()}
-            </span>
-            {import.meta.env.VITE_PCF_TARGET_TABLE && (
-              <span style={{ color: colors.text.secondary, fontSize: fontSize.xs, marginLeft: '4px' }}>
-                (from env)
-              </span>
-            )}
-            {!import.meta.env.VITE_PCF_TARGET_TABLE && discoveredRelationships[0]?.childEntity && (
-              <span style={{ color: colors.text.secondary, fontSize: fontSize.xs, marginLeft: '4px' }}>
-                (discovered)
-              </span>
-            )}
-          </div>
-          <div style={{ fontSize: fontSize.xs, color: colors.text.secondary, marginBottom: '8px' }}>
-            Datasets: {datasets.length} | Relationships: {discoveredRelationships.length}
-          </div>
-
-          {/* Manual Entity Override Control */}
-          <div style={{ marginTop: '8px' }}>
-            <label
-              style={{
-                fontSize: '10px',
-                color: colors.text.secondary,
-                display: 'block',
-                marginBottom: '4px',
-              }}
-            >
-              Override Entity Type:
-            </label>
-            <input
-              type="text"
-              placeholder="Auto-detect or enter entity logical name"
-              value={manualEntityOverride || ''}
-              onChange={e => setManualEntityOverride(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '4px 6px',
-                fontSize: '11px',
-                backgroundColor: '#21262d',
-                border: '1px solid #30363d',
-                borderRadius: '3px',
-                color: '#e6edf3',
-                marginBottom: '8px',
-              }}
-            />
-
-            {/* Parent Entity Selection for Related Datasets */}
-            {detectedParentEntityType && datasets.length > 0 && (
-              <div style={{ marginBottom: '8px' }}>
-                <label
-                  style={{
-                    fontSize: '10px',
-                    color: colors.text.secondary,
-                    display: 'block',
-                    marginBottom: '4px',
-                  }}
-                >
-                  Filter by {detectedParentEntityType}:
-                </label>
-                <input
-                  type="text"
-                  placeholder={`Search ${detectedParentEntityType}...`}
-                  value={parentEntitySearch}
-                  onChange={e => setParentEntitySearch(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '4px 6px',
-                    fontSize: '11px',
-                    backgroundColor: '#21262d',
-                    border: '1px solid #30363d',
-                    borderRadius: '3px',
-                    color: '#e6edf3',
-                    marginBottom: '4px',
-                  }}
-                />
-                <select
-                  value={selectedParentEntity?.id || ''}
-                  onChange={e => {
-                    const entity = parentEntities.find(i => i.id === e.target.value)
-                    setSelectedParentEntity(entity || null)
-                  }}
-                  style={{
-                    width: '100%',
-                    padding: '4px 6px',
-                    fontSize: '11px',
-                    backgroundColor: '#21262d',
-                    border: '1px solid #30363d',
-                    borderRadius: '3px',
-                    color: '#e6edf3',
-                  }}
-                  disabled={isLoadingParentEntities}
-                >
-                  <option value="">
-                    {isLoadingParentEntities ? `Loading ${detectedParentEntityType}...` : `Select a ${detectedParentEntityType}...`}
-                  </option>
-                  {parentEntities.map(entity => (
-                    <option key={entity.id} value={entity.id}>
-                      {entity.name}
-                    </option>
-                  ))}
-                </select>
-                {selectedParentEntity && (
-                  <div style={{ fontSize: '10px', color: colors.status.info, marginTop: '4px' }}>
-                    Selected: {selectedParentEntity.name}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* View Selection for Datasets */}
-            {availableViews.length > 0 && datasets.length > 0 && (
-              <div style={{ marginBottom: '8px' }}>
-                <label
-                  style={{
-                    fontSize: '10px',
-                    color: colors.text.secondary,
-                    display: 'block',
-                    marginBottom: '4px',
-                  }}
-                >
-                  Select View:
-                </label>
-                <select
-                  value={selectedViewId || ''}
-                  onChange={e => {
-                    const viewId = e.target.value
-                    setSelectedViewId(viewId)
-                    
-                    // Update the dataset's view ID
-                    if (currentState?.context?.parameters?.sampleDataSet && viewId) {
-                      const dataset = currentState.context.parameters.sampleDataSet as any
-                      dataset._viewId = viewId
-                      
-                      // Also update getViewId to return this value
-                      Object.defineProperty(dataset, 'getViewId', {
-                        value: () => viewId,
-                        writable: true,
-                        configurable: true
-                      })
-                      
-                      const selectedView = availableViews.find(v => v.savedqueryid === viewId)
-                      console.log(`👁️ View changed to: ${selectedView?.name} (${viewId})`)
-                    }
-                  }}
-                  style={{
-                    width: '100%',
-                    padding: '4px 6px',
-                    fontSize: '11px',
-                    backgroundColor: '#21262d',
-                    border: '1px solid #30363d',
-                    borderRadius: '3px',
-                    color: '#e6edf3',
-                  }}
-                >
-                  <option value="">Select a view...</option>
-                  {availableViews.map(view => (
-                    <option key={view.savedqueryid} value={view.savedqueryid}>
-                      {view.name} {view.isdefault ? '(Default)' : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* Cache Status and Clear Button */}
-            {cacheStats.active && (
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '8px',
-                marginBottom: '12px',
-                backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                border: '1px solid rgba(34, 197, 94, 0.3)',
-                borderRadius: '3px',
-                fontSize: '11px',
-                color: '#22c55e',
-              }}>
-                <span>✅ Cache active ({cacheStats.size} entries)</span>
-                <button
-                  onClick={handleClearFormCache}
-                  style={{
-                    padding: '2px 8px',
-                    fontSize: '10px',
-                    backgroundColor: 'transparent',
-                    border: '1px solid rgba(34, 197, 94, 0.5)',
-                    borderRadius: '3px',
-                    color: '#22c55e',
-                    cursor: 'pointer',
-                  }}
-                  onMouseOver={(e) => {
-                    e.currentTarget.style.backgroundColor = 'rgba(34, 197, 94, 0.2)'
-                  }}
-                  onMouseOut={(e) => {
-                    e.currentTarget.style.backgroundColor = 'transparent'
-                  }}
-                >
-                  Clear Cache
-                </button>
-              </div>
-            )}
+      <LeftPanel
+        datasets={datasets}
+        selectedDataset={selectedDataset}
+        refreshState={refreshState}
+        datasetAnalysis={datasetAnalysis}
+        currentEntity={currentEntity}
+        detectedParentEntityType={detectedParentEntityType}
+        parentEntitySearch={parentEntitySearch}
+        selectedParentEntity={selectedParentEntity}
+        isLoadingParentEntities={isLoadingParentEntities}
+        parentEntitySuggestions={parentEntities}
+        availableViews={availableViews}
+        selectedViewId={selectedViewId}
+        currentState={currentState}
+        onSelectDataset={handleSelectDataset}
+        onRefreshDatasets={handleRefreshDatasets}
+        onClearCache={handleClearCache}
+        onParentEntitySearch={setParentEntitySearch}
+        onSelectParentEntity={setSelectedParentEntity}
+        onSelectView={(viewId) => {
+          setSelectedViewId(viewId)
+          
+          // Update the dataset's view ID
+          if (currentState?.context?.parameters?.sampleDataSet && viewId) {
+            const dataset = currentState.context.parameters.sampleDataSet as any
+            dataset._viewId = viewId
             
-            {/* Form Selection */}
-            <label
-              style={{
-                fontSize: '10px',
-                color: colors.text.secondary,
-                display: 'block',
-                marginBottom: '4px',
-              }}
-            >
-              Select Form:
-            </label>
-            
-            {isLoadingForms ? (
-              <div style={{
-                padding: '8px',
-                fontSize: '11px',
-                color: '#94a3b8',
-                textAlign: 'center',
-                backgroundColor: '#21262d',
-                border: '1px solid #30363d',
-                borderRadius: '3px',
-                marginBottom: '8px',
-              }}>
-                🔍 Discovering forms...
-              </div>
-            ) : discoveredForms.length > 0 ? (
-              // Show real discovered forms
-              <select
-                value={selectedForm?.formId || ''}
-                onChange={e => {
-                  const form = discoveredForms.find(f => f.formId === e.target.value)
-                  if (form) {
-                    setSelectedForm(form)
-                    updateEntityFromForm(form)
-                  }
-                }}
-                style={{
-                  width: '100%',
-                  padding: '4px 6px',
-                  fontSize: '11px',
-                  backgroundColor: '#21262d',
-                  border: '1px solid #30363d',
-                  borderRadius: '3px',
-                  color: '#e6edf3',
-                  marginBottom: '8px',
-                }}
-              >
-                {discoveredForms.map(form => (
-                  <option key={form.formId} value={form.formId}>
-                    📋 {form.formName} ({form.entityLogicalName || `Type ${form.entityTypeCode}`})
-                  </option>
-                ))}
-              </select>
-            ) : (
-              // Form discovery disabled due to environment configuration
-              <div style={{
-                padding: '8px',
-                fontSize: '11px',
-                color: '#7c8db5',
-                backgroundColor: 'rgba(124, 141, 181, 0.1)',
-                border: '1px solid rgba(124, 141, 181, 0.3)',
-                borderRadius: '3px',
-                marginBottom: '8px',
-              }}>
-                <div>ℹ️ Form discovery disabled</div>
-                <div style={{ fontSize: '10px', marginTop: '4px', color: '#7c8db5' }}>
-                  Using environment variables instead (VITE_PCF_PAGE_TABLE, VITE_PCF_TARGET_TABLE)
-                </div>
-              </div>
-            )}
-
-            {/* Show form discovery error if present */}
-            {formDiscoveryError && (
-              <div style={{
-                fontSize: '10px',
-                color: colors.status.warning,
-                padding: '4px',
-                backgroundColor: 'rgba(234, 179, 8, 0.1)',
-                borderRadius: '2px',
-                marginBottom: '6px',
-              }}>
-                ⚠️ {formDiscoveryError}
-              </div>
-            )}
-
-            {/* Show form details if selected */}
-            {selectedForm && (
-              <div style={{
-                fontSize: '10px',
-                color: '#94a3b8',
-                padding: '6px',
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                borderRadius: '3px',
-                marginBottom: '8px',
-              }}>
-                <div><strong>Form:</strong> {selectedForm.formName}</div>
-                <div><strong>Entity:</strong> {selectedForm.entityLogicalName || 'Type ' + selectedForm.entityTypeCode}</div>
-                <div><strong>PCF Controls:</strong> {selectedForm.controls.length}</div>
-              </div>
-            )}
-
-          </div>
-        </div>
-
-        {/* Refresh Controls */}
-        <div
-          style={{
-            padding: '12px',
-            borderBottom: `1px solid ${colors.border.primary}`,
-            backgroundColor: '#1a1f2e',
-          }}
-        >
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-            <button
-              onClick={handleRefreshDatasets}
-              disabled={refreshState.isRefreshing || datasets.length === 0}
-              style={{
-                flex: 1,
-                padding: '8px 12px',
-                backgroundColor: refreshState.isRefreshing ? '#475569' : '#3b82f6',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: refreshState.isRefreshing ? 'not-allowed' : 'pointer',
-                fontSize: '12px',
-                fontWeight: '600',
-              }}
-            >
-              {refreshState.isRefreshing ? '🔄 Refreshing...' : '🔄 Refresh All Datasets'}
-            </button>
-
-            <button
-              onClick={handleClearCache}
-              style={{
-                padding: '8px 12px',
-                backgroundColor: '#6b7280',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '11px',
-              }}
-              title="Clear relationship discovery cache"
-            >
-              🧹 Clear Cache
-            </button>
-          </div>
-
-          {/* Status */}
-          {refreshState.lastRefresh && (
-            <div style={{ fontSize: '10px', color: colors.text.secondary }}>
-              Last refresh: {refreshState.lastRefresh.toLocaleTimeString()} • ✅{' '}
-              {refreshState.successCount} • ❌ {refreshState.errorCount}
-            </div>
-          )}
-        </div>
-
-        {/* Dataset List */}
-        <div style={{ flex: 1, overflow: 'auto' }}>
-          {datasets.length === 0 ? (
-            <div
-              style={{
-                padding: '16px',
-                color: colors.text.secondary,
-                fontSize: '12px',
-                fontStyle: 'italic',
-                textAlign: 'center',
-              }}
-            >
-              {datasetAnalysis.summary}
-            </div>
-          ) : (
-            datasets.map(({ key, dataset }) => {
-              const isSelected = selectedDataset === key
-              const refreshResult = refreshState.refreshResults.find(
-                r => r.subgridInfo.controlId === key
-              )
-
-              return (
-                <div
-                  key={key}
-                  onClick={() => handleSelectDataset(key)}
-                  style={{
-                    padding: '12px',
-                    cursor: 'pointer',
-                    backgroundColor: isSelected ? '#1f6feb' : 'transparent',
-                    borderLeft: isSelected ? '3px solid #58a6ff' : '3px solid transparent',
-                    borderBottom: '1px solid #21262d',
-                    fontSize: '12px',
-                    transition: 'all 0.1s ease',
-                  }}
-                >
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'flex-start',
-                      marginBottom: '8px',
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontWeight: '600',
-                        color: isSelected ? '#ffffff' : '#e6edf3',
-                        fontSize: '13px',
-                      }}
-                    >
-                      {key}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: '10px',
-                        padding: '2px 6px',
-                        borderRadius: '3px',
-                        backgroundColor: refreshResult
-                          ? refreshResult.queryResult.success
-                            ? '#22c55e'
-                            : '#ef4444'
-                          : dataset.hasData
-                            ? '#6b7280'
-                            : '#9ca3af',
-                        color: '#ffffff',
-                      }}
-                    >
-                      {refreshResult
-                        ? refreshResult.queryResult.success
-                          ? `${refreshResult.queryResult.entities.length} records`
-                          : 'Error'
-                        : `${dataset.recordCount || 0} records`}
-                    </div>
-                  </div>
-
-                  <div
-                    style={{
-                      color: isSelected ? '#b1bac4' : '#7d8590',
-                      fontSize: '11px',
-                      marginBottom: '4px',
-                    }}
-                  >
-                    <div>Entity: {dataset.entityLogicalName || 'unknown'}</div>
-                    {dataset.viewId && <div>View: {dataset.viewId.substring(0, 8)}...</div>}
-                    {dataset.relationshipName && (
-                      <div>Relationship: {dataset.relationshipName}</div>
-                    )}
-                  </div>
-
-                  {refreshResult?.errorAnalysis && (
-                    <div
-                      style={{
-                        fontSize: '10px',
-                        color: '#ff7b72',
-                        backgroundColor: '#3a1e1e',
-                        padding: '4px',
-                        borderRadius: '2px',
-                        marginTop: '4px',
-                      }}
-                    >
-                      Error: {refreshResult.queryResult.error}
-                    </div>
-                  )}
-                </div>
-              )
+            // Also update getViewId to return this value
+            Object.defineProperty(dataset, 'getViewId', {
+              value: () => viewId,
+              writable: true,
+              configurable: true
             })
-          )}
-        </div>
-      </div>
-
-      {/* Right Panel - Details & Discovery */}
-      <div
-        style={{
-          flex: 1,
-          overflow: 'auto',
-          backgroundColor: '#0d1117',
-          display: 'flex',
-          flexDirection: 'column',
+            
+            const selectedView = availableViews.find(v => v.savedqueryid === viewId)
+            console.log(`👁️ View changed to: ${selectedView?.name} (${viewId})`)
+          }
         }}
-      >
-        {/* Header */}
-        <div
-          style={{
-            padding: '12px 16px',
-            borderBottom: '1px solid #21262d',
-            backgroundColor: '#161b22',
-          }}
-        >
-          <h3
-            style={{
-              margin: 0,
-              fontSize: '14px',
-              fontWeight: '600',
-              color: '#e6edf3',
-            }}
-          >
-            {selectedDataset ? `Dataset: ${selectedDataset}` : 'Relationship Discovery'}
-          </h3>
-        </div>
+      />
 
-        <div style={{ padding: '16px', flex: 1, overflow: 'auto' }}>
-          {/* Discovered Relationships Section - Always Visible */}
-          <div style={{ marginBottom: '24px' }}>
-            <h4
-              style={{
-                margin: '0 0 12px 0',
-                fontSize: '14px',
-                fontWeight: '600',
-                color: '#f1f5f9',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-              }}
-            >
-              🔍 Discovered Relationships ({discoveredRelationships.length})
-            </h4>
-
-            {discoveredRelationships.length === 0 ? (
-              <div
-                style={{
-                  padding: '16px',
-                  backgroundColor: '#1e293b',
-                  border: '1px solid #334155',
-                  borderRadius: '6px',
-                  textAlign: 'center',
-                  color: '#94a3b8',
-                  fontSize: '12px',
-                }}
-              >
-                <div style={{ marginBottom: '8px' }}>🔍 No relationships discovered yet</div>
-                <div style={{ fontSize: '11px' }}>
-                  Click "🔄 Refresh All Datasets" to discover relationships automatically
-                </div>
-              </div>
-            ) : (
-              <div
-                style={{
-                  maxHeight: '300px',
-                  overflow: 'auto',
-                  border: '1px solid #334155',
-                  borderRadius: '6px',
-                }}
-              >
-                {discoveredRelationships.map((relationship, index) => (
-                  <div
-                    key={`${relationship.parentEntity}-${relationship.childEntity}-${index}`}
-                    style={{
-                      padding: '12px',
-                      borderBottom:
-                        index < discoveredRelationships.length - 1 ? '1px solid #334155' : 'none',
-                      backgroundColor: index % 2 === 0 ? '#1e293b' : '#0f172a',
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        marginBottom: '8px',
-                      }}
-                    >
-                      <div
-                        style={{
-                          fontWeight: '600',
-                          color: '#f1f5f9',
-                          fontSize: '13px',
-                        }}
-                      >
-                        {relationship.parentEntity} → {relationship.childEntity}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: '10px',
-                          padding: '2px 6px',
-                          borderRadius: '3px',
-                          backgroundColor:
-                            relationship.confidence === 'high'
-                              ? '#059669'
-                              : relationship.confidence === 'medium'
-                                ? '#d97706'
-                                : '#dc2626',
-                          color: '#ffffff',
-                        }}
-                      >
-                        {relationship.confidence}
-                      </div>
-                    </div>
-
-                    <div
-                      style={{
-                        fontSize: '11px',
-                        color: '#94a3b8',
-                        marginBottom: '6px',
-                        fontFamily: 'monospace',
-                        backgroundColor: '#0f172a',
-                        padding: '4px 8px',
-                        borderRadius: '3px',
-                      }}
-                    >
-                      <strong>Lookup:</strong> {relationship.lookupColumn}
-                    </div>
-
-                    <div
-                      style={{
-                        fontSize: '10px',
-                        color: '#6b7280',
-                        display: 'flex',
-                        gap: '12px',
-                      }}
-                    >
-                      <span>Source: {relationship.source}</span>
-                      <span>Found: {new Date(relationship.discoveredAt).toLocaleTimeString()}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Selected Dataset Details */}
-          {selectedDataset && (
-            <div>
-              <h4
-                style={{
-                  margin: '0 0 12px 0',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  color: '#f1f5f9',
-                }}
-              >
-                📋 Dataset Details
-              </h4>
-
-              <pre
-                style={{
-                  margin: 0,
-                  whiteSpace: 'pre-wrap',
-                  wordWrap: 'break-word',
-                  fontSize: '11px',
-                  lineHeight: '1.6',
-                  fontFamily: '"SF Mono", Monaco, "Cascadia Code", Consolas, monospace',
-                  color: '#e6edf3',
-                  backgroundColor: '#0d1117',
-                  padding: '12px',
-                  border: '1px solid #21262d',
-                  borderRadius: '6px',
-                }}
-              >
-                {JSON.stringify(
-                  datasets.find(d => d.key === selectedDataset)?.dataset || {},
-                  null,
-                  2
-                )}
-              </pre>
-
-              {/* Refresh Results for Selected Dataset */}
-              {refreshState.refreshResults.length > 0 && (
-                <div style={{ marginTop: '16px' }}>
-                  <h4
-                    style={{
-                      margin: '0 0 12px 0',
-                      fontSize: '14px',
-                      fontWeight: '600',
-                      color: '#f1f5f9',
-                    }}
-                  >
-                    🔄 Refresh Results
-                  </h4>
-
-                  {refreshState.refreshResults
-                    .filter(result => result.subgridInfo.controlId === selectedDataset)
-                    .map((result, index) => (
-                      <div
-                        key={index}
-                        style={{
-                          padding: '12px',
-                          backgroundColor: '#1e293b',
-                          border: '1px solid #334155',
-                          borderRadius: '6px',
-                          marginBottom: '8px',
-                        }}
-                      >
-                        <div
-                          style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            marginBottom: '8px',
-                          }}
-                        >
-                          <span style={{ fontWeight: '500', color: '#f1f5f9', fontSize: '12px' }}>
-                            Query Result
-                          </span>
-                          <div
-                            style={{
-                              fontSize: '11px',
-                              padding: '2px 6px',
-                              borderRadius: '3px',
-                              backgroundColor: result.queryResult.success ? '#22c55e' : '#ef4444',
-                              color: '#ffffff',
-                            }}
-                          >
-                            {result.queryResult.success ? 'Success' : 'Failed'}
-                          </div>
-                        </div>
-
-                        {result.queryResult.success ? (
-                          <div style={{ fontSize: '11px', color: '#94a3b8' }}>
-                            ✅ Retrieved {result.queryResult.entities.length} records
-                            {result.queryResult.nextLink && ' (more available)'}
-                          </div>
-                        ) : (
-                          <div>
-                            <div
-                              style={{ fontSize: '11px', color: '#ff7b72', marginBottom: '8px' }}
-                            >
-                              ❌ Error: {result.queryResult.error}
-                            </div>
-                            {result.errorAnalysis?.suggestions && (
-                              <div style={{ fontSize: '10px', color: '#94a3b8' }}>
-                                <strong>Suggestions:</strong>
-                                <ul style={{ margin: '4px 0', paddingLeft: '16px' }}>
-                                  {result.errorAnalysis.suggestions.map((suggestion, idx) => (
-                                    <li key={idx}>{suggestion}</li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
+      <RightPanel
+        currentState={currentState}
+        selectedDataset={selectedDataset}
+        datasets={datasets}
+        currentEntity={currentEntity}
+        selectedForm={selectedForm}
+        selectedParentEntity={selectedParentEntity}
+        discoveredRelationships={discoveredRelationships}
+        onEntityChange={handleEntityChange}
+        onFormSelect={handleFormSelect}
+      />
     </div>
   )
 }

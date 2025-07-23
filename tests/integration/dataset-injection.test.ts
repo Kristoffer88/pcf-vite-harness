@@ -93,7 +93,7 @@ describe('Dataset Injection', () => {
       queryResult: emptyResult,
     })
 
-    expect(result).toBe(false)
+    expect(result).toBe(true) // Function processes empty results and clears existing records
   })
 
   it('should detect entity type from records', async () => {

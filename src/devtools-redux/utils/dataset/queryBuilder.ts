@@ -231,9 +231,11 @@ export function validateQuery(query: DatasetQuery): { isValid: boolean; errors: 
     errors.push('OData query is required')
   }
 
-  // Validate OData query format
-  if (query.odataQuery && !query.odataQuery.includes('?')) {
-    errors.push('OData query must include query parameters')
+  // Validate OData query format - allow both formats:
+  // 1. "entities?$select=..." (with entity prefix)
+  // 2. "$select=..." (without entity prefix - query parameters only)
+  if (query.odataQuery && !query.odataQuery.includes('?') && !query.odataQuery.startsWith('$')) {
+    errors.push('OData query must include query parameters or start with $ for parameter-only queries')
   }
 
   return {

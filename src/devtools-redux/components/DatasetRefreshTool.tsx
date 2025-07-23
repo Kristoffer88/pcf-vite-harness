@@ -166,9 +166,10 @@ export const DatasetRefreshTool: React.FC<DatasetRefreshToolProps> = ({
     datasetAnalysis: any
   ): string => {
     // Strategy 1: Try context.page.entityTypeName (standard approach)
-    if (context.page?.entityTypeName) {
-      console.log(`✅ Entity detected from context.page: ${context.page.entityTypeName}`)
-      return context.page.entityTypeName
+    const contextPage = (context as any).page
+    if (contextPage?.entityTypeName) {
+      console.log(`✅ Entity detected from context.page: ${contextPage.entityTypeName}`)
+      return contextPage.entityTypeName
     }
 
     // Strategy 2: Try to infer from dataset target entities
@@ -245,6 +246,8 @@ export const DatasetRefreshTool: React.FC<DatasetRefreshToolProps> = ({
 
       // Refresh each dataset individually
       for (const subgridInfo of subgridInfos) {
+        let query: any = null
+        
         try {
           // Find the dataset parameter for this subgrid
           const datasetAnalysis = detectDatasetParameters(context)
@@ -293,19 +296,23 @@ export const DatasetRefreshTool: React.FC<DatasetRefreshToolProps> = ({
                   
                   return entity
                 }),
-                error: generatedDataset.errorMessage,
+                error: generatedDataset.errorMessage || undefined,
+                entityLogicalName: matchingDataset.entityLogicalName || 'unknown',
                 metadata: {
                   columns: generatedDataset.columns,
                   totalCount: generatedDataset.paging.totalResultCount,
                 },
               }
               
+              // Set query info for successful dataset generation
+              query = { odataQuery: `Generated from view: ${matchingDataset.viewId}` }
+              
               console.log('✅ Generated dataset with', queryResult.entities.length, 'records')
             } catch (genError) {
               console.warn('⚠️ Dataset generator failed, falling back to legacy method:', genError)
               
               // Fallback to the original query builder
-              const query = await buildDatasetRefreshQueryWithDiscovery(subgridInfo, {
+              query = await buildDatasetRefreshQueryWithDiscovery(subgridInfo, {
                 maxPageSize: 5000,
                 includeFormattedValues: true,
                 parentRecordId: currentParentRecordId || undefined,
@@ -317,7 +324,7 @@ export const DatasetRefreshTool: React.FC<DatasetRefreshToolProps> = ({
             }
           } else {
             // No viewId, use the original method
-            const query = await buildDatasetRefreshQueryWithDiscovery(subgridInfo, {
+            query = await buildDatasetRefreshQueryWithDiscovery(subgridInfo, {
               maxPageSize: 50,
               includeFormattedValues: true,
               parentRecordId: currentParentRecordId || undefined,
@@ -331,7 +338,7 @@ export const DatasetRefreshTool: React.FC<DatasetRefreshToolProps> = ({
           refreshResults.push({
             subgridInfo,
             queryResult,
-            query: query.odataQuery,
+            query: typeof query === 'object' && query.odataQuery ? query.odataQuery : 'unknown',
           })
 
           if (queryResult.success) {
@@ -348,25 +355,27 @@ export const DatasetRefreshTool: React.FC<DatasetRefreshToolProps> = ({
           if (error && typeof error === 'object' && 'status' in error) {
             try {
               // Use enhanced error analysis with discovery suggestions
+              const queryStr = typeof query === 'object' && query.odataQuery ? query.odataQuery : 'unknown'
               errorAnalysisResult = await analyzeDatasetRefreshErrorWithDiscovery(
                 error as Response,
-                queryString,
+                queryStr,
                 datasetMetadata?.entityName,
                 subgridInfo.targetEntity,
                 webAPI
               )
               const detailedError = await analyzeDataverseError(
                 error as Response,
-                queryString
+                queryStr
               )
               console.error('🔥 Detailed error analysis:', detailedError)
             } catch (analysisError) {
               console.warn('Could not analyze error:', analysisError)
               // Fallback to basic analysis
               try {
+                const queryStr = typeof query === 'object' && query.odataQuery ? query.odataQuery : 'unknown'
                 errorAnalysisResult = await analyzeDatasetRefreshError(
                   error as Response,
-                  queryString
+                  queryStr
                 )
               } catch (fallbackError) {
                 console.warn('Fallback error analysis also failed:', fallbackError)
@@ -379,10 +388,12 @@ export const DatasetRefreshTool: React.FC<DatasetRefreshToolProps> = ({
             queryResult: {
               success: false,
               entities: [],
-              error: String(error),
+              error: String(error) || undefined,
+              entityLogicalName: subgridInfo.targetEntity || 'unknown',
+              metadata: { columns: [], totalCount: 0 }
             },
-            errorAnalysis: errorAnalysisResult,
-            query: queryString,
+            errorAnalysis: errorAnalysisResult || undefined,
+            query: typeof query === 'object' && query.odataQuery ? query.odataQuery : 'unknown',
           })
           errorCount++
         }

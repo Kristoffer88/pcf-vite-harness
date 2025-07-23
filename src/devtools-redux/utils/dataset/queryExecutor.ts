@@ -37,9 +37,13 @@ export async function executeDatasetQuery(
     console.log(`🔍 Executing query for ${query.entityLogicalName}:`, query.odataQuery)
 
     // Execute the query
+    const queryString = query.odataQuery.includes('?') 
+      ? query.odataQuery.split('?')[1] // Remove entity name from query string
+      : query.odataQuery // Query is already just the query string
+    
     const result = await webAPI.retrieveMultipleRecords(
       query.entityLogicalName,
-      query.odataQuery.split('?')[1] // Remove entity name from query string
+      queryString
     )
 
     console.log(`✅ Query successful: ${result.entities.length} records retrieved`)
