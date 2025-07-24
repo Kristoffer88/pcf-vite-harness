@@ -6,8 +6,6 @@ interface PowerAppsContainerProps {
   context: ComponentFramework.Context<any>
   pcfClass: new () => ComponentFramework.StandardControl<any, any>
   className?: string
-  showDevPanel?: boolean
-  devtoolsPosition?: 'bottom-left' | 'bottom-right' | 'top-left' | 'top-right'
   manifestInfo?: {
     namespace: string
     constructor: string
@@ -20,7 +18,7 @@ interface PowerAppsContainerProps {
 // Inner component that manages PCF lifecycle
 const PowerAppsContainerInner: React.FC<
   PowerAppsContainerProps & { containerRef: React.RefObject<HTMLDivElement> }
-> = ({ context, pcfClass, className = '', showDevPanel = true, manifestInfo, containerRef }) => {
+> = ({ context, pcfClass, className = '', manifestInfo, containerRef }) => {
   const pcfManagerRef = React.useRef<PCFInstanceManager | null>(null)
 
   React.useEffect(() => {

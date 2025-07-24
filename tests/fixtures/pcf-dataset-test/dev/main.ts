@@ -10,7 +10,6 @@ console.log('🔧 Starting PCF harness initialization...')
 initializePCFHarness({
   pcfClass: dataset,
   containerId: 'pcf-container',
-  showDevPanel: true, // Enable DevTools panel
   manifestInfo: {
     namespace: 'test',
     constructor: 'dataset',
@@ -37,7 +36,6 @@ initializePCFHarness({
         return { entities: [] }
       }
     }
-  },
-  showDevPanel: true
+  }
 })
 */

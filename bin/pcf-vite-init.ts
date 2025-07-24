@@ -363,8 +363,7 @@ import { ${componentClassName} } from '${importPath.startsWith('.') ? importPath
 // Initialize the PCF harness with auto-detected manifest info
 initializePCFHarness({
   pcfClass: ${componentClassName},
-  containerId: 'pcf-container',
-  showDevPanel: true,${manifestInfo ? `\n${manifestInfo}` : ''}
+  containerId: 'pcf-container'${manifestInfo ? `,\n${manifestInfo}` : ''}
 })
 
 // For additional configuration options:
@@ -382,8 +381,7 @@ initializePCFHarness({
         return { entities: [] }
       }
     }
-  },
-  showDevPanel: true
+  }
 })
 */
 `

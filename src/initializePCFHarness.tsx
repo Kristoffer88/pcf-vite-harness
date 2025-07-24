@@ -26,8 +26,6 @@ export interface PCFHarnessOptions<TInputs, TOutputs> {
   }
   /** Additional CSS class for the container */
   className?: string
-  /** Show the dev panel with context info (default: true, can be overridden with VITE_PCF_SHOW_DEVTOOLS=false) */
-  showDevPanel?: boolean
   /** Custom context instead of mock */
   customContext?: ComponentFramework.Context<TInputs>
   /** PCF manifest information for devtools */
@@ -63,7 +61,6 @@ export function initializePCFHarness<TInputs, TOutputs>(
     containerId = 'pcf-container',
     contextOptions,
     className,
-    showDevPanel = shouldShowDevTools(), // Default true, but allow env override
     customContext,
     manifestInfo,
   } = options
@@ -158,7 +155,6 @@ export function initializePCFHarness<TInputs, TOutputs>(
         context,
         pcfClass,
         className,
-        showDevPanel,
         manifestInfo: finalManifestInfo,
       })
     )

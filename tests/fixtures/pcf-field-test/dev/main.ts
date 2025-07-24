@@ -8,7 +8,6 @@ import { field } from '../field/index'
 initializePCFHarness({
   pcfClass: field,
   containerId: 'pcf-container',
-  showDevPanel: true,
   // Auto-detected manifest info from field/ControlManifest.Input.xml
   manifestInfo: {
     namespace: 'test',
@@ -34,7 +33,6 @@ initializePCFHarness({
         return { entities: [] }
       }
     }
-  },
-  showDevPanel: true
+  }
 })
 */

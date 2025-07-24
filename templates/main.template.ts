@@ -32,7 +32,6 @@ initializePCFHarness({
             // The default implementations will handle other methods
             // unless you override them here
         }
-    },
-    showDevPanel: true
+    }
 });
 */

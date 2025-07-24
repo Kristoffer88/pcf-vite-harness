@@ -63,7 +63,6 @@ import { initializePCFHarness } from 'pcf-vite-harness'
 
 initializePCFHarness({
   pcfClass: YourPCFComponent,
-  showDevPanel: true,
   contextOptions: { /* custom context */ }
 })
 ```
