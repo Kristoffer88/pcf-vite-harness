@@ -74,6 +74,7 @@ export const Step2RecordIdInput: React.FC<Step2RecordIdInputProps> = ({
   const [records, setRecords] = useState<RecordInfo[]>([])
   const [searchValue, setSearchValue] = useState('')
   const [showResults, setShowResults] = useState(false)
+  const [highlightedIndex, setHighlightedIndex] = useState(0)
   const wizardLayoutRef = useRef<WizardLayoutRef>(null)
   const searchBoxRef = useRef<ISearchBox>(null)
 
@@ -190,6 +191,7 @@ export const Step2RecordIdInput: React.FC<Step2RecordIdInputProps> = ({
     })
     setSearchValue(value)
     setShowResults(value.length > 0)
+    setHighlightedIndex(0) // Reset highlight when search changes
     
     // Load records with search term
     if (value.length > 2) {
@@ -206,6 +208,7 @@ export const Step2RecordIdInput: React.FC<Step2RecordIdInputProps> = ({
     })
     setSearchValue(record.displayText)
     setShowResults(false)
+    setHighlightedIndex(0)
     console.log('✅ Step2: Record selection completed')
     
     // Auto-focus the Continue button after selection
@@ -218,6 +221,7 @@ export const Step2RecordIdInput: React.FC<Step2RecordIdInputProps> = ({
   const handleClear = useCallback(() => {
     setSearchValue('')
     setShowResults(false)
+    setHighlightedIndex(0)
     onUpdate({
       pageRecordId: undefined,
     })
@@ -229,6 +233,38 @@ export const Step2RecordIdInput: React.FC<Step2RecordIdInputProps> = ({
       setShowResults(true)
     }
   }, [searchValue])
+
+  // Handle keyboard navigation
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (!showResults || filteredRecords.length === 0) return
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault()
+        setHighlightedIndex(prev => 
+          prev < filteredRecords.length - 1 ? prev + 1 : prev
+        )
+        break
+      case 'ArrowUp':
+        e.preventDefault()
+        setHighlightedIndex(prev => prev > 0 ? prev - 1 : 0)
+        break
+      case 'Enter':
+        e.preventDefault()
+        if (filteredRecords[highlightedIndex]) {
+          handleRecordSelect(filteredRecords[highlightedIndex])
+        }
+        break
+      case 'Escape':
+        e.preventDefault()
+        setShowResults(false)
+        setHighlightedIndex(0)
+        break
+      case ' ':
+        e.stopPropagation()
+        break
+    }
+  }, [showResults, filteredRecords, highlightedIndex, handleRecordSelect])
 
   // Handle click outside to close dropdown
   useEffect(() => {
@@ -253,9 +289,18 @@ export const Step2RecordIdInput: React.FC<Step2RecordIdInputProps> = ({
     if (!item) return null
     
     const isSelected = item.id === data.pageRecordId
-    const itemClassName = isSelected 
-      ? mergeStyles(classNames.recordItem, classNames.selectedItem)
-      : classNames.recordItem
+    const isHighlighted = index === highlightedIndex && showResults
+    
+    let itemClassName = classNames.recordItem
+    if (isSelected) {
+      itemClassName = mergeStyles(classNames.recordItem, classNames.selectedItem)
+    } else if (isHighlighted) {
+      // Highlight the keyboard-navigated item
+      itemClassName = mergeStyles(classNames.recordItem, {
+        backgroundColor: '#f8f9fa',
+        borderLeft: '3px solid #0078d4'
+      })
+    }
 
     return (
       <div
@@ -271,10 +316,17 @@ export const Step2RecordIdInput: React.FC<Step2RecordIdInputProps> = ({
           }
         }}
       >
-        <Text variant="medium">{item.displayText}</Text>
+        <Text variant="medium">
+          {item.displayText}
+          {isHighlighted && (
+            <Text variant="small" styles={{ root: { color: '#0078d4', marginLeft: 8 } }}>
+              ↵ Press Enter
+            </Text>
+          )}
+        </Text>
       </div>
     )
-  }, [data.pageRecordId, handleRecordSelect, classNames, showResults, filteredRecords.length])
+  }, [data.pageRecordId, handleRecordSelect, classNames, showResults, highlightedIndex])
 
   const handleSkip = useCallback(() => {
     // Clear record ID and proceed
@@ -359,9 +411,9 @@ export const Step2RecordIdInput: React.FC<Step2RecordIdInputProps> = ({
               onFocus={handleSearchFocus}
               onClear={handleClear}
               onSearch={() => {
-                // Select the top result when Enter is pressed
-                if (showResults && filteredRecords.length > 0 && filteredRecords[0]) {
-                  handleRecordSelect(filteredRecords[0])
+                // Select the highlighted result when Enter is pressed
+                if (showResults && filteredRecords.length > 0 && filteredRecords[highlightedIndex]) {
+                  handleRecordSelect(filteredRecords[highlightedIndex])
                 }
               }}
               disabled={false}
@@ -379,11 +431,7 @@ export const Step2RecordIdInput: React.FC<Step2RecordIdInputProps> = ({
                   }
                 } : undefined
               }}
-              onKeyDown={(e) => {
-                if (e.key === ' ') {
-                  e.stopPropagation()
-                }
-              }}
+              onKeyDown={handleKeyDown}
             />
             
             {/* Search Results */}

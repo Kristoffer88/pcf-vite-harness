@@ -12,11 +12,12 @@ import {
   List,
   mergeStyles,
   mergeStyleSets,
+  Toggle,
   type ISearchBox,
 } from '@fluentui/react'
 import type * as React from 'react'
 import { useCallback, useEffect, useState, useMemo, useRef } from 'react'
-import { discoverEntitiesWithDisplayNames, type EntityInfo } from '../utils/viewDiscovery'
+import { discoverEntitiesWithDisplayNames, getEntitiesWithLookupsToParent, type EntityInfo } from '../utils/viewDiscovery'
 import type { SetupWizardData } from './types'
 import { WizardLayout, type WizardLayoutRef } from './WizardLayout'
 
@@ -72,6 +73,8 @@ export const Step3TargetTableSelection: React.FC<Step3TargetTableSelectionProps>
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string>()
   const [entities, setEntities] = useState<EntityInfo[]>([])
+  const [relatedEntities, setRelatedEntities] = useState<EntityInfo[]>([])
+  const [useRelationshipFilter, setUseRelationshipFilter] = useState(true)
   const [searchValue, setSearchValue] = useState('')
   const [showResults, setShowResults] = useState(false)
   const [relationshipWarning, setRelationshipWarning] = useState<string>()
@@ -84,15 +87,27 @@ export const Step3TargetTableSelection: React.FC<Step3TargetTableSelectionProps>
     setError(undefined)
 
     try {
+      // Always load all entities
       const entityList = await discoverEntitiesWithDisplayNames()
-      setEntities(entityList) // Already sorted by display name
+      setEntities(entityList)
+      
+      // If we have a parent table, also load related entities
+      if (data.pageTable) {
+        const relatedEntityList = await getEntitiesWithLookupsToParent(data.pageTable)
+        setRelatedEntities(relatedEntityList)
+        console.log(`🔗 Found ${relatedEntityList.length} entities with lookups to ${data.pageTable}:`, 
+                   relatedEntityList.map(e => e.logicalName))
+      } else {
+        setRelatedEntities([])
+        setUseRelationshipFilter(false)
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load entities'
       setError(errorMessage)
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [data.pageTable])
 
   // Load entities on mount
   useEffect(() => {
@@ -115,16 +130,38 @@ export const Step3TargetTableSelection: React.FC<Step3TargetTableSelectionProps>
     }
   }, [isLoading])
 
+  // Get base entities list (either all entities or filtered by relationships)
+  const baseEntities = useMemo(() => {
+    if (useRelationshipFilter && relatedEntities.length > 0) {
+      // Include both the parent table itself and related entities
+      const allRelevantEntities = [...relatedEntities]
+      
+      // Add the parent table if it's not already in the list
+      if (data.pageTable) {
+        const parentInRelated = relatedEntities.find(e => e.logicalName === data.pageTable)
+        if (!parentInRelated) {
+          const parentEntity = entities.find(e => e.logicalName === data.pageTable)
+          if (parentEntity) {
+            allRelevantEntities.unshift(parentEntity) // Add at beginning
+          }
+        }
+      }
+      
+      return allRelevantEntities.sort((a, b) => a.displayName.localeCompare(b.displayName))
+    }
+    return entities
+  }, [entities, relatedEntities, useRelationshipFilter, data.pageTable])
+
   // Filter entities based on search value
   const filteredEntities = useMemo(() => {
-    if (!searchValue.trim()) return entities
+    if (!searchValue.trim()) return baseEntities
     const search = searchValue.toLowerCase()
-    return entities.filter(entity => 
+    return baseEntities.filter(entity => 
       entity.displayText.toLowerCase().includes(search) ||
       entity.logicalName.toLowerCase().includes(search) ||
       entity.displayName.toLowerCase().includes(search)
     )
-  }, [entities, searchValue])
+  }, [baseEntities, searchValue])
 
   // Check relationship between page table and target table
   const checkRelationship = useCallback(
@@ -268,6 +305,33 @@ export const Step3TargetTableSelection: React.FC<Step3TargetTableSelectionProps>
               {data.pageRecordId && ` (Record: ${data.pageRecordId})`}
             </Text>
           </Stack>
+        )}
+
+        {/* Relationship Filter Toggle */}
+        {data.pageTable && relatedEntities.length > 0 && (
+          <Stack tokens={{ childrenGap: 10 }}>
+            <Toggle
+              label="Show only tables with lookups to page table"
+              checked={useRelationshipFilter}
+              onChange={(_, checked) => setUseRelationshipFilter(checked || false)}
+              onText={`Showing ${relatedEntities.length + 1} related tables`}
+              offText={`Showing all ${entities.length} tables`}
+            />
+            <Text variant="small" styles={{ root: { color: '#605e5c' } }}>
+              {useRelationshipFilter
+                ? `Tables that have lookup relationships to ${data.pageTableName || data.pageTable}`
+                : 'All available tables in the system'
+              }
+            </Text>
+          </Stack>
+        )}
+
+        {/* No Related Tables Warning */}
+        {data.pageTable && relatedEntities.length === 0 && !isLoading && (
+          <MessageBar messageBarType={MessageBarType.warning}>
+            No tables found with lookup relationships to {data.pageTableName || data.pageTable}. 
+            Showing all available tables instead.
+          </MessageBar>
         )}
 
         {/* Entity Selection */}

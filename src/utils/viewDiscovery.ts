@@ -242,6 +242,16 @@ export interface RecordInfo {
   displayText: string // "Primary Name (ID)"
 }
 
+export interface RelationshipInfo {
+  schemaName: string
+  relationshipType: 'OneToMany' | 'ManyToOne' | 'ManyToMany'
+  referencingEntity: string
+  referencedEntity: string
+  referencingAttribute: string
+  referencedAttribute: string
+  lookupFieldName: string
+}
+
 /**
  * Discover all entities that have views
  */
@@ -420,6 +430,103 @@ export async function searchRecordsFromTable(
     
   } catch (error) {
     console.error(`Error searching records from ${entityLogicalName}:`, error)
+    return []
+  }
+}
+
+/**
+ * Get entities that have lookup relationships to the specified parent entity
+ */
+export async function getEntitiesWithLookupsToParent(parentEntityLogicalName: string): Promise<EntityInfo[]> {
+  try {
+    // Query relationship metadata to find all relationships where the parent is the referenced entity
+    const relationshipsUrl = `/api/data/v9.2/RelationshipDefinitions/Microsoft.Dynamics.CRM.OneToManyRelationshipMetadata?$filter=ReferencedEntity eq '${parentEntityLogicalName}'&$select=SchemaName,ReferencingEntity,ReferencedEntity`
+    
+    const response = await fetch(relationshipsUrl)
+    if (!response.ok) {
+      throw new Error(`Failed to fetch relationships for ${parentEntityLogicalName}: ${response.status}`)
+    }
+    
+    const data = await response.json()
+    
+    // Get unique referencing entities
+    const relatedEntityNames = new Set<string>()
+    data.value.forEach((relationship: any) => {
+      if (relationship.ReferencingEntity && relationship.ReferencingEntity !== parentEntityLogicalName) {
+        relatedEntityNames.add(relationship.ReferencingEntity)
+      }
+    })
+    
+    if (relatedEntityNames.size === 0) {
+      return []
+    }
+    
+    // Get entity definitions for the related entities
+    const entityNamesArray = Array.from(relatedEntityNames)
+    const entityFilter = entityNamesArray.map(name => `LogicalName eq '${name}'`).join(' or ')
+    const entitiesUrl = `/api/data/v9.2/EntityDefinitions?$filter=${entityFilter}&$select=DisplayName,LogicalName`
+    
+    const entitiesResponse = await fetch(entitiesUrl)
+    if (!entitiesResponse.ok) {
+      throw new Error(`Failed to fetch entity definitions: ${entitiesResponse.status}`)
+    }
+    
+    const entitiesData = await entitiesResponse.json()
+    
+    // Filter to only include entities that have views
+    const entityLogicalNames = await discoverEntitiesWithViews()
+    const entityLogicalNamesSet = new Set(entityLogicalNames)
+    
+    const entityInfos: EntityInfo[] = entitiesData.value
+      .filter((entity: any) => entityLogicalNamesSet.has(entity.LogicalName))
+      .map((entity: any) => {
+        const logicalName = entity.LogicalName
+        const displayName = entity.DisplayName?.UserLocalizedLabel?.Label || logicalName
+        return {
+          logicalName,
+          displayName,
+          displayText: `${displayName} (${logicalName})`
+        }
+      })
+    
+    return entityInfos.sort((a, b) => a.displayName.localeCompare(b.displayName))
+    
+  } catch (error) {
+    console.error(`Error getting entities with lookups to ${parentEntityLogicalName}:`, error)
+    return []
+  }
+}
+
+/**
+ * Get relationship details between two entities
+ */
+export async function getRelationshipBetweenEntities(
+  parentEntity: string, 
+  childEntity: string
+): Promise<RelationshipInfo[]> {
+  try {
+    // Query for OneToMany relationships where parent is referenced and child is referencing
+    const url = `/api/data/v9.2/RelationshipDefinitions/Microsoft.Dynamics.CRM.OneToManyRelationshipMetadata?$filter=ReferencedEntity eq '${parentEntity}' and ReferencingEntity eq '${childEntity}'&$select=SchemaName,ReferencingEntity,ReferencedEntity,ReferencingAttribute,ReferencedAttribute`
+    
+    const response = await fetch(url)
+    if (!response.ok) {
+      throw new Error(`Failed to fetch relationships between ${parentEntity} and ${childEntity}: ${response.status}`)
+    }
+    
+    const data = await response.json()
+    
+    return data.value.map((relationship: any) => ({
+      schemaName: relationship.SchemaName,
+      relationshipType: 'OneToMany' as const,
+      referencingEntity: relationship.ReferencingEntity,
+      referencedEntity: relationship.ReferencedEntity,
+      referencingAttribute: relationship.ReferencingAttribute,
+      referencedAttribute: relationship.ReferencedAttribute,
+      lookupFieldName: relationship.ReferencingAttribute // Use the referencing attribute as lookup field name
+    }))
+    
+  } catch (error) {
+    console.error(`Error getting relationships between ${parentEntity} and ${childEntity}:`, error)
     return []
   }
 }

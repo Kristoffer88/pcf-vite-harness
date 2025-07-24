@@ -74,6 +74,7 @@ export const Step1TableSelection: React.FC<Step1TableSelectionProps> = ({
   const [entities, setEntities] = useState<EntityInfo[]>([])
   const [searchValue, setSearchValue] = useState('')
   const [showResults, setShowResults] = useState(false)
+  const [highlightedIndex, setHighlightedIndex] = useState(0)
   const wizardLayoutRef = useRef<WizardLayoutRef>(null)
   const searchBoxRef = useRef<ISearchBox>(null)
 
@@ -136,6 +137,7 @@ export const Step1TableSelection: React.FC<Step1TableSelectionProps> = ({
     })
     setSearchValue(value)
     setShowResults(value.length > 0)
+    setHighlightedIndex(0) // Reset highlight when search changes
   }, [searchValue])
 
   // Handle entity selection
@@ -149,6 +151,7 @@ export const Step1TableSelection: React.FC<Step1TableSelectionProps> = ({
     })
     setSearchValue(entity.displayText)
     setShowResults(false)
+    setHighlightedIndex(0)
     console.log('✅ Step1: Entity selection completed')
     
     // Auto-focus the Continue button after selection
@@ -161,6 +164,7 @@ export const Step1TableSelection: React.FC<Step1TableSelectionProps> = ({
   const handleClear = useCallback(() => {
     setSearchValue('')
     setShowResults(false)
+    setHighlightedIndex(0)
     onUpdate({
       pageTable: undefined,
       pageTableName: undefined,
@@ -174,6 +178,38 @@ export const Step1TableSelection: React.FC<Step1TableSelectionProps> = ({
       setShowResults(true)
     }
   }, [searchValue])
+
+  // Handle keyboard navigation
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (!showResults || filteredEntities.length === 0) return
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault()
+        setHighlightedIndex(prev => 
+          prev < filteredEntities.length - 1 ? prev + 1 : prev
+        )
+        break
+      case 'ArrowUp':
+        e.preventDefault()
+        setHighlightedIndex(prev => prev > 0 ? prev - 1 : 0)
+        break
+      case 'Enter':
+        e.preventDefault()
+        if (filteredEntities[highlightedIndex]) {
+          handleEntitySelect(filteredEntities[highlightedIndex])
+        }
+        break
+      case 'Escape':
+        e.preventDefault()
+        setShowResults(false)
+        setHighlightedIndex(0)
+        break
+      case ' ':
+        e.stopPropagation()
+        break
+    }
+  }, [showResults, filteredEntities, highlightedIndex, handleEntitySelect])
 
   // Handle click outside to close dropdown
   useEffect(() => {
@@ -198,13 +234,13 @@ export const Step1TableSelection: React.FC<Step1TableSelectionProps> = ({
     if (!item) return null
     
     const isSelected = item.logicalName === data.pageTable
-    const isTopResult = index === 0 && showResults && filteredEntities.length > 0
+    const isHighlighted = index === highlightedIndex && showResults
     
     let itemClassName = classNames.entityItem
     if (isSelected) {
       itemClassName = mergeStyles(classNames.entityItem, classNames.selectedItem)
-    } else if (isTopResult) {
-      // Highlight top result to show it would be selected by Enter
+    } else if (isHighlighted) {
+      // Highlight the keyboard-navigated item
       itemClassName = mergeStyles(classNames.entityItem, {
         backgroundColor: '#f8f9fa',
         borderLeft: '3px solid #0078d4'
@@ -227,7 +263,7 @@ export const Step1TableSelection: React.FC<Step1TableSelectionProps> = ({
       >
         <Text variant="medium">
           {item.displayText}
-          {isTopResult && (
+          {isHighlighted && (
             <Text variant="small" styles={{ root: { color: '#0078d4', marginLeft: 8 } }}>
               ↵ Press Enter
             </Text>
@@ -235,7 +271,7 @@ export const Step1TableSelection: React.FC<Step1TableSelectionProps> = ({
         </Text>
       </div>
     )
-  }, [data.pageTable, handleEntitySelect, classNames, showResults, filteredEntities.length])
+  }, [data.pageTable, handleEntitySelect, classNames, showResults, highlightedIndex])
 
   const handleSkip = useCallback(() => {
     // Use the skip handler to jump directly to step 3
@@ -281,19 +317,15 @@ export const Step1TableSelection: React.FC<Step1TableSelectionProps> = ({
               onFocus={handleSearchFocus}
               onClear={handleClear}
               onSearch={() => {
-                // Select the top result when Enter is pressed
-                if (showResults && filteredEntities.length > 0 && filteredEntities[0]) {
-                  handleEntitySelect(filteredEntities[0])
+                // Select the highlighted result when Enter is pressed
+                if (showResults && filteredEntities.length > 0 && filteredEntities[highlightedIndex]) {
+                  handleEntitySelect(filteredEntities[highlightedIndex])
                 }
               }}
               disabled={isLoading}
               autoComplete="off"
               styles={{ root: { width: '100%' } }}
-              onKeyDown={(e) => {
-                if (e.key === ' ') {
-                  e.stopPropagation()
-                }
-              }}
+              onKeyDown={handleKeyDown}
             />
             
             {/* Search Results */}
