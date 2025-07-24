@@ -12,14 +12,13 @@ export interface DatasetInjectionOptions {
   context: ComponentFramework.Context<any>
   datasetName: string
   queryResult: QueryResult
-  onUpdateView?: () => Promise<void>
 }
 
 /**
  * Inject records into a dataset and trigger updateView
  */
 export async function injectDatasetRecords(options: DatasetInjectionOptions): Promise<boolean> {
-  const { context, datasetName, queryResult, onUpdateView } = options
+  const { context, datasetName, queryResult } = options
 
   if (!queryResult.success) {
     console.warn(`⚠️ Query failed for dataset: ${datasetName}`)
@@ -104,11 +103,8 @@ export async function injectDatasetRecords(options: DatasetInjectionOptions): Pr
 
     console.log(`✅ Successfully injected ${recordIds.length} records into dataset`)
     
-    // Trigger updateView if provided
-    if (onUpdateView) {
-      console.log(`🔄 Triggering updateView after dataset injection`)
-      await onUpdateView()
-    }
+    // Note: updateView will be called by the background loader after all datasets are processed
+    // to avoid multiple updateView calls
 
     return true
   } catch (error) {

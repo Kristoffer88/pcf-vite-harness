@@ -5,6 +5,9 @@
 
 import { XMLParser } from 'fast-xml-parser'
 
+// Cache for lookup target metadata
+const lookupTargetCache = new Map<string, string[]>()
+
 export interface ViewColumn {
   name: string
   displayName: string
@@ -163,7 +166,8 @@ function parseLayoutXml(layoutXml: string): ViewColumn[] {
  */
 export async function fetchAttributeMetadata(
   entityName: string,
-  attributeNames: string[]
+  attributeNames: string[],
+  includeLookupTargets: boolean = true
 ): Promise<Map<string, AttributeMetadata>> {
   const attributeMap = new Map<string, AttributeMetadata>()
 
@@ -187,30 +191,48 @@ export async function fetchAttributeMetadata(
     }
   }
 
-  // Fetch additional metadata for specific attribute types
-  for (const attrName of attributeNames) {
-    const attr = attributeMap.get(attrName)
-    if (attr && (attr.attributeType === 'Lookup' || attr.attributeType === 'Customer' || attr.attributeType === 'Owner')) {
-      // Fetch lookup targets
-      const lookupUrl = `/api/data/v9.1/EntityDefinitions(LogicalName='${entityName}')/Attributes(LogicalName='${attrName}')/Microsoft.Dynamics.CRM.LookupAttributeMetadata?$select=LogicalName,Targets`
-      try {
-        const lookupResponse = await fetch(lookupUrl)
-        if (lookupResponse.ok) {
-          const lookupData = await lookupResponse.json()
-          attr.targets = lookupData.Targets || []
-          
-          if (attr.targets.length === 0) {
-            console.warn(`⚠️ No targets found for lookup field ${attrName} on ${entityName}. This might be a polymorphic lookup.`)
-          } else {
-            console.log(`✅ Found targets for ${attrName}: ${attr.targets.join(', ')}`)
-          }
-        } else {
-          console.warn(`Failed to fetch lookup metadata for ${attrName}: ${lookupResponse.status} ${lookupResponse.statusText}`)
+  // Fetch additional metadata for specific attribute types (if requested)
+  if (includeLookupTargets) {
+    for (const attrName of attributeNames) {
+      const attr = attributeMap.get(attrName)
+      if (attr && (attr.attributeType === 'Lookup' || attr.attributeType === 'Customer' || attr.attributeType === 'Owner')) {
+        const cacheKey = `${entityName}.${attrName}`
+        
+        // Check cache first
+        const cachedTargets = lookupTargetCache.get(cacheKey)
+        if (cachedTargets) {
+          console.log(`📋 Using cached lookup targets for ${attrName}: ${cachedTargets.join(', ')}`)
+          attr.targets = cachedTargets
+          continue
         }
-      } catch (e) {
-        console.warn(`Failed to fetch lookup metadata for ${attrName}:`, e)
+        
+        // Fetch lookup targets
+        const lookupUrl = `/api/data/v9.1/EntityDefinitions(LogicalName='${entityName}')/Attributes(LogicalName='${attrName}')/Microsoft.Dynamics.CRM.LookupAttributeMetadata?$select=LogicalName,Targets`
+        try {
+          const lookupResponse = await fetch(lookupUrl)
+          if (lookupResponse.ok) {
+            const lookupData = await lookupResponse.json()
+            const targets = lookupData.Targets || []
+            attr.targets = targets
+            
+            // Cache the result
+            lookupTargetCache.set(cacheKey, targets)
+            
+            if (targets.length === 0) {
+              console.warn(`⚠️ No targets found for lookup field ${attrName} on ${entityName}. This might be a polymorphic lookup.`)
+            } else {
+              console.log(`✅ Found targets for ${attrName}: ${targets.join(', ')}`)
+            }
+          } else {
+            console.warn(`Failed to fetch lookup metadata for ${attrName}: ${lookupResponse.status} ${lookupResponse.statusText}`)
+          }
+        } catch (e) {
+          console.warn(`Failed to fetch lookup metadata for ${attrName}:`, e)
+        }
       }
     }
+  } else {
+    console.log(`⏩ Skipping lookup target fetching for ${entityName} (includeLookupTargets=false)`)
   }
 
   return attributeMap

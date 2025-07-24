@@ -108,15 +108,20 @@ export class BackgroundDataLoader {
 
       console.log(`📊 Found ${datasetAnalysis.datasets.length} datasets to load in background`)
 
-      // Load parent entity from environment
+      // Load parent entity from environment (always prefer env vars over cache)
       const parentEntity = EnvConfigGenerator.loadParentEntityFromEnv()
-      const parentEntityType = import.meta.env.VITE_PCF_PARENT_ENTITY_TYPE
-      const defaultViewId = import.meta.env.VITE_PCF_DEFAULT_VIEW_ID
+      const parentEntityType = import.meta.env.VITE_PCF_PAGE_TABLE || import.meta.env.VITE_PCF_PARENT_ENTITY_TYPE
+      const defaultViewId = import.meta.env.VITE_PCF_VIEW_ID || import.meta.env.VITE_PCF_DEFAULT_VIEW_ID
       
       console.log('📂 Environment configuration loaded:', {
         parentEntity,
         parentEntityType,
-        defaultViewId
+        defaultViewId,
+        debugEnvVars: {
+          VITE_PCF_PAGE_RECORD_ID: import.meta.env.VITE_PCF_PAGE_RECORD_ID,
+          VITE_PCF_PAGE_TABLE: import.meta.env.VITE_PCF_PAGE_TABLE,
+          VITE_PCF_VIEW_ID: import.meta.env.VITE_PCF_VIEW_ID
+        }
       })
 
       // Wait for the configured delay
@@ -136,11 +141,27 @@ export class BackgroundDataLoader {
             const viewId = dataset.viewId || defaultViewId
             console.log(`📊 Using view-based loading for ${dataset.name} with view ${viewId}`)
             
+            // Build parent entity filter if we have parent entity info
+            let parentEntityFilter = undefined
+            if (parentEntity && parentEntity.id && parentEntity.entityType) {
+              // Try to determine the lookup field name from environment variables
+              const lookupFieldName = import.meta.env.VITE_PCF_RELATIONSHIP_LOOKUP_FIELD || `_${parentEntity.entityType}_value`
+              
+              parentEntityFilter = {
+                parentEntityType: parentEntity.entityType,
+                parentEntityId: parentEntity.id,
+                lookupFieldName: lookupFieldName,
+              }
+              
+              console.log(`🔗 Using parent entity filter for view-based loading:`, parentEntityFilter)
+            }
+
             const generatedDataset = await generateDatasetFromView({
               viewId: viewId,
               pageSize: 5000,
               includeRecords: true,
               recordLimit: 5000,
+              parentEntityFilter,
             })
             
             if (!generatedDataset.error) {
@@ -176,8 +197,7 @@ export class BackgroundDataLoader {
               const injectionResult = await injectDatasetRecords({
                 context,
                 datasetName: dataset.name,
-                queryResult,
-                onUpdateView
+                queryResult
               })
               
               console.log(`💉 Injection result for ${dataset.name}:`, injectionResult)

@@ -24,6 +24,11 @@ export interface DatasetGenerationOptions {
   includeRecords?: boolean
   recordLimit?: number
   onProgress?: (step: string, details?: any) => void
+  parentEntityFilter?: {
+    parentEntityType: string
+    parentEntityId: string
+    lookupFieldName: string
+  }
 }
 
 export interface GeneratedDataset {
@@ -121,7 +126,7 @@ export async function generateDatasetFromView(
     // Fetch records if requested
     if (options.includeRecords) {
       options.onProgress?.('fetchingRecords', { limit: options.recordLimit })
-      await populateDatasetRecords(dataset, viewMetadata, options.recordLimit, options.onProgress)
+      await populateDatasetRecords(dataset, viewMetadata, options.recordLimit, options.onProgress, options.parentEntityFilter)
       options.onProgress?.('recordsFetched', { recordCount: dataset.sortedRecordIds.length })
     }
 
@@ -139,7 +144,12 @@ async function populateDatasetRecords(
   dataset: GeneratedDataset,
   viewMetadata: ViewMetadata,
   recordLimit?: number,
-  onProgress?: (step: string, details?: any) => void
+  onProgress?: (step: string, details?: any) => void,
+  parentEntityFilter?: {
+    parentEntityType: string
+    parentEntityId: string
+    lookupFieldName: string
+  }
 ): Promise<void> {
   try {
     // Fetch entity metadata first
@@ -156,7 +166,14 @@ async function populateDatasetRecords(
     
     // Fetch records
     const limit = recordLimit || dataset.paging.pageSize
-    const url = `/api/data/v9.1/${entitySetName}?$select=${selectColumns}&$top=${limit}`
+    let url = `/api/data/v9.1/${entitySetName}?$select=${selectColumns}&$top=${limit}`
+    
+    // Add parent entity filter if provided
+    if (parentEntityFilter) {
+      const filter = `${parentEntityFilter.lookupFieldName} eq ${parentEntityFilter.parentEntityId}`
+      url += `&$filter=${filter}`
+      console.log(`🔍 Adding parent entity filter: ${filter}`)
+    }
     
     const response = await fetch(url)
     const data = await response.json()
