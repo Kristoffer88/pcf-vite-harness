@@ -230,6 +230,18 @@ export async function getDefaultViewForEntity(entityLogicalName: string): Promis
   return null
 }
 
+export interface EntityInfo {
+  logicalName: string
+  displayName: string
+  displayText: string // "Display Name (logical_name)"
+}
+
+export interface RecordInfo {
+  id: string
+  primaryName: string
+  displayText: string // "Primary Name (ID)"
+}
+
 /**
  * Discover all entities that have views
  */
@@ -251,6 +263,54 @@ export async function discoverEntitiesWithViews(): Promise<string[]> {
   })
 
   return Array.from(entityNames).sort()
+}
+
+/**
+ * Discover all entities that have views with their display names
+ * Uses single API call to get all entity definitions efficiently
+ */
+export async function discoverEntitiesWithDisplayNames(): Promise<EntityInfo[]> {
+  try {
+    // Get all entity definitions in one call
+    const url = `/api/data/v9.2/EntityDefinitions?$select=DisplayName,LogicalName`
+    const response = await fetch(url)
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch entity definitions: ${response.status}`)
+    }
+    
+    const data = await response.json()
+    
+    // Get entities that have views
+    const entityLogicalNames = await discoverEntitiesWithViews()
+    const entityLogicalNamesSet = new Set(entityLogicalNames)
+    
+    // Filter and map the entities that have views
+    const entityInfos: EntityInfo[] = data.value
+      .filter((entity: any) => entityLogicalNamesSet.has(entity.LogicalName))
+      .map((entity: any) => {
+        const logicalName = entity.LogicalName
+        const displayName = entity.DisplayName?.UserLocalizedLabel?.Label || logicalName
+        return {
+          logicalName,
+          displayName,
+          displayText: `${displayName} (${logicalName})`
+        }
+      })
+    
+    // Sort by display name
+    return entityInfos.sort((a, b) => a.displayName.localeCompare(b.displayName))
+    
+  } catch (error) {
+    console.warn('Error fetching entity display names:', error)
+    // Fallback to just logical names
+    const entityLogicalNames = await discoverEntitiesWithViews()
+    return entityLogicalNames.map(logicalName => ({
+      logicalName,
+      displayName: logicalName,
+      displayText: logicalName
+    })).sort((a, b) => a.displayName.localeCompare(b.displayName))
+  }
 }
 
 /**
@@ -303,4 +363,63 @@ export async function searchViewsByName(
   ]
 
   return results.sort((a, b) => a.name.localeCompare(b.name))
+}
+
+/**
+ * Search records from a specific table
+ */
+export async function searchRecordsFromTable(
+  entityLogicalName: string,
+  searchTerm?: string,
+  limit: number = 50
+): Promise<RecordInfo[]> {
+  try {
+    // Get entity metadata to find the primary name attribute
+    const entityMetadataUrl = `/api/data/v9.2/EntityDefinitions(LogicalName='${entityLogicalName}')?$select=PrimaryNameAttribute`
+    const metadataResponse = await fetch(entityMetadataUrl)
+    
+    if (!metadataResponse.ok) {
+      throw new Error(`Failed to get entity metadata for ${entityLogicalName}`)
+    }
+    
+    const metadata = await metadataResponse.json()
+    const primaryNameAttribute = metadata.PrimaryNameAttribute || 'name'
+    const primaryIdAttribute = `${entityLogicalName}id`
+    
+    // Build the records query
+    let recordsUrl = `/api/data/v9.2/${entityLogicalName}s?$select=${primaryIdAttribute},${primaryNameAttribute}&$top=${limit}`
+    
+    // Add search filter if provided
+    if (searchTerm && searchTerm.trim()) {
+      const searchFilter = `contains(${primaryNameAttribute},'${searchTerm.trim()}')`
+      recordsUrl += `&$filter=${encodeURIComponent(searchFilter)}`
+    }
+    
+    // Order by primary name
+    recordsUrl += `&$orderby=${primaryNameAttribute}`
+    
+    const recordsResponse = await fetch(recordsUrl)
+    
+    if (!recordsResponse.ok) {
+      throw new Error(`Failed to fetch records from ${entityLogicalName}: ${recordsResponse.status}`)
+    }
+    
+    const recordsData = await recordsResponse.json()
+    
+    return recordsData.value.map((record: any) => {
+      const id = record[primaryIdAttribute]
+      const primaryName = record[primaryNameAttribute] || `Record ${id}`
+      const shortId = id ? id.substring(0, 8) + '...' : 'Unknown'
+      
+      return {
+        id,
+        primaryName,
+        displayText: `${primaryName} (${shortId})`
+      }
+    })
+    
+  } catch (error) {
+    console.error(`Error searching records from ${entityLogicalName}:`, error)
+    return []
+  }
 }

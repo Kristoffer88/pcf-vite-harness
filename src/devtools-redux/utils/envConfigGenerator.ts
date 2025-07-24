@@ -64,6 +64,10 @@ export class EnvConfigGenerator {
     lines.push('VITE_PCF_AUTO_REFRESH=true')
     lines.push('VITE_PCF_AUTO_REFRESH_DELAY=1000')
 
+    lines.push('', '# DevTools Configuration')
+    lines.push('# Set to false to disable DevTools rendering (keeps code as reference)')
+    lines.push('VITE_PCF_SHOW_DEVTOOLS=true')
+
     return lines.join('\n')
   }
 
@@ -114,12 +118,25 @@ export class EnvConfigGenerator {
    * Load parent entity from environment
    */
   static loadParentEntityFromEnv(): ParentEntity | null {
-    const id = import.meta.env.VITE_PCF_PARENT_ENTITY_ID
-    const name = import.meta.env.VITE_PCF_PARENT_ENTITY_NAME
-    const entityType = import.meta.env.VITE_PCF_PARENT_ENTITY_TYPE
+    // Try the new PCF_PAGE_* variables first, then fall back to legacy PARENT_ENTITY_* variables
+    const id = import.meta.env.VITE_PCF_PAGE_RECORD_ID || import.meta.env.VITE_PCF_PARENT_ENTITY_ID
+    const name = import.meta.env.VITE_PCF_PAGE_TABLE_NAME || import.meta.env.VITE_PCF_PARENT_ENTITY_NAME
+    const entityType = import.meta.env.VITE_PCF_PAGE_TABLE || import.meta.env.VITE_PCF_PARENT_ENTITY_TYPE
 
-    if (id && name && entityType) {
-      return { id, name, entityType }
+    console.log('🔍 EnvConfigGenerator.loadParentEntityFromEnv:', {
+      pageRecordId: import.meta.env.VITE_PCF_PAGE_RECORD_ID,
+      pageTableName: import.meta.env.VITE_PCF_PAGE_TABLE_NAME,
+      pageTable: import.meta.env.VITE_PCF_PAGE_TABLE,
+      legacyParentId: import.meta.env.VITE_PCF_PARENT_ENTITY_ID,
+      legacyParentName: import.meta.env.VITE_PCF_PARENT_ENTITY_NAME,
+      legacyParentType: import.meta.env.VITE_PCF_PARENT_ENTITY_TYPE,
+      resolvedId: id,
+      resolvedName: name,
+      resolvedEntityType: entityType
+    })
+
+    if (id && entityType) {
+      return { id, name: name || entityType, entityType }
     }
 
     return null
@@ -147,5 +164,14 @@ export class EnvConfigGenerator {
   static getAutoRefreshDelay(): number {
     const delay = parseInt(import.meta.env.VITE_PCF_AUTO_REFRESH_DELAY)
     return isNaN(delay) ? 1000 : delay
+  }
+
+  /**
+   * Check if DevTools should be shown
+   */
+  static shouldShowDevTools(): boolean {
+    const value = import.meta.env.VITE_PCF_SHOW_DEVTOOLS
+    // Default to true unless explicitly set to 'false'
+    return value !== 'false'
   }
 }

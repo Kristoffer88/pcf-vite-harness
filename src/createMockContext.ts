@@ -379,10 +379,27 @@ export function createMockContext<TInputs>(options?: {
   // Check for environment variable overrides
   const envTargetTable = (import.meta.env.VITE_PCF_TARGET_TABLE as string) || entityType
   const envPageTable = (import.meta.env.VITE_PCF_PAGE_TABLE as string) || entityType
+  const envPageRecordId = import.meta.env.VITE_PCF_PAGE_RECORD_ID as string
   
   if (envTargetTable !== entityType) {
     console.log(`📋 Using VITE_PCF_TARGET_TABLE environment variable: ${envTargetTable}`)
   }
+  
+  if (envPageRecordId) {
+    console.log(`📋 Using VITE_PCF_PAGE_RECORD_ID environment variable: ${envPageRecordId}`)
+  } else {
+    console.log(`⚠️ VITE_PCF_PAGE_RECORD_ID not found, will generate random UUID`)
+  }
+
+  console.log('🔍 All PCF environment variables:', {
+    VITE_PCF_PAGE_TABLE: import.meta.env.VITE_PCF_PAGE_TABLE,
+    VITE_PCF_PAGE_TABLE_NAME: import.meta.env.VITE_PCF_PAGE_TABLE_NAME,
+    VITE_PCF_PAGE_RECORD_ID: import.meta.env.VITE_PCF_PAGE_RECORD_ID,
+    VITE_PCF_TARGET_TABLE: import.meta.env.VITE_PCF_TARGET_TABLE,
+    VITE_PCF_TARGET_TABLE_NAME: import.meta.env.VITE_PCF_TARGET_TABLE_NAME,
+    VITE_PCF_VIEW_ID: import.meta.env.VITE_PCF_VIEW_ID,
+    VITE_PCF_VIEW_NAME: import.meta.env.VITE_PCF_VIEW_NAME
+  })
 
   // Create sampleDataSet with minimal configuration
   // Use environment variable if available, otherwise will be updated when form is discovered
@@ -429,7 +446,11 @@ export function createMockContext<TInputs>(options?: {
     },
     page: {
       entityTypeName: envPageTable,
-      entityId: crypto.randomUUID(),
+      entityId: (() => {
+        const pageEntityId = envPageRecordId || crypto.randomUUID()
+        console.log(`🔧 Page entity ID set to: ${pageEntityId} (from ${envPageRecordId ? 'environment' : 'generated UUID'})`)
+        return pageEntityId
+      })(),
       isVisible: true,
     } as any,
     parameters: {

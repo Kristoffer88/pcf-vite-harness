@@ -51,6 +51,8 @@ async function validateDataverseToken(dataverseUrl: string): Promise<void> {
 export async function createPCFViteConfig(options: PCFViteOptions = {}) {
   const { defineConfig, loadEnv } = await import('vite')
   const react = (await import('@vitejs/plugin-react')).default
+  const fs = await import('fs')
+  const path = await import('path')
 
   return defineConfig(async ({ mode }) => {
     const env = loadEnv(mode, process.cwd(), '')
@@ -75,6 +77,21 @@ export async function createPCFViteConfig(options: PCFViteOptions = {}) {
         open,
         hmr: {
           port: hmrPort,
+        },
+        // Add middleware for /setup route
+        configureServer(server: any) {
+          server.middlewares.use((req: any, res: any, next: any) => {
+            if (req.url === '/setup') {
+              // Serve the same index.html file but for /setup route
+              const indexPath = path.resolve(server.config.root, 'index.html')
+              const html = fs.readFileSync(indexPath, 'utf-8')
+              res.statusCode = 200
+              res.setHeader('Content-Type', 'text/html')
+              res.end(html)
+            } else {
+              next()
+            }
+          })
         },
       },
       resolve: {

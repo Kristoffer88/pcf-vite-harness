@@ -109,17 +109,17 @@ export class ConfigManager {
         targetEntity: config.entities.targetEntity
       })
 
-      // Override with environment variables if needed
-      if (!overrideEntities) {
-        const envPageTable = import.meta.env.VITE_PCF_PAGE_TABLE
-        const envTargetTable = import.meta.env.VITE_PCF_TARGET_TABLE
-        
-        if (envPageTable) {
-          config.entities.pageEntity = envPageTable
-        }
-        if (envTargetTable) {
-          config.entities.targetEntity = envTargetTable
-        }
+      // Always override with environment variables when available (env vars take precedence)
+      const envPageTable = import.meta.env.VITE_PCF_PAGE_TABLE
+      const envTargetTable = import.meta.env.VITE_PCF_TARGET_TABLE
+      
+      if (envPageTable) {
+        console.log(`🔧 Overriding cached pageEntity with environment: ${envPageTable}`)
+        config.entities.pageEntity = envPageTable
+      }
+      if (envTargetTable) {
+        console.log(`🔧 Overriding cached targetEntity with environment: ${envTargetTable}`)
+        config.entities.targetEntity = envTargetTable
       }
 
       return config

@@ -19,6 +19,8 @@ export {
 export { initializePCFHarness, initPCF } from './initializePCFHarness.js'
 // Core components
 export { PowerAppsContainer } from './PowerAppsContainer.js'
+// Setup wizard
+export * from './setup/index.js'
 // View and record utilities
 export * from './utils/index.js'
 
