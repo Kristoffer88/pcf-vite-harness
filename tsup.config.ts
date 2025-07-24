@@ -3,6 +3,7 @@ import { defineConfig } from 'tsup'
 export default defineConfig({
   entry: {
     index: 'src/index.ts',
+    'bin/pcf-vite-harness': 'bin/pcf-vite-harness.ts',
     'bin/pcf-vite-init': 'bin/pcf-vite-init.ts',
     'bin/pcf-vite-create': 'bin/pcf-vite-create.ts',
   },
@@ -54,7 +55,7 @@ export default defineConfig({
     }
 
     // Make CLI executables and add shebangs
-    const cliFiles = ['dist/bin/pcf-vite-init.cjs', 'dist/bin/pcf-vite-create.cjs']
+    const cliFiles = ['dist/bin/pcf-vite-harness.cjs', 'dist/bin/pcf-vite-init.cjs', 'dist/bin/pcf-vite-create.cjs']
     
     for (const cliPath of cliFiles) {
       try {

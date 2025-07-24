@@ -595,10 +595,7 @@ program
   .option('--hmr-port <port>', 'HMR WebSocket port', '3001')
   .option('--no-dataverse', 'Disable Dataverse integration')
   .option('--dataverse-url <url>', 'Dataverse URL')
-  .action(async (options) => {
-    const initializer = new PCFViteInitializer()
-    await initializer.init(options)
-  })
+  .action(runInit)
 
 // Add help examples
 program.on('--help', () => {
@@ -611,4 +608,13 @@ program.on('--help', () => {
   console.log('The CLI will automatically detect PCF components and guide you through setup.')
 })
 
-program.parse(process.argv)
+// Export the main functionality for use by unified CLI
+export async function runInit(options: any = {}) {
+  const initializer = new PCFViteInitializer()
+  await initializer.init(options)
+}
+
+// Only parse if this file is run directly
+if (import.meta.url === `file://${process.argv[1]}`) {
+  program.parse(process.argv)
+}
