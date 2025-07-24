@@ -37,8 +37,8 @@ A modern Vite-based development harness for PowerApps Component Framework (PCF) 
 2. **Run the initializer**
    ```bash
    npx pcf-vite-harness
-   # or alternatively:
-   npx pcf-vite-init
+   # or explicitly:
+   npx pcf-vite-harness init
    ```
    
    The CLI will:
@@ -58,16 +58,9 @@ A modern Vite-based development harness for PowerApps Component Framework (PCF) 
 Create a complete new PCF project with Vite harness pre-configured:
 
 ```bash
-npx pcf-vite-create -n MyCompany -c MyControl -t field
-npx pcf-vite-create -n MyCompany -c MyDatasetControl -t dataset
+npx pcf-vite-harness create
 ```
 
-Options:
-- `-n, --namespace` - PCF namespace (required)
-- `-c, --control` - Control name (required)  
-- `-t, --template` - Component type: `field` or `dataset` (required)
-- `-o, --output` - Output directory (optional, defaults to control name)
-- `--dataverse-url` - Dataverse URL for integration (optional)
 
 Your PCF component will open at `http://localhost:3000` with full HMR support!
 
@@ -84,7 +77,11 @@ Then create the development files in a `dev/` directory. See the [templates dire
 
 ## 🛠️ CLI Features
 
-### `pcf-vite-init` / `pcf-vite-harness` - Add Harness to Existing Project
+### `pcf-vite-harness` - Unified CLI Tool
+
+The main command with subcommands for different workflows:
+
+### `pcf-vite-harness init` - Add Harness to Existing Project
 
 - **🔍 Auto-detection**: Automatically finds PCF components by scanning for `ControlManifest.xml` files
 - **📝 Smart Configuration**: Generates configuration files with correct paths and component imports
@@ -93,42 +90,33 @@ Then create the development files in a `dev/` directory. See the [templates dire
 - **📦 Package Integration**: Automatically adds npm scripts to your package.json
 
 ```bash
-# Interactive mode (recommended)
-npx pcf-vite-init
-
-# Non-interactive with custom options
-npx pcf-vite-init --non-interactive --port 4000 --hmr-port 4001 --no-dataverse
-
-# The CLI will prompt for:
-# - Component selection (if multiple found)
-# - Development server port (default: 3000)
-# - HMR WebSocket port (default: 3001)
-# - Browser auto-open preference
-# - Dataverse integration setup
+npx pcf-vite-harness init
 ```
 
-### `pcf-vite-create` - Create New PCF Project
+The CLI will guide you through:
+- Component selection (if multiple found)
+- Development server configuration  
+- Dataverse integration setup
+
+### `pcf-vite-harness create` - Create New PCF Project
 
 Creates a complete PCF project using Power Platform CLI (`pac`) with Vite harness pre-configured:
 
 - **🚀 Full Project Setup**: Creates PCF project structure using `pac pcf init`
 - **🎯 Template Support**: Supports both `field` and `dataset` component types
-- **⚙️ Interactive & Non-Interactive**: Supports both guided prompts and command-line arguments
+- **⚙️ Interactive Setup**: Guided prompts for easy configuration
 - **📊 Manifest Parsing**: Extracts component info from `ControlManifest.Input.xml`
 - **📦 Dependency Management**: Updates package.json and installs dependencies
 
 ```bash
-# Interactive mode (default) - prompts for all options
-npx pcf-vite-create
-
-# Interactive with pre-filled options
-npx pcf-vite-create -n MyCompany
-
-# Non-interactive mode (all options required)
-npx pcf-vite-create --non-interactive -n MyCompany -c MyFieldControl -t field
-npx pcf-vite-create --non-interactive -n MyCompany -c MyDatasetControl -t dataset -o ./my-project
-npx pcf-vite-create --non-interactive -n MyCompany -c MyControl -t field --dataverse-url https://myorg.crm.dynamics.com/
+npx pcf-vite-harness create
 ```
+
+The CLI will guide you through:
+- PCF component namespace and name
+- Component type (field or dataset)  
+- Project directory setup
+- Dataverse integration (optional)
 
 ## 🔧 Advanced Configuration
 
