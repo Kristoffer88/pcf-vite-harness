@@ -55,7 +55,7 @@ export default defineConfig({
     }
 
     // Make CLI executables and add shebangs
-    const cliFiles = ['dist/bin/pcf-vite-harness.cjs', 'dist/bin/pcf-vite-init.cjs', 'dist/bin/pcf-vite-create.cjs']
+    const cliFiles = ['dist/bin/pcf-vite-harness.cjs']
     
     for (const cliPath of cliFiles) {
       try {

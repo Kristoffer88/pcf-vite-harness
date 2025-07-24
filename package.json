@@ -36,9 +36,7 @@
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "pcf-vite-harness": "./dist/bin/pcf-vite-harness.cjs",
-    "pcf-vite-init": "./dist/bin/pcf-vite-init.cjs",
-    "pcf-vite-create": "./dist/bin/pcf-vite-create.cjs"
+    "pcf-vite-harness": "./dist/bin/pcf-vite-harness.cjs"
   },
   "files": [
     "dist",
