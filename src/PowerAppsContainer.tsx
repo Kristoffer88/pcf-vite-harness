@@ -1,67 +1,64 @@
 import * as React from 'react'
-import { PCFDevtools, PCFDevtoolsProvider, usePCFDevtools } from './devtools'
-import { WebApiMonitorWrapper } from './devtools/components/WebApiMonitorWrapper'
+import { createPCFManager, initPCF, updatePCFView, destroyPCF, type PCFInstanceManager } from './utils/pcfLifecycle'
+import { startAutoLoad } from './utils/simpleDatasetLoader'
 
 interface PowerAppsContainerProps {
   context: ComponentFramework.Context<any>
   pcfClass: new () => ComponentFramework.StandardControl<any, any>
   className?: string
-  showDevPanel?: boolean
-  devtoolsPosition?: 'bottom-left' | 'bottom-right' | 'top-left' | 'top-right'
+  manifestInfo?: {
+    namespace: string
+    constructor: string
+    version: string
+    displayName?: string
+    description?: string
+  }
 }
 
-// Inner component that can use the usePCFDevtools hook
-const PowerAppsContainerInner: React.FC<PowerAppsContainerProps> = ({
-  context,
-  pcfClass,
-  className = '',
-  showDevPanel = true,
-  devtoolsPosition = 'bottom-right',
-}) => {
-  const containerRef = React.useRef<HTMLDivElement>(null)
-  const pcfComponentRef = React.useRef<ComponentFramework.StandardControl<any, any> | null>(null)
-  const [monitoredContext, setMonitoredContext] = React.useState<ComponentFramework.Context<any>>(context)
-  
-  // Get DevTools context functions if we're inside the provider
-  const devtools = showDevPanel ? usePCFDevtools() : null
-
-  const initializePCFComponent = React.useCallback((ctx: ComponentFramework.Context<any>) => {
-    if (containerRef.current && !pcfComponentRef.current) {
-      // Initialize PCF component with monitored context
-      pcfComponentRef.current = new pcfClass()
-      pcfComponentRef.current.init(
-        ctx,
-        () => console.log('PCF notifyOutputChanged called'),
-        {},
-        containerRef.current
-      )
-      pcfComponentRef.current.updateView(ctx)
-      
-      // Register refs with devtools context if available
-      if (devtools) {
-        devtools.setPCFRefs(pcfComponentRef, containerRef, pcfClass)
-        devtools.setCurrentContext(ctx)
-      }
-    }
-  }, [pcfClass, devtools])
+// Inner component that manages PCF lifecycle
+const PowerAppsContainerInner: React.FC<
+  PowerAppsContainerProps & { containerRef: React.RefObject<HTMLDivElement> }
+> = ({ context, pcfClass, className = '', manifestInfo, containerRef }) => {
+  const pcfManagerRef = React.useRef<PCFInstanceManager | null>(null)
 
   React.useEffect(() => {
+    // Initialize PCF lifecycle manager when container is ready
+    if (containerRef.current && !pcfManagerRef.current) {
+      pcfManagerRef.current = createPCFManager(pcfClass, context, containerRef.current)
+      
+      // Auto-initialize when component mounts
+      initPCF(pcfManagerRef.current).catch(console.error)
+    }
+
+    // Cleanup on unmount
     return () => {
-      if (pcfComponentRef.current) {
-        pcfComponentRef.current.destroy()
-        pcfComponentRef.current = null
+      if (pcfManagerRef.current) {
+        destroyPCF(pcfManagerRef.current).catch(console.error)
+        pcfManagerRef.current = null
       }
     }
-  }, [])
+  }, [pcfClass, context])
 
-  const renderPCFContainer = () => (
+  React.useEffect(() => {
+    // Start simple dataset loading
+    if (context && pcfManagerRef.current) {
+      startAutoLoad(context, () => {
+        console.log('🔄 Dataset loaded, triggering updateView...')
+        if (pcfManagerRef.current) {
+          updatePCFView(pcfManagerRef.current).catch(console.error)
+        }
+      })
+    }
+  }, [context])
+
+  return (
     <div
       id="tab-section2"
-      className={`pa-g pa-ae pa-h pa-ht pa-cf pa-pb pa-du pa-bx webkitScroll flexbox ${className}`}
+      className={`pa-g pa-ae pa-h pa-ht pa-cf pa-pb pa-du pa-bx flexbox ${className}`}
       style={{
         height: '100vh',
         width: '100vw',
-        overflow: 'auto',
+        overflow: 'hidden',
         backgroundColor: '#f3f2f1',
         fontFamily:
           '"Segoe UI", "Segoe UI Web (West European)", "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", sans-serif',
@@ -81,7 +78,7 @@ const PowerAppsContainerInner: React.FC<PowerAppsContainerProps> = ({
             style={{ height: '100%', width: '100%' }}
           >
             <div
-              className="pa-g pa-ct pa-h pa-j pa-hq webkitScroll flexbox"
+              className="pa-g pa-ct pa-h pa-j pa-hq flexbox"
               style={{ height: '100%', width: '100%' }}
             >
               <div
@@ -121,48 +118,16 @@ const PowerAppsContainerInner: React.FC<PowerAppsContainerProps> = ({
                               className="pa-cf flexbox"
                               style={{ height: '100%', width: '100%' }}
                             >
-                              {/* PCF Component Container with WebAPI Monitoring */}
-                              {showDevPanel ? (
-                                <WebApiMonitorWrapper context={context}>
-                                  {(monitoredCtx) => {
-                                    React.useEffect(() => {
-                                      initializePCFComponent(monitoredCtx)
-                                    }, [monitoredCtx])
-                                    
-                                    return (
-                                      <div
-                                        className="customControl pcf-component flexbox"
-                                        data-id="pcf_container"
-                                        style={{
-                                          width: '100%',
-                                          height: '100%',
-                                          minHeight: '100vh',
-                                        }}
-                                        ref={containerRef}
-                                      />
-                                    )
-                                  }}
-                                </WebApiMonitorWrapper>
-                              ) : (
-                                (() => {
-                                  React.useEffect(() => {
-                                    initializePCFComponent(context)
-                                  }, [context])
-                                  
-                                  return (
-                                    <div
-                                      className="customControl pcf-component flexbox"
-                                      data-id="pcf_container"
-                                      style={{
-                                        width: '100%',
-                                        height: '100%',
-                                        minHeight: '100vh',
-                                      }}
-                                      ref={containerRef}
-                                    />
-                                  )
-                                })()
-                              )}
+                              {/* PCF Component Container */}
+                              <div
+                                className="customControl pcf-component flexbox"
+                                data-id="pcf_container"
+                                style={{
+                                  width: '100%',
+                                  height: '100%',
+                                }}
+                                ref={containerRef}
+                              />
                             </div>
                           </div>
                         </div>
@@ -175,26 +140,14 @@ const PowerAppsContainerInner: React.FC<PowerAppsContainerProps> = ({
           </div>
         </div>
       </div>
+      {/* DevTools UI removed - keeping connector for future use */}
     </div>
   )
-
-  return renderPCFContainer()
 }
 
-// Main component that sets up the devtools provider
-export const PowerAppsContainer: React.FC<PowerAppsContainerProps> = (props) => {
-  if (!props.showDevPanel) {
-    return <PowerAppsContainerInner {...props} />
-  }
+// Main component
+export const PowerAppsContainer: React.FC<PowerAppsContainerProps> = props => {
+  const containerRef = React.useRef<HTMLDivElement>(null!)
 
-  return (
-    <PCFDevtools
-      context={props.context}
-      initialIsOpen={false}
-      position={props.devtoolsPosition}
-      initialTheme="system"
-    >
-      <PowerAppsContainerInner {...props} />
-    </PCFDevtools>
-  )
+  return <PowerAppsContainerInner {...props} containerRef={containerRef} />
 }

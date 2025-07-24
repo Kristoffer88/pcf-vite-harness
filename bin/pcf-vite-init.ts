@@ -325,39 +325,64 @@ export default createPCFViteConfig({
       .split(sep)
       .join('/')
 
-    // Try to detect the actual component class name from the manifest
+    // Extract manifest information for auto-injection
     let componentClassName: string
+    let manifestInfo: string = ''
+
     try {
       const manifestPath = resolve(this.projectRoot, component.manifestPath)
       const manifestContent = await readFile(manifestPath, 'utf-8')
+
+      // Extract component details
       const controlMatch = manifestContent.match(/constructor="([^"]+)"/)
+      const namespaceMatch = manifestContent.match(/namespace="([^"]+)"/)
+      const versionMatch = manifestContent.match(/version="([^"]+)"/)
+      const displayNameMatch = manifestContent.match(/display-name-key="([^"]+)"/)
+      const descriptionMatch = manifestContent.match(/description-key="([^"]+)"/)
+
       componentClassName = controlMatch?.[1] ?? component.constructor ?? basename(component.path)
+
+      if (namespaceMatch?.[1] && controlMatch?.[1] && versionMatch?.[1]) {
+        manifestInfo = `  // Auto-detected manifest info from ${component.manifestPath}
+  manifestInfo: {
+    namespace: '${namespaceMatch[1]}',
+    constructor: '${controlMatch[1]}',
+    version: '${versionMatch[1]}',${displayNameMatch?.[1] ? `\n    displayName: '${displayNameMatch[1]}',` : ''}${descriptionMatch?.[1] ? `\n    description: '${descriptionMatch[1]}',` : ''}
+  },`
+      }
     } catch {
       componentClassName = component.constructor ?? basename(component.path)
     }
 
-    const content = `import { initPCF } from 'pcf-vite-harness'
+    const content = `import { initializePCFHarness } from 'pcf-vite-harness'
 import 'pcf-vite-harness/styles/powerapps.css'
 
 // Import your PCF component
 import { ${componentClassName} } from '${importPath.startsWith('.') ? importPath : './' + importPath}'
 
-// Initialize the PCF harness
-initPCF(${componentClassName})
-
-// For advanced configuration, use:
-/*
-import { initializePCFHarness } from 'pcf-vite-harness';
-
+// Initialize the PCF harness with auto-detected manifest info
 initializePCFHarness({
-    pcfClass: ${componentClassName},
-    containerId: 'pcf-container',
-    contextOptions: {
-        displayName: 'Your Name',
-        userName: 'you@company.com'
-    },
-    showDevPanel: true
-});
+  pcfClass: ${componentClassName},
+  containerId: 'pcf-container'${manifestInfo ? `,\n${manifestInfo}` : ''}
+})
+
+// For additional configuration options:
+/*
+initializePCFHarness({
+  pcfClass: ${componentClassName},
+  containerId: 'pcf-container',
+  contextOptions: {
+    displayName: 'Your Name',
+    userName: 'you@company.com',
+    // Override webAPI methods for custom testing
+    webAPI: {
+      retrieveMultipleRecords: async (entityLogicalName, options) => {
+        console.log(\`Mock data for \${entityLogicalName}\`)
+        return { entities: [] }
+      }
+    }
+  }
+})
 */
 `
 

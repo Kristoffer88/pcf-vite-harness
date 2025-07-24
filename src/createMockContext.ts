@@ -9,6 +9,12 @@ function formatGuid(guid: string): string {
  * Helper function to get entity metadata from Dataverse
  */
 async function getEntityMetadata(entityLogicalName: string): Promise<any> {
+  // Validate entity name
+  if (!entityLogicalName || entityLogicalName === 'unknown' || entityLogicalName.trim() === '') {
+    console.warn(`⚠️ Invalid entity name for metadata fetch: "${entityLogicalName}"`)
+    return null
+  }
+
   const response = await fetch(
     `/api/data/v9.2/EntityDefinitions(LogicalName='${entityLogicalName}')`
   )
@@ -19,19 +25,61 @@ async function getEntityMetadata(entityLogicalName: string): Promise<any> {
 }
 
 /**
+ * Helper function to extract view ID from query options
+ */
+function extractViewId(options: string): { viewId?: string; isUserView: boolean } {
+  if (options.includes('savedQuery=')) {
+    const match = options.match(/savedQuery=([^&]+)/)
+    return { viewId: match?.[1], isUserView: false }
+  }
+
+  if (options.includes('userQuery=')) {
+    const match = options.match(/userQuery=([^&]+)/)
+    return { viewId: match?.[1], isUserView: true }
+  }
+
+  return { isUserView: false }
+}
+
+/**
+ * Helper function to get view information for logging
+ */
+async function getViewInfo(
+  viewId: string,
+  isUserView: boolean
+): Promise<{ name?: string; entityName?: string }> {
+  try {
+    const entitySet = isUserView ? 'userqueries' : 'savedqueries'
+    const response = await fetch(
+      `/api/data/v9.2/${entitySet}(${viewId})?$select=name,returnedtypecode`
+    )
+
+    if (response.ok) {
+      const data = await response.json()
+      return {
+        name: data.name,
+        entityName: data.returnedtypecode,
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to get view info:', error)
+  }
+
+  return {}
+}
+
+/**
  * Default webAPI implementation with proxy support
  */
 function createDefaultWebAPI(): ComponentFramework.WebApi {
   return {
     retrieveMultipleRecords: async (
       entityLogicalName: string,
-      options?: string,
-      maxPageSize?: number
+      options?: string
     ): Promise<ComponentFramework.WebApi.RetrieveMultipleResponse> => {
       try {
         console.log(`🔄 retrieveMultipleRecords called for ${entityLogicalName}`, {
           options,
-          maxPageSize,
         })
 
         // Get metadata to find collection name
@@ -43,9 +91,28 @@ function createDefaultWebAPI(): ComponentFramework.WebApi {
           url += options.startsWith('?') ? options : `?${options}`
         }
 
-        if (maxPageSize) {
-          const separator = url.includes('?') ? '&' : '?'
-          url += `${separator}$top=${maxPageSize}`
+        // Check if this is a view-based query and extract view information
+        const isViewQuery =
+          options &&
+          (options.includes('savedQuery=') ||
+            options.includes('userQuery=') ||
+            options.includes('fetchXml='))
+        let viewInfo: { name?: string; entityName?: string } = {}
+
+        if (isViewQuery && options) {
+          const { viewId, isUserView } = extractViewId(options)
+          if (viewId) {
+            viewInfo = await getViewInfo(viewId, isUserView)
+            console.log(
+              `🔍 ${isUserView ? 'User' : 'System'} view query detected for ${entityLogicalName}`,
+              {
+                viewId,
+                viewName: viewInfo.name || 'Unknown View',
+              }
+            )
+          } else if (options.includes('fetchXml=')) {
+            console.log(`🔍 FetchXML query detected for ${entityLogicalName}`)
+          }
         }
 
         const response = await fetch(url)
@@ -56,7 +123,16 @@ function createDefaultWebAPI(): ComponentFramework.WebApi {
         }
 
         const result = await response.json()
-        console.log(`✅ Retrieved ${result.value?.length || 0} records for ${entityLogicalName}`)
+        const recordCount = result.value?.length || 0
+
+        if (isViewQuery) {
+          const viewDescription = viewInfo.name ? ` via "${viewInfo.name}"` : ' via view'
+          console.log(
+            `✅ Retrieved ${recordCount} records for ${entityLogicalName}${viewDescription}`
+          )
+        } else {
+          console.log(`✅ Retrieved ${recordCount} records for ${entityLogicalName}`)
+        }
 
         // Transform OData response to PCF WebAPI format
         if (result.value && !result.entities) {
@@ -128,8 +204,11 @@ function createDefaultWebAPI(): ComponentFramework.WebApi {
         }
 
         const result = await response.json()
-        const primaryIdAttribute =
-          metadata.PrimaryIdAttribute || `${entityLogicalName.toLowerCase()}id`
+        const primaryIdAttribute = metadata.PrimaryIdAttribute
+
+        if (!primaryIdAttribute) {
+          throw new Error(`No PrimaryIdAttribute found in metadata for ${entityLogicalName}`)
+        }
 
         console.log(`✅ Created record for ${entityLogicalName}`)
         return {
@@ -215,7 +294,64 @@ function createDefaultWebAPI(): ComponentFramework.WebApi {
 }
 
 /**
+ * Helper function to create a mock dataset with proper structure
+ */
+function createMockDataSet(
+  options?: {
+    name?: string
+    displayName?: string
+    entityLogicalName?: string
+    columns?: any[]
+  } & Partial<ComponentFramework.PropertyTypes.DataSet>
+): ComponentFramework.PropertyTypes.DataSet {
+  // Use view ID from environment if available
+  const viewId = import.meta.env.VITE_PCF_DEFAULT_VIEW_ID || undefined
+  
+  if (viewId) {
+    console.log(`📋 Using VITE_PCF_DEFAULT_VIEW_ID from environment: ${viewId}`)
+  } else {
+    console.log(`📊 No VITE_PCF_DEFAULT_VIEW_ID found, dataset will use default view`)
+  }
+
+  const defaultColumns = [
+    {
+      name: 'name',
+      displayName: 'Name',
+      dataType: 'SingleLine.Text',
+      alias: 'name',
+      order: 1,
+      visualSizeFactor: 1,
+    },
+  ]
+
+  return {
+    getViewId: () => viewId || '',
+    getTargetEntityType: () => options?.entityLogicalName || 'account',
+    isUserView: () => false,
+    loading: false,
+    paging: {
+      totalResultCount: 0,
+      hasNextPage: false,
+      hasPreviousPage: false,
+    },
+    sorting: [],
+    columns: (options?.columns ||
+      defaultColumns) as ComponentFramework.PropertyHelper.DataSetApi.Column[],
+    records: {},
+    clearSelectedRecordIds: () => {},
+    getSelectedRecordIds: () => [],
+    setSelectedRecordIds: () => {},
+    refresh: () => Promise.resolve(),
+    openDatasetItem: () => {},
+    ...options,
+  } as ComponentFramework.PropertyTypes.DataSet
+}
+
+// Removed getMockDatasetConfig - datasets are now configured dynamically based on discovered form data
+
+/**
  * Creates a mock PCF context with realistic PowerApps data
+ * For datasets, we'll create a minimal dataset that can be configured dynamically
  */
 export function createMockContext<TInputs>(options?: {
   controlId?: string
@@ -225,6 +361,7 @@ export function createMockContext<TInputs>(options?: {
   userId?: string
   datasetOptions?: Partial<ComponentFramework.PropertyTypes.DataSet>
   webAPI?: Partial<ComponentFramework.WebApi>
+  entityType?: string
 }): ComponentFramework.Context<TInputs> {
   const {
     controlId = `id-${crypto.randomUUID()}`,
@@ -234,37 +371,90 @@ export function createMockContext<TInputs>(options?: {
     userId = 'dev-user-id',
     datasetOptions = {},
     webAPI: customWebAPI = {},
+    entityType = 'unknown',
   } = options || {}
 
-  const mockDataSet = {
-    getViewId: () => viewId,
-    loading: false,
-    paging: {
-      totalResultCount: 0,
-      hasNextPage: false,
-      hasPreviousPage: false,
-    },
-    sorting: [],
-    columns: [],
-    records: {},
-    clearSelectedRecordIds: () => {},
-    getSelectedRecordIds: () => [],
-    setSelectedRecordIds: () => {},
-    refresh: () => Promise.resolve(),
-    openDatasetItem: () => {},
+  console.log('🔧 Creating mock context...', { entityType })
+
+  // Check for environment variable overrides
+  const envTargetTable = (import.meta.env.VITE_PCF_TARGET_TABLE as string) || entityType
+  const envPageTable = (import.meta.env.VITE_PCF_PAGE_TABLE as string) || entityType
+  const envPageRecordId = import.meta.env.VITE_PCF_PAGE_RECORD_ID as string
+  
+  if (envTargetTable !== entityType) {
+    console.log(`📋 Using VITE_PCF_TARGET_TABLE environment variable: ${envTargetTable}`)
+  }
+  
+  if (envPageRecordId) {
+    console.log(`📋 Using VITE_PCF_PAGE_RECORD_ID environment variable: ${envPageRecordId}`)
+  } else {
+    console.log(`⚠️ VITE_PCF_PAGE_RECORD_ID not found, will generate random UUID`)
+  }
+
+  console.log('🔍 All PCF environment variables:', {
+    VITE_PCF_PAGE_TABLE: import.meta.env.VITE_PCF_PAGE_TABLE,
+    VITE_PCF_PAGE_TABLE_NAME: import.meta.env.VITE_PCF_PAGE_TABLE_NAME,
+    VITE_PCF_PAGE_RECORD_ID: import.meta.env.VITE_PCF_PAGE_RECORD_ID,
+    VITE_PCF_TARGET_TABLE: import.meta.env.VITE_PCF_TARGET_TABLE,
+    VITE_PCF_TARGET_TABLE_NAME: import.meta.env.VITE_PCF_TARGET_TABLE_NAME,
+    VITE_PCF_VIEW_ID: import.meta.env.VITE_PCF_VIEW_ID,
+    VITE_PCF_VIEW_NAME: import.meta.env.VITE_PCF_VIEW_NAME
+  })
+
+  // Create sampleDataSet with minimal configuration
+  // Use environment variable if available, otherwise will be updated when form is discovered
+  const sampleDataSet = createMockDataSet({
+    name: 'sampleDataSet',
+    displayName: 'Dataset_Display_Key',
+    entityLogicalName: envTargetTable !== 'unknown' ? envTargetTable : 'unknown',
+    columns: [], // Will be populated based on discovered entity
     ...datasetOptions,
-  } as ComponentFramework.PropertyTypes.DataSet
+  })
+  
+  // Set the initial _targetEntityType
+  ;(sampleDataSet as any)._targetEntityType = envTargetTable !== 'unknown' ? envTargetTable : undefined
+  
+  // Make getTargetEntityType configurable
+  Object.defineProperty(sampleDataSet, 'getTargetEntityType', {
+    value: function() {
+      const envValue = import.meta.env.VITE_PCF_TARGET_TABLE as string
+      if (envValue && envValue !== 'unknown') {
+        return envValue
+      }
+      return (this as any)._targetEntityType || (this as any).entityLogicalName || 'unknown'
+    },
+    writable: true,
+    configurable: true
+  })
+
+  console.log('🔧 Created sampleDataSet with structure:', {
+    entityType: entityType,
+    hasRecords: 'records' in sampleDataSet,
+    hasColumns: 'columns' in sampleDataSet,
+    recordCount: Object.keys(sampleDataSet.records || {}).length,
+    columnCount: sampleDataSet.columns?.length || 0,
+  })
 
   return {
     accessibility: {
       _customControlProperties: {
         descriptor: {
           DomId: controlId,
+          UniqueId: controlId + '_unique',
         },
       },
     },
+    page: {
+      entityTypeName: envPageTable,
+      entityId: (() => {
+        const pageEntityId = envPageRecordId || crypto.randomUUID()
+        console.log(`🔧 Page entity ID set to: ${pageEntityId} (from ${envPageRecordId ? 'environment' : 'generated UUID'})`)
+        return pageEntityId
+      })(),
+      isVisible: true,
+    } as any,
     parameters: {
-      data: mockDataSet,
+      sampleDataSet,
     } as any,
     factory: {
       requestRender: () => {},

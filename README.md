@@ -104,7 +104,6 @@ initializePCFHarness({
         controlId: 'custom-control-id',
         viewId: 'custom-view-id'
     },
-    showDevPanel: true,
     className: 'custom-container-class'
 });
 ```
@@ -188,7 +187,6 @@ Advanced initialization with full configuration options.
 - `options.contextOptions?`: Mock context configuration
 - `options.containerId?`: Custom container element ID
 - `options.className?`: Additional CSS class
-- `options.showDevPanel?`: Show development panel
 - `options.customContext?`: Use custom context instead of mock
 
 #### `createMockContext(options?)`

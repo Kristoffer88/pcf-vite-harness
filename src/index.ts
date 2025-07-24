@@ -7,29 +7,93 @@
 
 export { createMockContext } from './createMockContext.js'
 export { createPCFViteConfig } from './createViteConfig.js'
+// DevTools Integration (minimal exports)
+// PCF Lifecycle utilities
+export { createPCFManager, updatePCFView, destroyPCF, isPCFInitialized, type PCFInstanceManager } from './utils/pcfLifecycle'
+// Environment validation utilities
+export { checkRequiredEnvVars, redirectToSetupIfNeeded } from './utils/envValidation'
 export { initializePCFHarness, initPCF } from './initializePCFHarness.js'
 // Core components
 export { PowerAppsContainer } from './PowerAppsContainer.js'
+// Setup wizard
+export * from './setup/index.js'
+// View and record utilities
+export * from './utils/index.js'
 
-// Devtools
-export {
-  PCFDevtools,
-  PCFDevtoolsPanel_Embedded,
-  PCFDevtoolsProvider,
-  usePCFDevtools,
-  tokens as devtoolsTokens,
-  getThemeColors,
-} from './devtools/index.js'
-
-// Type definitions
+// Export Dataverse and Dataset types explicitly to avoid conflicts
 export type {
-  HarnessEnvironment,
-  MockContextOptions,
-  PCFComponent,
-  PCFHarnessOptions,
-  PCFViteOptions,
-  PowerAppsContainerProps,
-} from './types/index.js'
+  // Context types
+  PCFInputs,
+  PCFOutputs,
+  PCFContext,
+  PCFStandardControl,
+  PCFReactControl,
+  // Dataverse types
+  EntityMetadata,
+  AttributeMetadata,
+  EntityReference,
+  DataverseEntity,
+  DataverseEntityCollection,
+  EntityWithFormattedValues,
+  ViewMetadata as DataverseViewMetadata,
+  RelationshipMetadata,
+  OptionMetadata,
+  LocalizedLabel,
+  AttributeTypeCode,
+  AttributeTypeName,
+  RequiredLevel,
+  DateTimeBehavior,
+  CascadeConfiguration,
+  CascadeType,
+  // Dataset types
+  DatasetRecord,
+  DatasetFieldCollection,
+  DatasetFieldValue,
+  DatasetColumn,
+  DatasetColumnType,
+  PCFDataset,
+  TypedDataset,
+  DatasetPaging,
+  DatasetSorting,
+  DatasetFiltering,
+  ValidationResult,
+  BaseFieldValue,
+  StringFieldValue,
+  NumberFieldValue,
+  BooleanFieldValue,
+  DateFieldValue,
+  LookupFieldValue,
+  OptionSetFieldValue,
+  MultiSelectOptionSetFieldValue,
+  OptionSetOption,
+  SortDirection
+} from './types'
+
+// Export type guards
+export {
+  isDatasetRecord,
+  isLookupFieldValue,
+  isOptionSetFieldValue
+} from './types'
+
+// Export constants
+export {
+  FORMATTED_VALUE_SUFFIX,
+  NAVIGATION_PROPERTY_SUFFIX,
+  LOOKUP_LOGICALNAME_SUFFIX
+} from './types'
+// Utility functions
+export {
+  autoDetectManifest,
+  createTestProjectManifest,
+  extractManifestFromBuiltXml,
+  extractManifestFromComponentClass,
+  extractManifestFromXml,
+} from './utils/manifestExtractor.js'
+export {
+  detectManifestInfo,
+  readManifestFromFileSystem,
+} from './utils/manifestReader.js'
 
 // CSS import for convenience
 export const PCF_STYLES = '../styles/powerapps.css'
