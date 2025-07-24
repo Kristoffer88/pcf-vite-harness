@@ -23,6 +23,7 @@ import {
   type DatasetErrorAnalysis,
   type DatasetRefreshState,
   type DiscoveredRelationship,
+  discoverRelationshipsFromRecords,
   executeDatasetQuery,
   getDiscoveredRelationships,
   testWebAPIConnection,
@@ -380,6 +381,7 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
                   queryResult: {
                     success: false,
                     entities: [],
+                    entityLogicalName: 'unknown',
                     error: 'Cannot refresh dataset with unknown entity type. Please select a form or set VITE_PCF_TARGET_TABLE environment variable.',
                   },
                   query: '',
@@ -504,9 +506,10 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
             queryResult: {
               success: false,
               entities: [],
+              entityLogicalName: dataset.entityLogicalName || currentEntity || 'unknown',
               error: String(error),
             },
-            errorAnalysis: errorAnalysisResult,
+            errorAnalysis: errorAnalysisResult || undefined,
             query: `${dataset.entityLogicalName}s?$select=*`,
           })
           errorCount++
@@ -553,7 +556,7 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
                       )
                       
                       // Merge with existing relationships, avoiding duplicates
-                      recordRelationships.forEach(rel => {
+                      recordRelationships.forEach((rel: DiscoveredRelationship) => {
                         if (!relationships.find(r => 
                           r.parentEntity === rel.parentEntity && 
                           r.childEntity === rel.childEntity && 
@@ -643,7 +646,7 @@ const UnifiedDatasetTabComponent: React.FC<UnifiedDatasetTabProps> = ({
             console.error('Failed to discover relationships:', error)
             // Still use cached relationships if discovery fails
             const currentDiscovered = getDiscoveredRelationships()
-            setDiscoveredRelationships(currentDiscovered)
+            onDiscoveredRelationshipsUpdate(currentDiscovered)
           }
         }
       }

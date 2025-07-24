@@ -1,6 +1,7 @@
 /**
  * Loading Spinner Component
  * A modern loading indicator with progress tracking
+ * Reusable UI component with no business logic dependencies
  */
 
 import type React from 'react'
@@ -14,6 +15,7 @@ interface LoadingSpinnerProps {
   }
   steps?: string[]
   currentStep?: number
+  size?: 'small' | 'medium' | 'large'
 }
 
 export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
@@ -22,7 +24,16 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   progress,
   steps,
   currentStep = 0,
+  size = 'medium',
 }) => {
+  const sizeConfig = {
+    small: { spinner: 24, padding: 16, minHeight: 120 },
+    medium: { spinner: 48, padding: 32, minHeight: 200 },
+    large: { spinner: 72, padding: 48, minHeight: 280 },
+  }
+
+  const config = sizeConfig[size]
+
   return (
     <div
       style={{
@@ -30,15 +41,15 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '32px',
-        minHeight: '200px',
+        padding: `${config.padding}px`,
+        minHeight: `${config.minHeight}px`,
       }}
     >
       {/* Spinner */}
       <div
         style={{
-          width: '48px',
-          height: '48px',
+          width: `${config.spinner}px`,
+          height: `${config.spinner}px`,
           border: '3px solid #21262d',
           borderTop: '3px solid #58a6ff',
           borderRadius: '50%',
@@ -107,7 +118,7 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
           >
             <div
               style={{
-                width: `${(progress.current / progress.total) * 100}%`,
+                width: `${Math.min((progress.current / progress.total) * 100, 100)}%`,
                 height: '100%',
                 backgroundColor: '#58a6ff',
                 transition: 'width 0.3s ease',

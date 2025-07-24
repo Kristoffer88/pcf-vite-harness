@@ -1,21 +1,10 @@
 /**
  * PCF DevTools Redux Protocol Integration
- * Export all DevTools functionality
+ * Export all DevTools functionality with improved architecture
  */
 
-export { LifecycleTriggers } from './components/LifecycleTriggers'
-// Export PCF lifecycle context
-export { PCFLifecycleProvider, usePCFLifecycle } from './contexts/PCFLifecycleContext'
+// Main DevTools Components
 export { EmbeddedDevToolsUI } from './EmbeddedDevToolsUI'
-// Export enhanced lifecycle hooks
-export {
-  type CustomLifecycleEvent,
-  type LifecycleEvent,
-  type LifecycleHookCallback,
-  type LifecycleStats,
-  lifecycleHooks,
-  useLifecycleHooks,
-} from './hooks/LifecycleHooks'
 export { PCFDevToolsConnector, pcfDevTools } from './PCFDevToolsConnector'
 export {
   PCFDevToolsProvider,
@@ -24,7 +13,28 @@ export {
   usePCFLifecycle as useDevToolsLifecycle,
   usePCFWebAPI,
 } from './PCFDevToolsProvider'
-// Export dataset functionality (now modular)
+
+// Business Logic Services
+export * from './services'
+
+// Custom Hooks
+export * from './hooks'
+
+// UI Components
+export * from './components/ui'
+export * from './components/dataset'
+
+// Pure Utilities
+export * from './lib'
+
+// State Management
+export * from './stores'
+
+// Legacy Components (for compatibility)
+export { LifecycleTriggers } from './components/LifecycleTriggers'
+export { PCFLifecycleProvider, usePCFLifecycle } from './contexts/PCFLifecycleContext'
+
+// Legacy Dataset Utilities (deprecated - use services instead)
 export type {
   DatasetErrorAnalysis,
   DatasetQuery,
@@ -35,21 +45,15 @@ export type {
   RelationshipMapping,
   SubgridInfo,
 } from './utils/dataset'
-// Dataset enhancement exports removed - unused per ts-prune analysis
 
-// Export dataset analysis functionality
 export type {
   DatasetAnalysisResult,
   DatasetInfo,
 } from './utils/datasetAnalyzer'
 
 export { detectDatasetParameters } from './utils/datasetAnalyzer'
-// Legacy compatibility exports
-export {
-  getCurrentDatasetRefreshState,
-  getDatasetMetadataForPCF,
-  getSubgridInfoForAllForms,
-  refreshDatasetForForms,
-} from './utils/datasetQueryBuilder'
+
+
+// WebAPI Monitoring
 export type { WebAPICall } from './WebAPIMonitor'
 export { webAPIMonitor } from './WebAPIMonitor'

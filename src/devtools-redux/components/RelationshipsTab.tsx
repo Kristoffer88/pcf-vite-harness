@@ -161,16 +161,14 @@ const RelationshipsTabComponent: React.FC<RelationshipsTabProps> = ({
               </div>
               <div style={{ fontSize: '11px', color: '#7d8590' }}>
                 <div style={{ marginBottom: '4px' }}>
-                  <span style={{ color: '#e6edf3' }}>Type:</span> {rel.type || 'N:1'}
+                  <span style={{ color: '#e6edf3' }}>Source:</span> {rel.source}
                 </div>
                 <div style={{ marginBottom: '4px' }}>
-                  <span style={{ color: '#e6edf3' }}>Field:</span> {rel.lookupFieldName || rel.lookupColumn}
+                  <span style={{ color: '#e6edf3' }}>Field:</span> {rel.lookupColumn}
                 </div>
-                {rel.relationshipName && (
-                  <div>
-                    <span style={{ color: '#e6edf3' }}>Name:</span> {rel.relationshipName}
-                  </div>
-                )}
+                <div>
+                  <span style={{ color: '#e6edf3' }}>Confidence:</span> {rel.confidence}
+                </div>
               </div>
             </div>
           ))}
