@@ -457,7 +457,12 @@ initializePCFHarness({
       }
 
       if (!packageJson.dependencies['pcf-vite-harness']) {
-        packageJson.dependencies['pcf-vite-harness'] = '^1.0.7'
+        packageJson.dependencies['pcf-vite-harness'] = 'latest'
+      }
+
+      // Add vite dependency for CLI access
+      if (!packageJson.dependencies['vite']) {
+        packageJson.dependencies['vite'] = '^7.0.5'
       }
 
       await writeFile(packageJsonPath, JSON.stringify(packageJson, null, 2), 'utf-8')

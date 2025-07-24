@@ -1,41 +1,41 @@
 {
-  "compilerOptions": {
-    "target": "ES2022",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "module": "ESNext",
-    "skipLibCheck": true,
-    "allowJs": true,
-    "declaration": true,
-    "declarationMap": true,
-    "emitDeclarationOnly": false,
-    "outDir": "dist",
+    "compilerOptions": {
+        "target": "ES2022",
+        "lib": ["ES2022", "DOM", "DOM.Iterable"],
+        "module": "ESNext",
+        "skipLibCheck": true,
+        "allowJs": true,
+        "declaration": true,
+        "declarationMap": true,
+        "emitDeclarationOnly": false,
+        "outDir": "dist",
 
-    /* Bundler mode */
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
-    "moduleDetection": "force",
-    "noEmit": false,
-    "jsx": "react-jsx",
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
-    "forceConsistentCasingInFileNames": true,
+        /* Bundler mode */
+        "moduleResolution": "bundler",
+        "allowImportingTsExtensions": true,
+        "moduleDetection": "force",
+        "noEmit": false,
+        "jsx": "react-jsx",
+        "esModuleInterop": true,
+        "allowSyntheticDefaultImports": true,
+        "forceConsistentCasingInFileNames": true,
 
-    /* Linting */
-    "strict": true,
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
-    "noFallthroughCasesInSwitch": true,
-    "noImplicitReturns": true,
-    "noUncheckedIndexedAccess": true,
+        /* Linting */
+        "strict": true,
+        "noUnusedLocals": false,
+        "noUnusedParameters": false,
+        "noFallthroughCasesInSwitch": true,
+        "noImplicitReturns": true,
+        "noUncheckedIndexedAccess": true,
 
-    /* Resolution */
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["src/*"]
+        /* Resolution */
+        "baseUrl": ".",
+        "paths": {
+            "@/*": ["src/*"]
+        },
+        "resolveJsonModule": true,
+        "isolatedModules": true
     },
-    "resolveJsonModule": true,
-    "isolatedModules": true
-  },
-  "include": ["src/**/*", "bin/**/*", "tests/**/*"],
-  "exclude": ["node_modules", "dist", "coverage", "*.config.*"]
+    "include": ["src/**/*", "bin/**/*", "tests/**/*"],
+    "exclude": ["node_modules", "dist", "coverage", "*.config.*"]
 }
