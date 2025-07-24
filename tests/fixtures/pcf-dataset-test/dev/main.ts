@@ -4,12 +4,11 @@ import 'pcf-vite-harness/styles/powerapps.css'
 // Import your PCF component
 import { dataset } from '../dataset/index'
 
-// Initialize the PCF harness with the standard container - this handles the PCF component
-console.log('🔧 Starting PCF harness initialization...')
-
+// Initialize the PCF harness with auto-detected manifest info
 initializePCFHarness({
   pcfClass: dataset,
   containerId: 'pcf-container',
+  // Auto-detected manifest info from dataset/ControlManifest.Input.xml
   manifestInfo: {
     namespace: 'test',
     constructor: 'dataset',
@@ -18,8 +17,6 @@ initializePCFHarness({
     description: 'dataset description',
   },
 })
-
-console.log('✅ PCF harness initialized with DevTools enabled')
 
 // For additional configuration options:
 /*
