@@ -7,14 +7,9 @@
 
 export { createMockContext } from './createMockContext.js'
 export { createPCFViteConfig } from './createViteConfig.js'
-// Redux DevTools Integration
+// DevTools Integration (minimal exports)
 export {
-  PCFDevToolsProvider,
-  pcfDevTools,
-  usePCFDatasets,
-  usePCFDevTools,
   usePCFLifecycle,
-  usePCFWebAPI,
 } from './devtools-redux/index.js'
 export { initializePCFHarness, initPCF } from './initializePCFHarness.js'
 // Core components
