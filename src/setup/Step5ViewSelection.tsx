@@ -1,5 +1,5 @@
 /**
- * Step4ViewSelection - Select a view for the target table
+ * Step5ViewSelection - Select a view for the target table
  */
 
 import {
@@ -12,12 +12,13 @@ import {
   List,
   mergeStyles,
   mergeStyleSets,
+  type ISearchBox,
 } from '@fluentui/react'
 import type * as React from 'react'
-import { useCallback, useEffect, useState, useMemo } from 'react'
+import { useCallback, useEffect, useState, useMemo, useRef } from 'react'
 import { getAllViewsForEntity, type ViewInfo } from '../utils/viewDiscovery'
 import type { SetupWizardData } from './types'
-import { WizardLayout } from './WizardLayout'
+import { WizardLayout, type WizardLayoutRef } from './WizardLayout'
 
 // Styles for the view list
 const classNames = mergeStyleSets({
@@ -53,7 +54,7 @@ const classNames = mergeStyleSets({
   },
 })
 
-export interface Step4ViewSelectionProps {
+export interface Step5ViewSelectionProps {
   data: SetupWizardData
   onUpdate: (updates: Partial<SetupWizardData>) => void
   onComplete: () => void
@@ -61,7 +62,7 @@ export interface Step4ViewSelectionProps {
   onCancel: () => void
 }
 
-export const Step4ViewSelection: React.FC<Step4ViewSelectionProps> = ({
+export const Step5ViewSelection: React.FC<Step5ViewSelectionProps> = ({
   data,
   onUpdate,
   onComplete,
@@ -73,6 +74,8 @@ export const Step4ViewSelection: React.FC<Step4ViewSelectionProps> = ({
   const [views, setViews] = useState<ViewInfo[]>([])
   const [searchValue, setSearchValue] = useState('')
   const [showResults, setShowResults] = useState(false)
+  const wizardLayoutRef = useRef<WizardLayoutRef>(null)
+  const searchBoxRef = useRef<ISearchBox>(null)
 
   // Load views for the target table
   const loadViews = useCallback(async () => {
@@ -108,9 +111,18 @@ export const Step4ViewSelection: React.FC<Step4ViewSelectionProps> = ({
     }
   }, [data.selectedViewId, searchValue, views])
 
-  // Filter views based on search value
+  // Auto-focus SearchBox when loading completes
+  useEffect(() => {
+    if (!isLoading) {
+      setTimeout(() => {
+        searchBoxRef.current?.focus()
+      }, 100)
+    }
+  }, [isLoading])
+
+  // Filter views based on search value - show first 5 when empty
   const filteredViews = useMemo(() => {
-    if (!searchValue.trim()) return views
+    if (!searchValue.trim()) return views.slice(0, 5) // Show first 5 views when empty
     const search = searchValue.toLowerCase()
     return views.filter(view => 
       view.name.toLowerCase().includes(search) ||
@@ -122,7 +134,7 @@ export const Step4ViewSelection: React.FC<Step4ViewSelectionProps> = ({
   const handleSearchChange = useCallback((event?: React.ChangeEvent<HTMLInputElement>, newValue?: string) => {
     const value = newValue || ''
     setSearchValue(value)
-    setShowResults(value.length > 0)
+    setShowResults(true) // Always show results to display first 5 views when empty
   }, [])
 
   // Handle view selection
@@ -133,24 +145,27 @@ export const Step4ViewSelection: React.FC<Step4ViewSelectionProps> = ({
     })
     setSearchValue(view.name)
     setShowResults(false)
+    
+    // Auto-focus the Continue button after selection
+    setTimeout(() => {
+      wizardLayoutRef.current?.focusContinueButton()
+    }, 100)
   }, [onUpdate])
 
   // Handle clearing the selection
   const handleClear = useCallback(() => {
     setSearchValue('')
-    setShowResults(false)
+    setShowResults(true) // Show first 5 views after clearing
     onUpdate({
       selectedViewId: undefined,
       selectedViewName: undefined,
     })
   }, [onUpdate])
 
-  // Handle search box focus
+  // Handle search box focus - show results even when empty to display first 5 views
   const handleSearchFocus = useCallback(() => {
-    if (searchValue.length > 0) {
-      setShowResults(true)
-    }
-  }, [searchValue])
+    setShowResults(true)
+  }, [])
 
   // Handle click outside to close dropdown
   useEffect(() => {
@@ -209,6 +224,7 @@ export const Step4ViewSelection: React.FC<Step4ViewSelectionProps> = ({
 
   return (
     <WizardLayout
+      ref={wizardLayoutRef}
       title="Select View"
       description={`Choose a view for the ${data.targetTableName || data.targetTable} table to define which columns and data will be displayed.`}
       canGoNext={canProceed}
@@ -244,12 +260,20 @@ export const Step4ViewSelection: React.FC<Step4ViewSelectionProps> = ({
           </Text>
           <div style={{ position: 'relative', maxWidth: 400 }} data-search-container>
             <SearchBox
+              componentRef={searchBoxRef}
               placeholder="Search for a view"
               value={searchValue}
               onChange={handleSearchChange}
               onFocus={handleSearchFocus}
               onClear={handleClear}
+              onSearch={() => {
+                // Select the top result when Enter is pressed
+                if (showResults && filteredViews.length > 0 && filteredViews[0]) {
+                  handleViewSelect(filteredViews[0])
+                }
+              }}
               disabled={isLoading}
+              autoComplete="off"
               styles={{ root: { width: '100%' } }}
             />
             

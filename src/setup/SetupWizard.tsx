@@ -8,8 +8,8 @@ import { useCallback, useState } from 'react'
 import { Step1TableSelection } from './Step1TableSelection'
 import { Step2RecordIdInput } from './Step2RecordIdInput'
 import { Step3TargetTableSelection } from './Step3TargetTableSelection'
-import { Step3_5RelationshipSelection } from './Step3_5RelationshipSelection'
-import { Step4ViewSelection } from './Step4ViewSelection'
+import { Step4RelationshipSelection } from './Step4RelationshipSelection'
+import { Step5ViewSelection } from './Step5ViewSelection'
 import { SetupComplete } from './SetupComplete'
 import { StepIndicator } from './StepIndicator'
 import type { SetupWizardData, WizardStep } from './types'
@@ -53,20 +53,20 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete, onCancel }
       isActive: currentStep === 3,
     },
     {
-      id: 3.5,
+      id: 4,
       title: 'Relationships',
       description: 'Discover table relationships',
       isOptional: wizardData.pageTable ? false : true,
-      isComplete: currentStep > 3.5,
-      isActive: currentStep === 3.5,
+      isComplete: currentStep > 4,
+      isActive: currentStep === 4,
     },
     {
-      id: 4,
+      id: 5,
       title: 'Select View',
       description: 'Choose the view for your data',
       isOptional: false,
-      isComplete: currentStep > 4,
-      isActive: currentStep === 4,
+      isComplete: currentStep > 5,
+      isActive: currentStep === 5,
     },
   ]
 
@@ -80,19 +80,30 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete, onCancel }
     setCurrentStep(step)
   }, [])
 
+  const skipToRequiredSteps = useCallback(() => {
+    // Clear optional step data and jump directly to step 3 (Target Table)
+    setWizardData(prev => ({
+      ...prev,
+      pageTable: undefined,
+      pageTableName: undefined,
+      pageRecordId: undefined,
+    }))
+    setCurrentStep(3)
+  }, [])
+
   const goNext = useCallback(() => {
-    // Handle step navigation including the 3.5 step
+    // Handle step navigation including the relationship step
     if (currentStep === 3) {
-      // After step 3, go to 3.5 if we have both page and target tables
+      // After step 3, go to step 4 if we have both page and target tables
       if (wizardData.pageTable && wizardData.targetTable) {
-        setCurrentStep(3.5)
-      } else {
-        // Skip relationship step if no page table, go directly to step 4
         setCurrentStep(4)
+      } else {
+        // Skip relationship step if no page table, go directly to step 5
+        setCurrentStep(5)
       }
-    } else if (currentStep === 3.5) {
-      setCurrentStep(4)
-    } else if (currentStep < 4) {
+    } else if (currentStep === 4) {
+      setCurrentStep(5)
+    } else if (currentStep < 5) {
       setCurrentStep(prev => prev + 1)
     } else {
       // Show completion screen
@@ -101,15 +112,15 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete, onCancel }
   }, [currentStep, wizardData.pageTable, wizardData.targetTable])
 
   const goPrevious = useCallback(() => {
-    // Handle step navigation including the 3.5 step
-    if (currentStep === 4) {
-      // From step 4, go back to 3.5 if we have relationships, otherwise to step 3
+    // Handle step navigation including the relationship step
+    if (currentStep === 5) {
+      // From step 5, go back to step 4 if we have relationships, otherwise to step 3
       if (wizardData.pageTable && wizardData.targetTable) {
-        setCurrentStep(3.5)
+        setCurrentStep(4)
       } else {
         setCurrentStep(3)
       }
-    } else if (currentStep === 3.5) {
+    } else if (currentStep === 4) {
       setCurrentStep(3)
     } else if (currentStep > 1) {
       setCurrentStep(prev => prev - 1)
@@ -165,6 +176,7 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete, onCancel }
             data={wizardData}
             onUpdate={updateWizardData}
             onNext={goNext}
+            onSkip={skipToRequiredSteps}
             onCancel={handleCancel}
           />
         )
@@ -188,9 +200,9 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete, onCancel }
             onCancel={handleCancel}
           />
         )
-      case 3.5:
+      case 4:
         return (
-          <Step3_5RelationshipSelection
+          <Step4RelationshipSelection
             data={wizardData}
             onNext={(data) => {
               setWizardData(data)
@@ -199,9 +211,9 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete, onCancel }
             onBack={goPrevious}
           />
         )
-      case 4:
+      case 5:
         return (
-          <Step4ViewSelection
+          <Step5ViewSelection
             data={wizardData}
             onUpdate={updateWizardData}
             onComplete={goNext}

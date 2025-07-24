@@ -12,12 +12,13 @@ import {
   List,
   mergeStyles,
   mergeStyleSets,
+  type ISearchBox,
 } from '@fluentui/react'
 import type * as React from 'react'
-import { useCallback, useEffect, useState, useMemo } from 'react'
+import { useCallback, useEffect, useState, useMemo, useRef } from 'react'
 import { discoverEntitiesWithDisplayNames, type EntityInfo } from '../utils/viewDiscovery'
 import type { SetupWizardData } from './types'
-import { WizardLayout } from './WizardLayout'
+import { WizardLayout, type WizardLayoutRef } from './WizardLayout'
 
 export interface Step3TargetTableSelectionProps {
   data: SetupWizardData
@@ -74,6 +75,8 @@ export const Step3TargetTableSelection: React.FC<Step3TargetTableSelectionProps>
   const [searchValue, setSearchValue] = useState('')
   const [showResults, setShowResults] = useState(false)
   const [relationshipWarning, setRelationshipWarning] = useState<string>()
+  const wizardLayoutRef = useRef<WizardLayoutRef>(null)
+  const searchBoxRef = useRef<ISearchBox>(null)
 
   // Load entities with views
   const loadEntities = useCallback(async () => {
@@ -102,6 +105,15 @@ export const Step3TargetTableSelection: React.FC<Step3TargetTableSelectionProps>
       setSearchValue(data.targetTable)
     }
   }, [data.targetTable, searchValue])
+
+  // Auto-focus SearchBox when loading completes
+  useEffect(() => {
+    if (!isLoading) {
+      setTimeout(() => {
+        searchBoxRef.current?.focus()
+      }, 100)
+    }
+  }, [isLoading])
 
   // Filter entities based on search value
   const filteredEntities = useMemo(() => {
@@ -151,6 +163,11 @@ export const Step3TargetTableSelection: React.FC<Step3TargetTableSelectionProps>
     
     // Check relationship with page table
     checkRelationship(entity.logicalName)
+    
+    // Auto-focus the Continue button after selection
+    setTimeout(() => {
+      wizardLayoutRef.current?.focusContinueButton()
+    }, 100)
   }, [onUpdate, checkRelationship])
 
   // Handle clearing the selection
@@ -220,6 +237,7 @@ export const Step3TargetTableSelection: React.FC<Step3TargetTableSelectionProps>
 
   return (
     <WizardLayout
+      ref={wizardLayoutRef}
       title="Select Target Table"
       description="Choose the target/record table that your PCF component will work with. This is required."
       canGoNext={canProceed}
@@ -259,12 +277,20 @@ export const Step3TargetTableSelection: React.FC<Step3TargetTableSelectionProps>
           </Text>
           <div style={{ position: 'relative', maxWidth: 400 }} data-search-container>
             <SearchBox
+              componentRef={searchBoxRef}
               placeholder="Search for the target table"
               value={searchValue}
               onChange={handleSearchChange}
               onFocus={handleSearchFocus}
               onClear={handleClear}
+              onSearch={() => {
+                // Select the top result when Enter is pressed
+                if (showResults && filteredEntities.length > 0 && filteredEntities[0]) {
+                  handleEntitySelect(filteredEntities[0])
+                }
+              }}
               disabled={isLoading}
+              autoComplete="off"
               styles={{ root: { width: '100%' } }}
             />
             

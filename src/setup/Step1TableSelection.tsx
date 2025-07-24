@@ -12,17 +12,19 @@ import {
   List,
   mergeStyles,
   mergeStyleSets,
+  type ISearchBox,
 } from '@fluentui/react'
 import type * as React from 'react'
-import { useCallback, useEffect, useState, useMemo } from 'react'
+import { useCallback, useEffect, useState, useMemo, useRef } from 'react'
 import { discoverEntitiesWithDisplayNames, type EntityInfo } from '../utils/viewDiscovery'
 import type { SetupWizardData } from './types'
-import { WizardLayout } from './WizardLayout'
+import { WizardLayout, type WizardLayoutRef } from './WizardLayout'
 
 export interface Step1TableSelectionProps {
   data: SetupWizardData
   onUpdate: (updates: Partial<SetupWizardData>) => void
   onNext: () => void
+  onSkip: () => void
   onCancel: () => void
 }
 
@@ -64,6 +66,7 @@ export const Step1TableSelection: React.FC<Step1TableSelectionProps> = ({
   data,
   onUpdate,
   onNext,
+  onSkip,
   onCancel,
 }) => {
   const [isLoading, setIsLoading] = useState(false)
@@ -71,6 +74,8 @@ export const Step1TableSelection: React.FC<Step1TableSelectionProps> = ({
   const [entities, setEntities] = useState<EntityInfo[]>([])
   const [searchValue, setSearchValue] = useState('')
   const [showResults, setShowResults] = useState(false)
+  const wizardLayoutRef = useRef<WizardLayoutRef>(null)
+  const searchBoxRef = useRef<ISearchBox>(null)
 
   // Load entities with views
   const loadEntities = useCallback(async () => {
@@ -100,6 +105,15 @@ export const Step1TableSelection: React.FC<Step1TableSelectionProps> = ({
     }
   }, [data.pageTable, searchValue])
 
+  // Auto-focus SearchBox when loading completes
+  useEffect(() => {
+    if (!isLoading) {
+      setTimeout(() => {
+        searchBoxRef.current?.focus()
+      }, 100)
+    }
+  }, [isLoading])
+
   // Filter entities based on search value
   const filteredEntities = useMemo(() => {
     if (!searchValue.trim()) return entities
@@ -114,12 +128,19 @@ export const Step1TableSelection: React.FC<Step1TableSelectionProps> = ({
   // Handle search input changes
   const handleSearchChange = useCallback((event?: React.ChangeEvent<HTMLInputElement>, newValue?: string) => {
     const value = newValue || ''
+    console.log('🔍 Step1 handleSearchChange called:', { 
+      eventType: event?.type, 
+      oldValue: searchValue, 
+      newValue: value,
+      valueLength: value.length
+    })
     setSearchValue(value)
     setShowResults(value.length > 0)
-  }, [])
+  }, [searchValue])
 
   // Handle entity selection
   const handleEntitySelect = useCallback((entity: EntityInfo) => {
+    console.log('🎯 Step1: handleEntitySelect called with:', entity)
     onUpdate({
       pageTable: entity.logicalName,
       pageTableName: entity.displayName,
@@ -128,6 +149,12 @@ export const Step1TableSelection: React.FC<Step1TableSelectionProps> = ({
     })
     setSearchValue(entity.displayText)
     setShowResults(false)
+    console.log('✅ Step1: Entity selection completed')
+    
+    // Auto-focus the Continue button after selection
+    setTimeout(() => {
+      wizardLayoutRef.current?.focusContinueButton()
+    }, 100)
   }, [onUpdate])
 
   // Handle clearing the selection
@@ -165,14 +192,24 @@ export const Step1TableSelection: React.FC<Step1TableSelectionProps> = ({
     return undefined
   }, [showResults])
 
+
   // Render entity item in the list
   const renderEntityItem = useCallback((item?: EntityInfo, index?: number) => {
     if (!item) return null
     
     const isSelected = item.logicalName === data.pageTable
-    const itemClassName = isSelected 
-      ? mergeStyles(classNames.entityItem, classNames.selectedItem)
-      : classNames.entityItem
+    const isTopResult = index === 0 && showResults && filteredEntities.length > 0
+    
+    let itemClassName = classNames.entityItem
+    if (isSelected) {
+      itemClassName = mergeStyles(classNames.entityItem, classNames.selectedItem)
+    } else if (isTopResult) {
+      // Highlight top result to show it would be selected by Enter
+      itemClassName = mergeStyles(classNames.entityItem, {
+        backgroundColor: '#f8f9fa',
+        borderLeft: '3px solid #0078d4'
+      })
+    }
 
     return (
       <div
@@ -188,20 +225,22 @@ export const Step1TableSelection: React.FC<Step1TableSelectionProps> = ({
           }
         }}
       >
-        <Text variant="medium">{item.displayText}</Text>
+        <Text variant="medium">
+          {item.displayText}
+          {isTopResult && (
+            <Text variant="small" styles={{ root: { color: '#0078d4', marginLeft: 8 } }}>
+              ↵ Press Enter
+            </Text>
+          )}
+        </Text>
       </div>
     )
-  }, [data.pageTable, handleEntitySelect, classNames])
+  }, [data.pageTable, handleEntitySelect, classNames, showResults, filteredEntities.length])
 
   const handleSkip = useCallback(() => {
-    // Clear page table data and proceed
-    onUpdate({
-      pageTable: undefined,
-      pageTableName: undefined,
-      pageRecordId: undefined,
-    })
-    onNext()
-  }, [onUpdate, onNext])
+    // Use the skip handler to jump directly to step 3
+    onSkip()
+  }, [onSkip])
 
   const handlePrevious = useCallback(() => {
     // This is the first step, so no previous action
@@ -209,6 +248,7 @@ export const Step1TableSelection: React.FC<Step1TableSelectionProps> = ({
 
   return (
     <WizardLayout
+      ref={wizardLayoutRef}
       title="Select Page Table"
       description="Choose the page table where your PCF component will be displayed (optional). If you skip this step, the PCF will work without a specific page context."
       canGoNext={true} // Always can proceed (optional step)
@@ -217,7 +257,6 @@ export const Step1TableSelection: React.FC<Step1TableSelectionProps> = ({
       error={error}
       onNext={onNext}
       onPrevious={handlePrevious}
-      onCancel={onCancel}
       nextLabel="Continue"
     >
       <Stack tokens={{ childrenGap: 20 }}>
@@ -235,13 +274,26 @@ export const Step1TableSelection: React.FC<Step1TableSelectionProps> = ({
           </Text>
           <div style={{ position: 'relative', maxWidth: 400 }} data-search-container>
             <SearchBox
+              componentRef={searchBoxRef}
               placeholder="Search for a table (optional)"
               value={searchValue}
               onChange={handleSearchChange}
               onFocus={handleSearchFocus}
               onClear={handleClear}
+              onSearch={() => {
+                // Select the top result when Enter is pressed
+                if (showResults && filteredEntities.length > 0 && filteredEntities[0]) {
+                  handleEntitySelect(filteredEntities[0])
+                }
+              }}
               disabled={isLoading}
+              autoComplete="off"
               styles={{ root: { width: '100%' } }}
+              onKeyDown={(e) => {
+                if (e.key === ' ') {
+                  e.stopPropagation()
+                }
+              }}
             />
             
             {/* Search Results */}

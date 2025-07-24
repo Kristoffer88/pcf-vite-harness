@@ -1,11 +1,12 @@
 /**
- * Step3_5RelationshipSelection - Relationship discovery and selection step
+ * Step4RelationshipSelection - Relationship discovery and selection step
  */
 
 import {
   Stack,
   Text,
   Spinner,
+  SpinnerSize,
   MessageBar,
   MessageBarType,
   DefaultButton,
@@ -13,18 +14,19 @@ import {
   ChoiceGroup,
   IChoiceGroupOption,
   Icon,
+  type IButton,
 } from '@fluentui/react'
 import * as React from 'react'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import type { SetupWizardData, RelationshipOption } from './types'
 
-export interface Step3_5RelationshipSelectionProps {
+export interface Step4RelationshipSelectionProps {
   data: SetupWizardData
   onNext: (data: SetupWizardData) => void
   onBack: () => void
 }
 
-export const Step3_5RelationshipSelection: React.FC<Step3_5RelationshipSelectionProps> = ({
+export const Step4RelationshipSelection: React.FC<Step4RelationshipSelectionProps> = ({
   data,
   onNext,
   onBack,
@@ -35,6 +37,7 @@ export const Step3_5RelationshipSelection: React.FC<Step3_5RelationshipSelection
   const [selectedRelationshipKey, setSelectedRelationshipKey] = useState<string | undefined>(
     data.selectedRelationship?.schemaName
   )
+  const continueButtonRef = useRef<IButton>(null)
 
   const discoverRelationships = useCallback(async () => {
     if (!data.pageTable || !data.targetTable) {
@@ -101,7 +104,7 @@ export const Step3_5RelationshipSelection: React.FC<Step3_5RelationshipSelection
 
       // Auto-select if only one relationship found
       if (discoveredRelationships.length === 1) {
-        const autoSelected = discoveredRelationships[0]
+        const autoSelected = discoveredRelationships[0]!
         setSelectedRelationshipKey(autoSelected.schemaName)
         console.log('✅ Auto-selected single relationship:', autoSelected.schemaName)
       } else if (discoveredRelationships.length === 0) {
@@ -119,6 +122,15 @@ export const Step3_5RelationshipSelection: React.FC<Step3_5RelationshipSelection
   useEffect(() => {
     discoverRelationships()
   }, [discoverRelationships])
+
+  // Auto-focus Continue button when loading completes and a relationship is selected
+  useEffect(() => {
+    if (!loading && selectedRelationshipKey) {
+      setTimeout(() => {
+        continueButtonRef.current?.focus()
+      }, 100)
+    }
+  }, [loading, selectedRelationshipKey])
 
   const choiceGroupOptions: IChoiceGroupOption[] = relationships.map(rel => ({
     key: rel.schemaName,
@@ -161,7 +173,7 @@ export const Step3_5RelationshipSelection: React.FC<Step3_5RelationshipSelection
       {/* Loading State */}
       {loading && (
         <Stack horizontal tokens={{ childrenGap: 16 }} verticalAlign="center">
-          <Spinner size="medium" />
+          <Spinner size={SpinnerSize.medium} />
           <Text>Discovering relationships...</Text>
         </Stack>
       )}
@@ -254,6 +266,7 @@ export const Step3_5RelationshipSelection: React.FC<Step3_5RelationshipSelection
       <Stack horizontal tokens={{ childrenGap: 12 }} horizontalAlign="end">
         <DefaultButton text="Back" onClick={onBack} />
         <PrimaryButton 
+          componentRef={continueButtonRef}
           text="Continue" 
           onClick={handleNext}
           disabled={!canProceed && relationships.length > 0}

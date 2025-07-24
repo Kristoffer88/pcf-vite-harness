@@ -27,7 +27,7 @@ A modern Vite-based development harness for PowerApps Component Framework (PCF) 
 
 ## 📦 Installation
 
-### Quick Start (Recommended)
+### Quick Start - Add to Existing PCF Project (Recommended)
 
 1. **Navigate to your PCF project directory**
    ```bash
@@ -37,6 +37,8 @@ A modern Vite-based development harness for PowerApps Component Framework (PCF) 
 2. **Run the initializer**
    ```bash
    npx pcf-vite-harness
+   # or alternatively:
+   npx pcf-vite-init
    ```
    
    The CLI will:
@@ -50,6 +52,22 @@ A modern Vite-based development harness for PowerApps Component Framework (PCF) 
    ```bash
    npm run dev:pcf
    ```
+
+### Create New PCF Project with Harness
+
+Create a complete new PCF project with Vite harness pre-configured:
+
+```bash
+npx pcf-vite-create -n MyCompany -c MyControl -t field
+npx pcf-vite-create -n MyCompany -c MyDatasetControl -t dataset
+```
+
+Options:
+- `-n, --namespace` - PCF namespace (required)
+- `-c, --control` - Control name (required)  
+- `-t, --template` - Component type: `field` or `dataset` (required)
+- `-o, --output` - Output directory (optional, defaults to control name)
+- `--dataverse-url` - Dataverse URL for integration (optional)
 
 Your PCF component will open at `http://localhost:3000` with full HMR support!
 
@@ -66,7 +84,7 @@ Then create the development files in a `dev/` directory. See the [templates dire
 
 ## 🛠️ CLI Features
 
-The `pcf-vite-harness` command provides:
+### `pcf-vite-init` / `pcf-vite-harness` - Add Harness to Existing Project
 
 - **🔍 Auto-detection**: Automatically finds PCF components by scanning for `ControlManifest.xml` files
 - **📝 Smart Configuration**: Generates configuration files with correct paths and component imports
@@ -74,11 +92,12 @@ The `pcf-vite-harness` command provides:
 - **🔒 Safe Operation**: Asks before overwriting existing files
 - **📦 Package Integration**: Automatically adds npm scripts to your package.json
 
-### CLI Options
-
 ```bash
-# Run in current directory
-pcf-vite-harness
+# Interactive mode (recommended)
+npx pcf-vite-init
+
+# Non-interactive with custom options
+npx pcf-vite-init --non-interactive --port 4000 --hmr-port 4001 --no-dataverse
 
 # The CLI will prompt for:
 # - Component selection (if multiple found)
@@ -86,6 +105,29 @@ pcf-vite-harness
 # - HMR WebSocket port (default: 3001)
 # - Browser auto-open preference
 # - Dataverse integration setup
+```
+
+### `pcf-vite-create` - Create New PCF Project
+
+Creates a complete PCF project using Power Platform CLI (`pac`) with Vite harness pre-configured:
+
+- **🚀 Full Project Setup**: Creates PCF project structure using `pac pcf init`
+- **🎯 Template Support**: Supports both `field` and `dataset` component types
+- **⚙️ Interactive & Non-Interactive**: Supports both guided prompts and command-line arguments
+- **📊 Manifest Parsing**: Extracts component info from `ControlManifest.Input.xml`
+- **📦 Dependency Management**: Updates package.json and installs dependencies
+
+```bash
+# Interactive mode (default) - prompts for all options
+npx pcf-vite-create
+
+# Interactive with pre-filled options
+npx pcf-vite-create -n MyCompany
+
+# Non-interactive mode (all options required)
+npx pcf-vite-create --non-interactive -n MyCompany -c MyFieldControl -t field
+npx pcf-vite-create --non-interactive -n MyCompany -c MyDatasetControl -t dataset -o ./my-project
+npx pcf-vite-create --non-interactive -n MyCompany -c MyControl -t field --dataverse-url https://myorg.crm.dynamics.com/
 ```
 
 ## 🔧 Advanced Configuration
@@ -134,6 +176,36 @@ initializePCFHarness({
    const response = await fetch('/api/data/v9.2/accounts?$top=10');
    const data = await response.json();
    ```
+
+## 🔧 Dataset Setup Wizard
+
+For **dataset components only**, the harness includes a setup wizard accessible at `/setup` when running the development server. This wizard helps configure your dataset component with real Dataverse data:
+
+### Features
+- **📊 Dataset-Only**: Designed specifically for PCF dataset components (not available for field components)
+- **🔗 Table Relationships**: Automatically discovers and configures table relationships
+- **👁️ View Selection**: Choose from available system or custom views for your dataset
+- **🎯 PCF Component Detection**: Scans forms to find PCF controls and their dataset configurations
+- **⚙️ Interactive Configuration**: Step-by-step wizard for complex dataset setup
+
+### Setup Steps
+1. **Page Context** (Optional): Select the parent table/record for context
+2. **Record Selection**: Choose a specific record for testing
+3. **Target Table**: Select the main table for your dataset component
+4. **Relationship Discovery**: Automatically finds relationships between tables
+5. **View Selection**: Choose the view that defines your dataset structure
+6. **Component Scanning**: Locates PCF controls on forms and extracts dataset names
+
+### Usage
+```bash
+# Start your development server
+npm run dev:pcf
+
+# Navigate to the setup wizard
+# http://localhost:3000/setup
+```
+
+> **Note**: The setup wizard is only available for dataset components because they require complex configuration involving table relationships, views, and dataset properties. Field components have simpler requirements and don't need this multi-step setup process.
 
 ### Custom Mock Context
 

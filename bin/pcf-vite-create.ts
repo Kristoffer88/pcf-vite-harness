@@ -400,29 +400,149 @@ program
   .name('pcf-vite-create')
   .description('Create a new PCF project with Vite harness pre-configured')
   .version(packageInfo.version)
-  .requiredOption('-n, --namespace <namespace>', 'PCF component namespace')
-  .requiredOption('-c, --name <name>', 'PCF component name')
-  .requiredOption('-t, --template <template>', 'PCF component template (field or dataset)')
+  .option('-n, --namespace <namespace>', 'PCF component namespace')
+  .option('-c, --name <name>', 'PCF component name')
+  .option('-t, --template <template>', 'PCF component template (field or dataset)')
   .option('-o, --output-directory <path>', 'Output directory for the project')
   .option('-p, --port <port>', 'Development server port', '3000')
   .option('--hmr-port <port>', 'HMR WebSocket port', '3001')
   .option('--no-dataverse', 'Disable Dataverse integration')
   .option('--dataverse-url <url>', 'Dataverse URL')
+  .option('--non-interactive', 'Run in non-interactive mode (requires all options)')
   .action(async (options) => {
+    const creator = new PCFViteCreator()
+    
+    // Interactive mode: prompt for missing required options
+    if (!options.nonInteractive) {
+      const questions: any[] = []
+      
+      if (!options.namespace) {
+        questions.push({
+          type: 'input',
+          name: 'namespace',
+          message: 'Enter PCF component namespace:',
+          validate: (input: string) => input.trim() ? true : 'Namespace is required'
+        })
+      }
+      
+      if (!options.name) {
+        questions.push({
+          type: 'input',
+          name: 'name',
+          message: 'Enter PCF component name:',
+          validate: (input: string) => input.trim() ? true : 'Component name is required'
+        })
+      }
+      
+      if (!options.template) {
+        questions.push({
+          type: 'list',
+          name: 'template',
+          message: 'Select PCF component template:',
+          choices: [
+            { name: 'Field Component', value: 'field' },
+            { name: 'Dataset Component', value: 'dataset' }
+          ]
+        })
+      }
+      
+      if (!options.outputDirectory) {
+        questions.push({
+          type: 'input',
+          name: 'outputDirectory',
+          message: 'Enter output directory (leave blank for default):',
+          filter: (input: string) => input.trim() || undefined
+        })
+      }
+      
+      if (!options.port || options.port === '3000') {
+        questions.push({
+          type: 'number',
+          name: 'port',
+          message: 'Development server port:',
+          default: 3000,
+          validate: (input: number) => (input > 0 && input < 65536) ? true : 'Port must be between 1 and 65535'
+        })
+      }
+      
+      if (!options.hmrPort || options.hmrPort === '3001') {
+        questions.push({
+          type: 'number',
+          name: 'hmrPort',
+          message: 'HMR WebSocket port:',
+          default: 3001,
+          validate: (input: number) => (input > 0 && input < 65536) ? true : 'Port must be between 1 and 65535'
+        })
+      }
+      
+      if (options.dataverse === undefined) {
+        questions.push({
+          type: 'confirm',
+          name: 'enableDataverse',
+          message: 'Enable Dataverse integration?',
+          default: true
+        })
+      }
+      
+      const answers = await inquirer.prompt(questions)
+      
+      // Ask for Dataverse URL if needed
+      if ((answers.enableDataverse || (options.dataverse !== false && answers.enableDataverse === undefined)) && !options.dataverseUrl) {
+        const urlAnswer = await inquirer.prompt({
+          type: 'input',
+          name: 'dataverseUrl',
+          message: 'Enter Dataverse URL (optional):',
+          validate: (input: string) => {
+            if (!input.trim()) return true // Optional
+            try {
+              new URL(input)
+              return true
+            } catch {
+              return 'Please enter a valid URL'
+            }
+          }
+        })
+        answers.dataverseUrl = urlAnswer.dataverseUrl
+      }
+      
+      // Merge prompted answers with provided options
+      options = {
+        ...options,
+        ...answers,
+        // Handle dataverse flag properly
+        dataverse: answers.enableDataverse !== undefined ? answers.enableDataverse : (options.dataverse !== false)
+      }
+    }
+
+    // Validate required options (for both interactive and non-interactive modes)
+    if (!options.namespace) {
+      console.error('❌ Namespace is required')
+      process.exit(1)
+    }
+    
+    if (!options.name) {
+      console.error('❌ Component name is required')
+      process.exit(1)
+    }
+    
+    if (!options.template) {
+      console.error('❌ Template is required')
+      process.exit(1)
+    }
+
     // Validate template
     if (!['field', 'dataset'].includes(options.template)) {
       console.error('❌ Template must be either "field" or "dataset"')
       process.exit(1)
     }
 
-    const creator = new PCFViteCreator()
     await creator.create({
       namespace: options.namespace,
       name: options.name,
       template: options.template as 'field' | 'dataset',
       outputDirectory: options.outputDirectory,
-      port: parseInt(options.port),
-      hmrPort: parseInt(options.hmrPort),
+      port: parseInt(options.port) || 3000,
+      hmrPort: parseInt(options.hmrPort) || 3001,
       enableDataverse: options.dataverse !== false,
       dataverseUrl: options.dataverseUrl
     })
@@ -430,10 +550,14 @@ program
 
 // Add help examples
 program.addHelpText('after', `
-Examples:
-  $ pcf-vite-create -n MyCompany -c MyFieldControl -t field
-  $ pcf-vite-create -n MyCompany -c MyDatasetControl -t dataset -o ./my-project
-  $ pcf-vite-create -n MyCompany -c MyControl -t field --dataverse-url https://myorg.crm.dynamics.com/
+Interactive Mode (Default):
+  $ pcf-vite-create
+  $ pcf-vite-create -n MyCompany    # Pre-fill namespace, prompt for rest
+
+Non-Interactive Mode:
+  $ pcf-vite-create --non-interactive -n MyCompany -c MyFieldControl -t field
+  $ pcf-vite-create --non-interactive -n MyCompany -c MyDatasetControl -t dataset -o ./my-project
+  $ pcf-vite-create --non-interactive -n MyCompany -c MyControl -t field --dataverse-url https://myorg.crm.dynamics.com/
 `)
 
 program.parse()

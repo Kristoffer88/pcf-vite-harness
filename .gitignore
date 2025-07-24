@@ -26,3 +26,4 @@ test-project
 tests/cli/temp-field-project
 tests/cli/temp-dataset-project
 test-cli-output
+temp-test

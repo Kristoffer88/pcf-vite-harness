@@ -12,12 +12,13 @@ import {
   List,
   mergeStyles,
   mergeStyleSets,
+  type ISearchBox,
 } from '@fluentui/react'
 import type * as React from 'react'
-import { useCallback, useEffect, useState, useMemo } from 'react'
+import { useCallback, useEffect, useState, useMemo, useRef } from 'react'
 import { searchRecordsFromTable, type RecordInfo } from '../utils/viewDiscovery'
 import type { SetupWizardData } from './types'
-import { WizardLayout } from './WizardLayout'
+import { WizardLayout, type WizardLayoutRef } from './WizardLayout'
 
 // Styles for the record list (copied from Step1)
 const classNames = mergeStyleSets({
@@ -73,41 +74,94 @@ export const Step2RecordIdInput: React.FC<Step2RecordIdInputProps> = ({
   const [records, setRecords] = useState<RecordInfo[]>([])
   const [searchValue, setSearchValue] = useState('')
   const [showResults, setShowResults] = useState(false)
+  const wizardLayoutRef = useRef<WizardLayoutRef>(null)
+  const searchBoxRef = useRef<ISearchBox>(null)
+
+  // Debug state changes
+  useEffect(() => {
+    console.log('📊 Step2 State Change - isLoading:', isLoading)
+  }, [isLoading])
+  
+  useEffect(() => {
+    console.log('📊 Step2 State Change - records:', records.length, 'items')
+  }, [records])
+  
+  useEffect(() => {
+    console.log('📊 Step2 State Change - searchValue:', `"${searchValue}"`)
+  }, [searchValue])
+  
+  useEffect(() => {
+    console.log('📊 Step2 State Change - showResults:', showResults)
+  }, [showResults])
 
   // Check if page table was selected
   const hasPageTable = Boolean(data.pageTable)
 
+  // Auto-focus SearchBox when loading completes
+  useEffect(() => {
+    if (!isLoading && hasPageTable) {
+      setTimeout(() => {
+        searchBoxRef.current?.focus()
+      }, 100)
+    }
+  }, [isLoading, hasPageTable])
+
   // Load records from the page table
   const loadRecords = useCallback(async (searchTerm?: string) => {
+    console.log('📦 Step2 loadRecords called:', { pageTable: data.pageTable, searchTerm })
+    console.trace('📦 Step2 loadRecords call stack')
+    
     if (!data.pageTable) return
 
     setIsLoading(true)
     setError(undefined)
 
     try {
+      console.log('🌐 About to call searchRecordsFromTable...')
       const recordList = await searchRecordsFromTable(data.pageTable, searchTerm)
+      console.log('✅ Step2 loadRecords success:', recordList.length, 'records')
       setRecords(recordList)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load records'
+      console.error('❌ Step2 loadRecords error:', err)
+      console.error('❌ Error details:', { 
+        message: errorMessage, 
+        stack: err instanceof Error ? err.stack : 'No stack',
+        name: err instanceof Error ? err.name : 'Unknown error type'
+      })
       setError(errorMessage)
+      
+      // Prevent any potential page refresh from uncaught errors
+      if (err instanceof Error && err.message.includes('redirect')) {
+        console.error('🚨 Detected redirect error - preventing page refresh')
+      }
     } finally {
+      console.log('🏁 Step2 loadRecords finally block - setting loading to false')
       setIsLoading(false)
     }
   }, [data.pageTable])
 
   // Load initial records on mount
   useEffect(() => {
+    console.log('🔄 Step2 useEffect[hasPageTable, loadRecords] triggered:', { hasPageTable })
     if (hasPageTable) {
+      console.log('📦 Step2 calling loadRecords from initial mount effect')
       loadRecords()
     }
   }, [hasPageTable, loadRecords])
 
   // Initialize search value with existing selection
   useEffect(() => {
+    console.log('🔄 Step2 useEffect[pageRecordId, searchValue, records] triggered:', { 
+      pageRecordId: data.pageRecordId, 
+      searchValue, 
+      recordsLength: records.length 
+    })
     if (data.pageRecordId && !searchValue) {
       // Find the record display text if we have the ID
       const selectedRecord = records.find(r => r.id === data.pageRecordId)
       if (selectedRecord) {
+        console.log('🔤 Step2 setting searchValue from selected record:', selectedRecord.displayText)
         setSearchValue(selectedRecord.displayText)
       }
     }
@@ -127,22 +181,37 @@ export const Step2RecordIdInput: React.FC<Step2RecordIdInputProps> = ({
   // Handle search input changes
   const handleSearchChange = useCallback((event?: React.ChangeEvent<HTMLInputElement>, newValue?: string) => {
     const value = newValue || ''
+    console.log('🔍 Step2 handleSearchChange called:', { 
+      eventType: event?.type, 
+      oldValue: searchValue, 
+      newValue: value,
+      valueLength: value.length,
+      willLoadRecords: value.length > 2
+    })
     setSearchValue(value)
     setShowResults(value.length > 0)
     
     // Load records with search term
     if (value.length > 2) {
+      console.log('🚀 Step2 calling loadRecords with:', value)
       loadRecords(value)
     }
-  }, [loadRecords])
+  }, [loadRecords]) // ❌ REMOVED searchValue from dependencies - this was causing re-renders!
 
   // Handle record selection
   const handleRecordSelect = useCallback((record: RecordInfo) => {
+    console.log('🎯 Step2: handleRecordSelect called with:', record)
     onUpdate({
       pageRecordId: record.id,
     })
     setSearchValue(record.displayText)
     setShowResults(false)
+    console.log('✅ Step2: Record selection completed')
+    
+    // Auto-focus the Continue button after selection
+    setTimeout(() => {
+      wizardLayoutRef.current?.focusContinueButton()
+    }, 100)
   }, [onUpdate])
 
   // Handle clearing the selection
@@ -178,6 +247,7 @@ export const Step2RecordIdInput: React.FC<Step2RecordIdInputProps> = ({
     return undefined
   }, [showResults])
 
+
   // Render record item in the list
   const renderRecordItem = useCallback((item?: RecordInfo, index?: number) => {
     if (!item) return null
@@ -204,7 +274,7 @@ export const Step2RecordIdInput: React.FC<Step2RecordIdInputProps> = ({
         <Text variant="medium">{item.displayText}</Text>
       </div>
     )
-  }, [data.pageRecordId, handleRecordSelect, classNames])
+  }, [data.pageRecordId, handleRecordSelect, classNames, showResults, filteredRecords.length])
 
   const handleSkip = useCallback(() => {
     // Clear record ID and proceed
@@ -226,6 +296,7 @@ export const Step2RecordIdInput: React.FC<Step2RecordIdInputProps> = ({
   if (!hasPageTable) {
     return (
       <WizardLayout
+        ref={wizardLayoutRef}
         title="Page Record ID"
         description="No page table was selected, so this step is automatically skipped."
         canGoNext={true}
@@ -247,11 +318,12 @@ export const Step2RecordIdInput: React.FC<Step2RecordIdInputProps> = ({
 
   return (
     <WizardLayout
+      ref={wizardLayoutRef}
       title="Select Page Record"
       description={`Choose the specific ${data.pageTableName || data.pageTable} record where your PCF component will be displayed (optional).`}
       canGoNext={true} // Always can proceed (optional step)
       canGoPrevious={true}
-      isLoading={isLoading}
+      isLoading={false} // ❌ FIXED: Never hide the entire UI for search loading
       error={error}
       onNext={onNext}
       onPrevious={onPrevious}
@@ -280,13 +352,38 @@ export const Step2RecordIdInput: React.FC<Step2RecordIdInputProps> = ({
           </Text>
           <div style={{ position: 'relative', maxWidth: 400 }} data-search-container>
             <SearchBox
+              componentRef={searchBoxRef}
               placeholder={`Search for a ${data.pageTableName || data.pageTable} record (optional)`}
               value={searchValue}
               onChange={handleSearchChange}
               onFocus={handleSearchFocus}
               onClear={handleClear}
-              disabled={isLoading}
-              styles={{ root: { width: '100%' } }}
+              onSearch={() => {
+                // Select the top result when Enter is pressed
+                if (showResults && filteredRecords.length > 0 && filteredRecords[0]) {
+                  handleRecordSelect(filteredRecords[0])
+                }
+              }}
+              disabled={false}
+              autoComplete="off"
+              // ✅ FIXED: Use built-in SearchBox loading state
+              iconProps={isLoading ? { iconName: 'Loading' } : undefined}
+              styles={{ 
+                root: { width: '100%' },
+                // Make loading icon spin
+                icon: isLoading ? {
+                  animation: 'spin 1s linear infinite',
+                  '@keyframes spin': {
+                    '0%': { transform: 'rotate(0deg)' },
+                    '100%': { transform: 'rotate(360deg)' }
+                  }
+                } : undefined
+              }}
+              onKeyDown={(e) => {
+                if (e.key === ' ') {
+                  e.stopPropagation()
+                }
+              }}
             />
             
             {/* Search Results */}

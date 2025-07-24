@@ -11,8 +11,14 @@ import {
   SpinnerSize,
   Stack,
   Text,
+  type IButton,
 } from '@fluentui/react'
 import type * as React from 'react'
+import { useRef, useImperativeHandle, forwardRef } from 'react'
+
+export interface WizardLayoutRef {
+  focusContinueButton: () => void
+}
 
 export interface WizardLayoutProps {
   title: string
@@ -36,7 +42,7 @@ export interface WizardLayoutProps {
   cancelLabel?: string
 }
 
-export const WizardLayout: React.FC<WizardLayoutProps> = ({
+export const WizardLayout = forwardRef<WizardLayoutRef, WizardLayoutProps>(({
   title,
   description,
   children,
@@ -50,7 +56,14 @@ export const WizardLayout: React.FC<WizardLayoutProps> = ({
   nextLabel = 'Next',
   previousLabel = 'Previous',
   cancelLabel = 'Cancel',
-}) => {
+}, ref) => {
+  const continueButtonRef = useRef<IButton>(null)
+
+  useImperativeHandle(ref, () => ({
+    focusContinueButton: () => {
+      continueButtonRef.current?.focus()
+    }
+  }));
   // Debug logging
   console.log('WizardLayout render:', { 
     title, 
@@ -149,9 +162,19 @@ export const WizardLayout: React.FC<WizardLayoutProps> = ({
         </Stack>
 
         <PrimaryButton 
+          componentRef={continueButtonRef}
           text={nextLabel} 
           onClick={handleNext} 
           disabled={!canGoNext || isLoading}
+          onKeyDown={(e) => {
+            console.log(`PrimaryButton keydown in ${title}:`, e.key)
+            // Prevent space key from activating button if it came from a search input
+            if (e.key === ' ') {
+              console.log('Space key prevented on PrimaryButton in', title)
+              e.preventDefault()
+              e.stopPropagation()
+            }
+          }}
           styles={{
             root: { 
               minWidth: 100,
@@ -166,4 +189,4 @@ export const WizardLayout: React.FC<WizardLayoutProps> = ({
       </Stack>
     </Stack>
   )
-}
+})
