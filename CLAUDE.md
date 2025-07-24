@@ -27,6 +27,7 @@ Do not use full urls. Use relative urls to the API endpoints.
 - **For any development work**: Read `.claude/CLAUDE-RULES.md` first for operational boundaries and tool preferences
 - **For commands, testing, or CLI work**: Read `.claude/CLAUDE-DEVELOPMENT.md` 
 - **For code changes, architecture questions**: Read `.claude/CLAUDE-ARCHITECTURE.md`
+- **For product management, tickets, or planning**: Read `.claude/CLAUDE-PRODUCT.md`
 
 ## Key Project Facts
 

@@ -1,0 +1,319 @@
+apiVersion: productascode.org/v0.1.0
+kind: Ticket
+metadata:
+  id: ticket-003-context-capture-playwright
+  name: "Context Capture via Playwright Runtime Inspection"
+  created_at: "2025-01-24"
+  updated_at: "2025-01-24"
+  owner: "kristoffer"
+  assignee: "kristoffer"
+  labels:
+    - "pcf"
+    - "playwright"
+    - "context-capture"
+    - "reverse-engineering"
+    - "developer-tooling"
+spec:
+  description: |
+    Create a sophisticated Playwright-based solution that opens a real PCF component on a 
+    production Dataverse form and uses request interception to inject a bundle that captures 
+    the complete runtime PCF context. This enables creating highly accurate mocked contexts 
+    based on real production data, dramatically improving development environment fidelity.
+    
+    ## Technical Context
+    - Real PCF components run with full context.parameters[datasetkey] containing actual dataset structures
+    - Current mocks are synthetic and miss nuanced real-world data patterns
+    - Need to capture context.parameters, context.webAPI, context.device, context.formatting, etc.
+    - Production context contains metadata, formatted values, and API responses unavailable in dev
+    - Request interception allows injecting capture code without modifying deployed PCF components
+    
+    ## Business Value
+    - Eliminates "works in dev but fails in production" issues
+    - Provides realistic test data for complex dataset scenarios
+    - Enables testing with actual user permissions, localization, and entity relationships
+    - Reduces debugging time by using production-accurate context in development
+    - Foundation for automated context library generation
+    
+    ## Implementation Strategy
+    This solution acts like a sophisticated "Fiddler for PCF contexts" - intercepting and 
+    augmenting the runtime environment to extract development-critical information.
+  
+  type: "feature"
+  status: "todo"
+  priority: "high"
+  
+  estimated_effort: "2 weeks"
+  
+  acceptance_criteria:
+    - "Playwright script successfully opens user-specified Dataverse form URLs"
+    - "Handles PCF components on non-first tabs via user-provided tab specification"
+    - "Request interception successfully injects context capture bundle without breaking PCF functionality"
+    - "Captures complete context object including parameters, webAPI, device capabilities, formatting, etc."
+    - "Context logged to window.pcfContext is serializable and contains all nested objects/methods"
+    - "Whitelist system allows selective function mocking with parameter/response tracking"
+    - "Generated context can be imported into pcf-vite-harness for development use"
+    - "Works with both field and dataset PCF component types"
+    - "Handles authentication and Dataverse security seamlessly"
+    - "Provides clear error messages for common failures (auth, network, component not found)"
+  
+  tasks:
+    - description: "Research PCF component loading and context initialization patterns"
+      status: "pending"
+      assignee: "kristoffer"
+      type: "investigation"
+    - description: "Create Playwright script with form navigation and tab handling"
+      status: "pending"
+      assignee: "kristoffer"
+      type: "implementation"
+    - description: "Implement request interception for JavaScript bundle modification"
+      status: "pending"
+      assignee: "kristoffer"
+      type: "implementation"
+    - description: "Design context capture bundle with deep object serialization"
+      status: "pending"
+      assignee: "kristoffer"
+      type: "implementation"
+    - description: "Create function whitelist system with parameter/response tracking"
+      status: "pending"
+      assignee: "kristoffer"
+      type: "implementation"
+    - description: "Build context export/import system for development use"
+      status: "pending"
+      assignee: "kristoffer"
+      type: "implementation"
+    - description: "Add authentication handling for various Dataverse configurations"
+      status: "pending"
+      assignee: "kristoffer"
+      type: "implementation"
+    - description: "Implement error handling and user-friendly diagnostics"
+      status: "pending"
+      assignee: "kristoffer"
+      type: "implementation"
+    - description: "Create comprehensive tests with various PCF component types"
+      status: "pending"
+      assignee: "kristoffer"
+      type: "testing"
+    - description: "Performance testing to ensure minimal runtime overhead"
+      status: "pending"
+      assignee: "kristoffer"
+      type: "testing"
+    - description: "Documentation for setup, usage, and troubleshooting"
+      status: "pending"
+      assignee: "kristoffer"
+      type: "documentation"
+  
+  pull_request:
+    branch: "feature/ticket-003-context-capture-playwright"
+    url: ""
+    status: "pending"
+  
+  related_tickets:
+    - "ticket-001-dataset-getformattedvalue" # depends on this ticket
+    - "ticket-002-dataset-record-consistency" # can benefit from this ticket's context data
+  
+  technical_notes: |
+    ## PCF Context Object Structure (from research)
+    
+    **Primary Source**: [PowerApps Component Framework TypeScript Definitions](https://github.com/DefinitelyTyped/DefinitelyTyped/blob/master/types/powerapps-component-framework/componentframework.d.ts)
+    
+    ### Complete Context Interface (from TypeScript definitions):
+    ```typescript
+    interface Context<TInputs, TEvents = IEventBag> {
+        client: Client;                    // Form factor, offline status, network availability
+        device: Device;                    // Native capabilities (camera, GPS, file picker)
+        factory: Factory;                  // Popup services
+        formatting: Formatting;            // Locale-specific formatting methods
+        mode: Mode;                        // Component state (read-only, visible, etc.)
+        navigation: Navigation;            // Navigation methods and current page context
+        resources: Resources;              // Component resource access
+        userSettings: UserSettings;        // Current user info (language, timezone, etc.)
+        utils: Utility;                    // Utility methods and helpers
+        webAPI: WebApi;                    // Dataverse API interface with user's permissions
+        parameters: TInputs;               // Component input data (fields, datasets) - PRIMARY TARGET
+        updatedProperties: string[];       // Property change tracking
+        events: TEvents;                   // Component events
+        fluentDesignLanguage?: FluentDesignState; // Design system theming
+        copilot: Copilot;                  // Microsoft Copilot Studio integration
+    }
+    ```
+    
+    ### Key Interface Methods to Capture:
+    
+    **Client Interface:**
+    - `getFormFactor()`: Returns device form factor
+    - `getClient()`: Returns client type (web, mobile, etc.)
+    - `isOffline()`: Offline status detection
+    - `isNetworkAvailable()`: Network connectivity check
+    - `disableScroll: boolean`: Scroll behavior control
+    
+    **WebAPI Interface (High Priority for Mocking):**
+    - `createRecord(entityType, data)`: Create new records
+    - `deleteRecord(entityType, id)`: Delete records
+    - `updateRecord(entityType, id, data)`: Update existing records
+    - `retrieveMultipleRecords(entityType, options?, maxPageSize?)`: Query multiple records
+    - `retrieveRecord(entityType, id, options?)`: Retrieve single record
+    
+    ### Dataset-Specific Context (High Priority):
+    ```javascript
+    context.parameters[datasetProperty] = {
+      records: {},        // Map of IDs to full record objects
+      sortedRecordIds: [], // Ordered record IDs
+      columns: {},        // Column metadata
+      filtering: {},      // Current filter state
+      paging: {},         // Pagination info
+      sorting: {},        // Sort configuration
+      loading: false,     // Loading state
+      error: false,       // Error state
+      // Plus methods: refresh(), openDatasetItem(), etc.
+    }
+    ```
+    
+    ## Playwright Implementation Architecture
+    
+    ### 1. Request Interception Strategy
+    ```javascript
+    await page.route('**/bundle.js', async route => {
+      const response = await route.fetch();
+      let jsContent = await response.text();
+      
+      // Inject context capture code at component initialization
+      jsContent = jsContent.replace(
+        /(\w+\.prototype\.init\s*=\s*function[^{]*{)/,
+        '$1\n' + generateContextCaptureCode()
+      );
+      
+      await route.fulfill({
+        response,
+        body: jsContent,
+        headers: { ...response.headers(), 'content-type': 'application/javascript' }
+      });
+    });
+    ```
+    
+    ### 2. Context Capture Bundle Design
+    ```javascript
+    function generateContextCaptureCode() {
+      return `
+        // Deep serialize context with function preservation
+        const originalInit = this.init;
+        this.init = function(context, notifyOutputChanged, state, container) {
+          // Capture complete context
+          window.pcfContext = {
+            serialized: JSON.parse(JSON.stringify(context)),
+            functions: extractFunctionSignatures(context),
+            metadata: captureMetadata(context),
+            timestamp: new Date().toISOString(),
+            userAgent: navigator.userAgent,
+            url: window.location.href
+          };
+          
+          // Continue normal initialization
+          return originalInit.call(this, context, notifyOutputChanged, state, container);
+        };
+      `;
+    }
+    ```
+    
+    ### 3. Function Whitelist and Mocking System
+    Priority functions to mock (based on official TypeScript definitions):
+    
+    **WebAPI Methods (Highest Priority):**
+    - `context.webAPI.retrieveMultipleRecords(entityType, options?, maxPageSize?)`
+    - `context.webAPI.retrieveRecord(entityType, id, options?)`  
+    - `context.webAPI.createRecord(entityType, data)`
+    - `context.webAPI.updateRecord(entityType, id, data)`
+    - `context.webAPI.deleteRecord(entityType, id)`
+    
+    **Client Methods:**
+    - `context.client.getFormFactor()`
+    - `context.client.getClient()`
+    - `context.client.isOffline()`
+    - `context.client.isNetworkAvailable()`
+    
+    **Formatting Methods:**
+    - `context.formatting.formatCurrency()`
+    - `context.formatting.formatDateShort()`
+    - Other formatting methods from the Formatting interface
+    
+    **Navigation Methods:**
+    - `context.navigation.openForm()`
+    - Other navigation methods from Navigation interface
+    
+    **Dataset Methods (from parameters):**
+    - `context.parameters[datasetName].refresh()`
+    - `context.parameters[datasetName].openDatasetItem()`
+    - Other dataset-specific methods
+    
+    ### 4. Authentication Handling
+    - Support username/password authentication
+    - Handle multi-factor authentication flows
+    - Support federated authentication (ADFS, Azure AD)
+    - Detect and handle session timeouts
+    - Provide clear authentication failure diagnostics
+    
+    ### 5. Tab and Component Detection
+    ```javascript
+    // Navigate to specific tab if provided
+    if (tabName) {
+      await page.click(`[aria-label="${tabName}"]`);
+      await page.waitForLoadState('networkidle');
+    }
+    
+    // Detect PCF components by their characteristic patterns
+    await page.waitForSelector('[data-control-name*="pcf"], .customcontrol');
+    ```
+    
+    ## Integration with PCF Vite Harness
+    
+    ### Context Import System
+    ```javascript
+    // .pac/captured-contexts/production-contact-form.json
+    {
+      "capturedAt": "2025-01-24T10:30:00Z",
+      "url": "https://org.crm.dynamics.com/main.aspx?etc=2&id=...",
+      "context": {
+        "parameters": { /* full parameter structure */ },
+        "userSettings": { /* user locale, timezone, etc. */ },
+        // ... other context properties
+      },
+      "mocks": {
+        "webAPI.retrieveMultipleRecords": [
+          {
+            "parameters": ["contact", "?$select=..."],
+            "response": { /* actual API response */ }
+          }
+        ]
+      }
+    }
+    ```
+    
+    ### Usage in Development
+    ```javascript
+    // Import captured context for realistic development
+    import capturedContext from './.pac/captured-contexts/production-contact-form.json';
+    
+    const mockContext = createMockContextFromCapture(capturedContext, {
+      enableMocks: ['webAPI', 'formatting'],
+      replayResponses: true
+    });
+    ```
+    
+    ## Deployment Requirements
+    Users must:
+    1. Deploy their PCF component to their Dataverse environment
+    2. Provide the form URL where the component is used
+    3. Specify tab name if component is not on first tab
+    4. Have necessary permissions to access the form and data
+    5. Run Playwright script from development environment with network access
+    
+    ## Security Considerations
+    - Context may contain sensitive data - implement sanitization options
+    - Captured contexts should be gitignored by default
+    - Provide option to redact PII from captured contexts
+    - Warn users about data sensitivity in captured contexts
+    
+    ## Performance Considerations
+    - Minimize runtime overhead of context capture (<50ms)
+    - Efficient serialization of large dataset contexts
+    - Optional depth limiting for deep object graphs
+    - Async context export to avoid blocking PCF initialization
