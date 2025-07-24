@@ -16,7 +16,7 @@ import {
 } from '@fluentui/react'
 import type * as React from 'react'
 import { useCallback, useEffect, useState } from 'react'
-import { EnvConfigGenerator } from '../devtools-redux/utils/envConfigGenerator'
+import { generateEnvConfig, copyEnvConfigToClipboard } from '../utils/envConfigGenerator'
 import { detectManifestInfo } from '../utils/manifestReader'
 import type { FormPCFMatch } from '../utils/pcfDiscovery'
 import { findPCFOnForms } from '../utils/pcfDiscovery'
@@ -158,11 +158,11 @@ export const Step4PCFScanning: React.FC<Step4PCFScanningProps> = ({
         viewId: data.pcfControlInfo?.dataSet?.viewId,
       }
 
-      const config = EnvConfigGenerator.generateEnvConfig(configData)
+      const config = generateEnvConfig(configData)
       setConfigGenerated(config)
 
       // Copy to clipboard
-      const success = await EnvConfigGenerator.copyToClipboard(configData)
+      const success = await copyEnvConfigToClipboard(configData)
       if (success) {
         // Show success message or update UI
         console.log('Configuration copied to clipboard')

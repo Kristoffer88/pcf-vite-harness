@@ -6,7 +6,7 @@ import { PowerAppsContainer } from './PowerAppsContainer'
 import { detectManifestInfo } from './utils/manifestReader'
 import { SetupWizard } from './setup'
 import type { SetupWizardData } from './setup/types'
-import { EnvConfigGenerator } from './devtools-redux/utils/envConfigGenerator'
+import { isAutoRefreshEnabled, getAutoRefreshDelay, shouldShowDevTools } from './utils/envConfigGenerator'
 
 export interface PCFHarnessOptions<TInputs, TOutputs> {
   /** The PCF component class to render */
@@ -63,7 +63,7 @@ export function initializePCFHarness<TInputs, TOutputs>(
     containerId = 'pcf-container',
     contextOptions,
     className,
-    showDevPanel = EnvConfigGenerator.shouldShowDevTools(), // Default true, but allow env override
+    showDevPanel = shouldShowDevTools(), // Default true, but allow env override
     customContext,
     manifestInfo,
   } = options

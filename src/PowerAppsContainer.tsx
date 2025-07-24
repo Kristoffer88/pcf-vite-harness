@@ -1,8 +1,5 @@
 import * as React from 'react'
-import {
-  PCFLifecycleProvider,
-  usePCFLifecycle,
-} from './devtools-redux/contexts/PCFLifecycleContext'
+import { createPCFManager, initPCF, updatePCFView, destroyPCF, type PCFInstanceManager } from './utils/pcfLifecycle'
 import { startAutoLoad } from './utils/simpleDatasetLoader'
 
 interface PowerAppsContainerProps {
@@ -20,28 +17,41 @@ interface PowerAppsContainerProps {
   }
 }
 
-// Inner component that can use the lifecycle hooks
+// Inner component that manages PCF lifecycle
 const PowerAppsContainerInner: React.FC<
   PowerAppsContainerProps & { containerRef: React.RefObject<HTMLDivElement> }
 > = ({ context, pcfClass, className = '', showDevPanel = true, manifestInfo, containerRef }) => {
-  const { triggerInit, triggerUpdateView } = usePCFLifecycle()
+  const pcfManagerRef = React.useRef<PCFInstanceManager | null>(null)
 
   React.useEffect(() => {
-    // Auto-initialize when component mounts
-    if (triggerInit) {
-      triggerInit().catch(console.error)
+    // Initialize PCF lifecycle manager when container is ready
+    if (containerRef.current && !pcfManagerRef.current) {
+      pcfManagerRef.current = createPCFManager(pcfClass, context, containerRef.current)
+      
+      // Auto-initialize when component mounts
+      initPCF(pcfManagerRef.current).catch(console.error)
     }
-  }, [triggerInit])
+
+    // Cleanup on unmount
+    return () => {
+      if (pcfManagerRef.current) {
+        destroyPCF(pcfManagerRef.current).catch(console.error)
+        pcfManagerRef.current = null
+      }
+    }
+  }, [pcfClass, context])
 
   React.useEffect(() => {
     // Start simple dataset loading
-    if (context && triggerUpdateView) {
+    if (context && pcfManagerRef.current) {
       startAutoLoad(context, () => {
         console.log('🔄 Dataset loaded, triggering updateView...')
-        triggerUpdateView().catch(console.error)
+        if (pcfManagerRef.current) {
+          updatePCFView(pcfManagerRef.current).catch(console.error)
+        }
       })
     }
-  }, [context, triggerUpdateView])
+  }, [context])
 
   return (
     <div
@@ -137,17 +147,9 @@ const PowerAppsContainerInner: React.FC<
   )
 }
 
-// Main component that sets up the providers
+// Main component
 export const PowerAppsContainer: React.FC<PowerAppsContainerProps> = props => {
   const containerRef = React.useRef<HTMLDivElement>(null!)
 
-  return (
-    <PCFLifecycleProvider
-      pcfClass={props.pcfClass}
-      context={props.context}
-      containerRef={containerRef}
-    >
-      <PowerAppsContainerInner {...props} containerRef={containerRef} />
-    </PCFLifecycleProvider>
-  )
+  return <PowerAppsContainerInner {...props} containerRef={containerRef} />
 }

@@ -8,9 +8,8 @@
 export { createMockContext } from './createMockContext.js'
 export { createPCFViteConfig } from './createViteConfig.js'
 // DevTools Integration (minimal exports)
-export {
-  usePCFLifecycle,
-} from './devtools-redux/index.js'
+// PCF Lifecycle utilities
+export { createPCFManager, updatePCFView, destroyPCF, isPCFInitialized, type PCFInstanceManager } from './utils/pcfLifecycle'
 export { initializePCFHarness, initPCF } from './initializePCFHarness.js'
 // Core components
 export { PowerAppsContainer } from './PowerAppsContainer.js'
