@@ -7,6 +7,7 @@ import { detectManifestInfo } from './utils/manifestReader'
 import { SetupWizard } from './setup'
 import type { SetupWizardData } from './setup/types'
 import { isAutoRefreshEnabled, getAutoRefreshDelay, shouldShowDevTools } from './utils/envConfigGenerator'
+import { redirectToSetupIfNeeded } from './utils/envValidation'
 
 export interface PCFHarnessOptions<TInputs, TOutputs> {
   /** The PCF component class to render */
@@ -65,7 +66,10 @@ export function initializePCFHarness<TInputs, TOutputs>(
     manifestInfo,
   } = options
 
-  // Check current route first
+  // Check environment variables and redirect to setup if needed
+  redirectToSetupIfNeeded()
+
+  // Check current route
   const currentPath = window.location.pathname
   const isSetupRoute = currentPath === '/setup'
 

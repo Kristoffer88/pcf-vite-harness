@@ -10,6 +10,8 @@ export { createPCFViteConfig } from './createViteConfig.js'
 // DevTools Integration (minimal exports)
 // PCF Lifecycle utilities
 export { createPCFManager, updatePCFView, destroyPCF, isPCFInitialized, type PCFInstanceManager } from './utils/pcfLifecycle'
+// Environment validation utilities
+export { checkRequiredEnvVars, redirectToSetupIfNeeded } from './utils/envValidation'
 export { initializePCFHarness, initPCF } from './initializePCFHarness.js'
 // Core components
 export { PowerAppsContainer } from './PowerAppsContainer.js'
