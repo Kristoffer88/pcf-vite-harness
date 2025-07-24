@@ -13,6 +13,7 @@ export function readManifestFromFileSystem(): {
   version: string
   displayName?: string
   description?: string
+  componentType: 'dataset' | 'field'
 } | null {
   // This function only works in Node.js environments (build time, server-side)
   if (typeof window !== 'undefined') {
@@ -76,6 +77,7 @@ function parseManifestXml(xmlContent: string): {
   version: string
   displayName?: string
   description?: string
+  componentType: 'dataset' | 'field'
 } | null {
   try {
     // Extract control element attributes
@@ -95,12 +97,18 @@ function parseManifestXml(xmlContent: string): {
       return null
     }
 
+    // Detect component type based on manifest content
+    const hasDataSet = xmlContent.includes('<data-set')
+    const hasProperty = xmlContent.includes('<property')
+    const componentType: 'dataset' | 'field' = hasDataSet ? 'dataset' : 'field'
+
     return {
       namespace: namespaceMatch[1]!,
       constructor: constructorMatch[1]!,
       version: versionMatch[1]!,
       displayName: displayNameMatch?.[1],
       description: descriptionMatch?.[1],
+      componentType,
     }
   } catch (error) {
     console.error('Error parsing manifest XML:', error)
@@ -119,6 +127,7 @@ export function detectManifestInfo(
   version: string
   displayName?: string
   description?: string
+  componentType: 'dataset' | 'field'
 } {
   // Try file system first (works in Node.js environments)
   const fileSystemManifest = readManifestFromFileSystem()
@@ -156,5 +165,6 @@ export function detectManifestInfo(
     version: '1.0.0',
     displayName: constructor,
     description: `${constructor} PCF Control`,
+    componentType: 'field', // Default to field when manifest not found
   }
 }

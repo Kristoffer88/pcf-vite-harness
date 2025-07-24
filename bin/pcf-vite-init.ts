@@ -9,6 +9,7 @@ import { Command } from 'commander'
 import { glob } from 'glob'
 import inquirer from 'inquirer'
 import { createSpinner } from 'nanospinner'
+import packageInfo from '../package.json' with { type: 'json' }
 
 const execAsync = promisify(exec)
 
@@ -28,15 +29,26 @@ interface CLIConfig {
   dataverseUrl?: string
 }
 
+interface CLIOptions {
+  nonInteractive?: boolean
+  port?: string
+  hmrPort?: string
+  dataverse?: boolean
+  dataverseUrl?: string
+}
+
 class PCFViteInitializer {
   private projectRoot: string
   private components: PCFComponent[] = []
+  private options: CLIOptions
 
   constructor() {
     this.projectRoot = process.cwd()
+    this.options = {}
   }
 
-  async init(): Promise<void> {
+  async init(options: CLIOptions = {}): Promise<void> {
+    this.options = options
     console.log('🚀 PCF Vite Harness Initializer\n')
 
     try {
@@ -153,6 +165,26 @@ class PCFViteInitializer {
   }
 
   private async promptConfiguration(): Promise<CLIConfig> {
+    // Check for non-interactive mode via CLI arguments
+    if (this.options.nonInteractive) {
+      const config: CLIConfig = {
+        selectedComponent: this.components[0]!, // Default to first component
+        port: Number.parseInt(this.options.port || '3000'),
+        hmrPort: Number.parseInt(this.options.hmrPort || '3001'),
+        enableDataverse: this.options.dataverse !== false,
+        dataverseUrl: this.options.dataverseUrl
+      }
+      
+      console.log('🤖 Running in non-interactive mode with defaults:')
+      console.log(`   Component: ${config.selectedComponent.name}`)
+      console.log(`   Port: ${config.port}`)
+      console.log(`   HMR Port: ${config.hmrPort}`)
+      console.log(`   Dataverse: ${config.enableDataverse}`)
+      if (config.dataverseUrl) console.log(`   Dataverse URL: ${config.dataverseUrl}`)
+      
+      return config
+    }
+
     const questions = [
       {
         type: 'list',
@@ -270,8 +302,8 @@ class PCFViteInitializer {
       // Generate index.html
       await this.generateIndexHtml(devDir, component, config)
 
-      // Copy .env.example
-      await this.copyEnvExample(devDir)
+      // Create .env.example in project root
+      await this.createEnvExample()
 
       spinner.success('Development files generated')
     } catch (error) {
@@ -340,6 +372,10 @@ export default createPCFViteConfig({
       const displayNameMatch = manifestContent.match(/display-name-key="([^"]+)"/)
       const descriptionMatch = manifestContent.match(/description-key="([^"]+)"/)
 
+      // Detect component type from manifest content
+      const hasDataSet = manifestContent.includes('<data-set')
+      const componentType = hasDataSet ? 'dataset' : 'field'
+
       componentClassName = controlMatch?.[1] ?? component.constructor ?? basename(component.path)
 
       if (namespaceMatch?.[1] && controlMatch?.[1] && versionMatch?.[1]) {
@@ -348,6 +384,7 @@ export default createPCFViteConfig({
     namespace: '${namespaceMatch[1]}',
     constructor: '${controlMatch[1]}',
     version: '${versionMatch[1]}',${displayNameMatch?.[1] ? `\n    displayName: '${displayNameMatch[1]}',` : ''}${descriptionMatch?.[1] ? `\n    description: '${descriptionMatch[1]}',` : ''}
+    componentType: '${componentType}',
   },`
       }
     } catch {
@@ -413,15 +450,37 @@ initializePCFHarness({
     await writeFile(join(devDir, 'index.html'), content, 'utf-8')
   }
 
-  private async copyEnvExample(devDir: string): Promise<void> {
-    const templatePath = join(
-      dirname(fileURLToPath(import.meta.url)),
-      '..',
-      'templates',
-      '.env.example'
-    )
-    const targetPath = join(devDir, '.env.example')
-    await copyFile(templatePath, targetPath)
+  private async createEnvExample(): Promise<void> {
+    const envPath = join(this.projectRoot, '.env')
+    
+    // Check if .env already exists
+    try {
+      await access(envPath)
+      console.log('⚠️  .env file already exists, skipping creation')
+      return
+    } catch {
+      // File doesn't exist, create it
+    }
+
+    const envContent = `# Dataverse Configuration (uncomment and set your environment URL)
+# VITE_DATAVERSE_URL=https://your-org.crm.dynamics.com/
+
+# PCF Configuration (Set by setup wizard - paste values when prompted)
+# VITE_PCF_PAGE_TABLE=
+# VITE_PCF_PAGE_TABLE_NAME=
+# VITE_PCF_PAGE_RECORD_ID=
+# VITE_PCF_TARGET_TABLE=
+# VITE_PCF_TARGET_TABLE_NAME=
+# VITE_PCF_VIEW_ID=
+# VITE_PCF_VIEW_NAME=
+# VITE_PCF_RELATIONSHIP_SCHEMA_NAME=
+# VITE_PCF_RELATIONSHIP_ATTRIBUTE=
+# VITE_PCF_RELATIONSHIP_LOOKUP_FIELD=
+# VITE_PCF_RELATIONSHIP_TYPE=
+`
+
+    await writeFile(envPath, envContent, 'utf-8')
+    console.log('✅ Created .env file in project root')
   }
 
   private async updatePackageJson(): Promise<void> {
@@ -457,12 +516,22 @@ initializePCFHarness({
       }
 
       if (!packageJson.dependencies['pcf-vite-harness']) {
-        packageJson.dependencies['pcf-vite-harness'] = 'latest'
+        packageJson.dependencies['pcf-vite-harness'] = `^${packageInfo.version}`
       }
 
       // Add vite dependency for CLI access
       if (!packageJson.dependencies['vite']) {
         packageJson.dependencies['vite'] = '^7.0.5'
+      }
+
+      // Ensure @types/node is compatible with Vite 7 (requires ^20.19.0 || >=22.12.0)
+      if (!packageJson.devDependencies) {
+        packageJson.devDependencies = {}
+      }
+      
+      const currentNodeTypes = packageJson.devDependencies['@types/node']
+      if (!currentNodeTypes || currentNodeTypes.includes('^18.')) {
+        packageJson.devDependencies['@types/node'] = '^20.19.0'
       }
 
       await writeFile(packageJsonPath, JSON.stringify(packageJson, null, 2), 'utf-8')
@@ -521,9 +590,14 @@ program
   .name('pcf-vite-init')
   .description('Initialize PCF Vite Harness for PowerApps Component Framework development')
   .version('1.0.0')
-  .action(async () => {
+  .option('--non-interactive', 'Run in non-interactive mode with defaults')
+  .option('--port <port>', 'Development server port', '3000')
+  .option('--hmr-port <port>', 'HMR WebSocket port', '3001')
+  .option('--no-dataverse', 'Disable Dataverse integration')
+  .option('--dataverse-url <url>', 'Dataverse URL')
+  .action(async (options) => {
     const initializer = new PCFViteInitializer()
-    await initializer.init()
+    await initializer.init(options)
   })
 
 // Add help examples

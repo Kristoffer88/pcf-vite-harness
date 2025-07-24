@@ -9,6 +9,29 @@ import type { SetupWizardData } from './setup/types'
 import { isAutoRefreshEnabled, getAutoRefreshDelay, shouldShowDevTools } from './utils/envConfigGenerator'
 import { redirectToSetupIfNeeded } from './utils/envValidation'
 
+// Wrapper component to handle environment check with proper timing
+function PCFHarnessWrapper<TInputs>(props: {
+  context: ComponentFramework.Context<TInputs>
+  pcfClass: new () => ComponentFramework.StandardControl<TInputs, any>
+  className?: string
+  manifestInfo: any
+  componentType: 'dataset' | 'field'
+}) {
+  const { context, pcfClass, className, manifestInfo, componentType } = props
+
+  React.useEffect(() => {
+    // Check environment variables after component mounts to ensure import.meta.env is loaded
+    redirectToSetupIfNeeded(componentType)
+  }, [componentType])
+
+  return React.createElement(PowerAppsContainer, {
+    context,
+    pcfClass,
+    className,
+    manifestInfo,
+  })
+}
+
 export interface PCFHarnessOptions<TInputs, TOutputs> {
   /** The PCF component class to render */
   pcfClass: new () => ComponentFramework.StandardControl<TInputs, TOutputs>
@@ -36,6 +59,7 @@ export interface PCFHarnessOptions<TInputs, TOutputs> {
     version: string
     displayName?: string
     description?: string
+    componentType: 'dataset' | 'field'
   }
 }
 
@@ -47,6 +71,7 @@ export interface PCFHarnessResult<TInputs> {
     version: string
     displayName?: string
     description?: string
+    componentType: 'dataset' | 'field'
   }
   container: HTMLElement
 }
@@ -66,8 +91,15 @@ export function initializePCFHarness<TInputs, TOutputs>(
     manifestInfo,
   } = options
 
-  // Check environment variables and redirect to setup if needed
-  redirectToSetupIfNeeded()
+  // Auto-detect manifest info to get component type
+  const detectedManifestInfo = detectManifestInfo(pcfClass)
+  
+  // Use provided manifest info or the detected info, but always use detected componentType
+  // since provided manifestInfo typically doesn't include componentType
+  const finalManifestInfo = manifestInfo || detectedManifestInfo
+  const componentType = (manifestInfo as any)?.componentType || detectedManifestInfo.componentType
+  
+  // Environment check will be handled by the wrapper component
 
   // Check current route
   const currentPath = window.location.pathname
@@ -144,22 +176,21 @@ export function initializePCFHarness<TInputs, TOutputs>(
         namespace: 'setup',
         constructor: 'wizard',
         version: '1.0.0',
+        componentType: 'dataset', // Setup is only for dataset components
       },
       container: targetContainer,
     }
   } else {
     // Render main PCF development interface
     const context = customContext || createMockContext<TInputs>(contextOptions)
-    
-    // Auto-detect manifest info if not provided using file system detection
-    const finalManifestInfo = manifestInfo || detectManifestInfo(pcfClass)
 
     root.render(
-      React.createElement(PowerAppsContainer, {
+      React.createElement(PCFHarnessWrapper, {
         context,
         pcfClass,
         className,
         manifestInfo: finalManifestInfo,
+        componentType,
       })
     )
 

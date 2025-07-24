@@ -39,10 +39,17 @@ export function checkRequiredEnvVars(): { isValid: boolean; missing: string[] } 
 
 /**
  * Redirect to setup if required environment variables are missing
+ * Only applies to dataset components - field components don't need setup
  */
-export function redirectToSetupIfNeeded(): boolean {
+export function redirectToSetupIfNeeded(componentType: 'dataset' | 'field' = 'field'): boolean {
   // Don't redirect if already on setup route
   if (window.location.pathname === '/setup') {
+    return false
+  }
+
+  // Field components don't need setup - only dataset components do
+  if (componentType === 'field') {
+    console.log('🔧 Field component detected - skipping setup wizard')
     return false
   }
 

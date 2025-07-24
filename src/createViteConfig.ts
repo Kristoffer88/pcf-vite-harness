@@ -55,7 +55,9 @@ export async function createPCFViteConfig(options: PCFViteOptions = {}) {
   const path = await import('path')
 
   return defineConfig(async ({ mode }) => {
-    const env = loadEnv(mode, process.cwd(), '')
+    // Load env from project root (parent of dev directory)
+    const envDir = process.cwd().endsWith('/dev') ? path.resolve(process.cwd(), '..') : process.cwd()
+    const env = loadEnv(mode, envDir, '')
 
     const {
       dataverseUrl = env.VITE_DATAVERSE_URL,
@@ -68,6 +70,7 @@ export async function createPCFViteConfig(options: PCFViteOptions = {}) {
 
     let baseConfig = {
       root: './dev', // Set root to dev directory for index.html resolution
+      envDir, // Tell Vite where to look for .env files
       plugins: [react()],
       optimizeDeps: {
         exclude: ['fsevents'], // Prevent ESBuild native module errors on macOS

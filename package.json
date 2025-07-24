@@ -36,7 +36,8 @@
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "pcf-vite-init": "./dist/bin/pcf-vite-init.cjs"
+    "pcf-vite-init": "./dist/bin/pcf-vite-init.cjs",
+    "pcf-vite-create": "./dist/bin/pcf-vite-create.cjs"
   },
   "files": [
     "dist",
@@ -55,6 +56,8 @@
     "prepublishOnly": "npm run build",
     "test:integration": "cd tests/integration && vitest run",
     "test:e2e": "cd tests/e2e && npx playwright test",
+    "test:cli:setup": "node tests/cli/setup-test-projects.js",
+    "test:cli:install": "node tests/cli/install-in-test-projects.js",
     "dev:dataset": "cd tests/fixtures/pcf-dataset-test && npm run dev:pcf",
     "dev:field": "cd tests/fixtures/pcf-field-test && npm run dev:pcf"
   },
@@ -109,6 +112,7 @@
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",
     "dotenv": "^16.4.5",
+    "execa": "^9.6.0",
     "tsup": "^8.3.5",
     "typescript": "^5.8.3",
     "vitest": "^2.1.8"
