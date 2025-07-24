@@ -3,9 +3,7 @@ import {
   PCFLifecycleProvider,
   usePCFLifecycle,
 } from './devtools-redux/contexts/PCFLifecycleContext'
-import { EmbeddedDevToolsUI } from './devtools-redux/EmbeddedDevToolsUI'
-import { PCFDevToolsProvider, usePCFDevTools } from './devtools-redux/PCFDevToolsProvider'
-import './devtools-redux/WebAPIMonitor' // Initialize WebAPI monitoring
+import { startAutoLoad } from './utils/simpleDatasetLoader'
 
 interface PowerAppsContainerProps {
   context: ComponentFramework.Context<any>
@@ -26,8 +24,7 @@ interface PowerAppsContainerProps {
 const PowerAppsContainerInner: React.FC<
   PowerAppsContainerProps & { containerRef: React.RefObject<HTMLDivElement> }
 > = ({ context, pcfClass, className = '', showDevPanel = true, manifestInfo, containerRef }) => {
-  const { triggerInit } = usePCFLifecycle()
-  const pcfDevTools = usePCFDevTools()
+  const { triggerInit, triggerUpdateView } = usePCFLifecycle()
 
   React.useEffect(() => {
     // Auto-initialize when component mounts
@@ -37,10 +34,14 @@ const PowerAppsContainerInner: React.FC<
   }, [triggerInit])
 
   React.useEffect(() => {
-    return () => {
-      // Cleanup will be handled by the PCFLifecycleProvider
+    // Start simple dataset loading
+    if (context && triggerUpdateView) {
+      startAutoLoad(context, () => {
+        console.log('🔄 Dataset loaded, triggering updateView...')
+        triggerUpdateView().catch(console.error)
+      })
     }
-  }, [])
+  }, [context, triggerUpdateView])
 
   return (
     <div
@@ -131,7 +132,7 @@ const PowerAppsContainerInner: React.FC<
           </div>
         </div>
       </div>
-      {showDevPanel && <EmbeddedDevToolsUI connector={pcfDevTools} />}
+      {/* DevTools UI removed - keeping connector for future use */}
     </div>
   )
 }
@@ -141,14 +142,12 @@ export const PowerAppsContainer: React.FC<PowerAppsContainerProps> = props => {
   const containerRef = React.useRef<HTMLDivElement>(null!)
 
   return (
-    <PCFDevToolsProvider context={props.context} manifestInfo={props.manifestInfo}>
-      <PCFLifecycleProvider
-        pcfClass={props.pcfClass}
-        context={props.context}
-        containerRef={containerRef}
-      >
-        <PowerAppsContainerInner {...props} containerRef={containerRef} />
-      </PCFLifecycleProvider>
-    </PCFDevToolsProvider>
+    <PCFLifecycleProvider
+      pcfClass={props.pcfClass}
+      context={props.context}
+      containerRef={containerRef}
+    >
+      <PowerAppsContainerInner {...props} containerRef={containerRef} />
+    </PCFLifecycleProvider>
   )
 }

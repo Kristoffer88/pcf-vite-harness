@@ -12,7 +12,7 @@ import { setAutoFreeze } from 'immer'
 // Disable Immer's autoFreeze to prevent "object is not extensible" errors
 // This is needed because PCFDevToolsConnector state gets frozen by Redux DevTools
 setAutoFreeze(false)
-import type { ParentEntity } from '../components/RelationshipsTab'
+import type { ParentEntity } from './search-store'
 import type { DiscoveredRelationship } from '../utils/dataset'
 
 export type DevToolsTab = 'lifecycle' | 'relationships' | 'data' | 'parent'

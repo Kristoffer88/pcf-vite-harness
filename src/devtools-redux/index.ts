@@ -3,8 +3,7 @@
  * Export all DevTools functionality with improved architecture
  */
 
-// Main DevTools Components
-export { EmbeddedDevToolsUI } from './EmbeddedDevToolsUI'
+// Main DevTools Components - Only keep what doesn't depend on UI
 export { PCFDevToolsConnector, pcfDevTools } from './PCFDevToolsConnector'
 export {
   PCFDevToolsProvider,
@@ -20,10 +19,6 @@ export * from './services'
 // Custom Hooks
 export * from './hooks'
 
-// UI Components
-export * from './components/ui'
-export * from './components/dataset'
-
 // Pure Utilities
 export * from './lib'
 
@@ -31,7 +26,6 @@ export * from './lib'
 export * from './stores'
 
 // Legacy Components (for compatibility)
-export { LifecycleTriggers } from './components/LifecycleTriggers'
 export { PCFLifecycleProvider, usePCFLifecycle } from './contexts/PCFLifecycleContext'
 
 // Legacy Dataset Utilities (deprecated - use services instead)

@@ -6,7 +6,17 @@
 import { create } from 'zustand'
 import { subscribeWithSelector } from 'zustand/middleware'
 import { shallow } from 'zustand/shallow'
-import type { ParentEntity } from '../components/RelationshipsTab'
+
+// Define ParentEntity type locally since UI components were removed
+export interface ParentEntity {
+  entitySetName: string
+  logicalName: string
+  displayName: string
+  primaryIdAttribute: string
+  primaryNameAttribute: string
+  recordId?: string
+  recordDisplayName?: string
+}
 
 export interface SearchState {
   // Parent Entity Search

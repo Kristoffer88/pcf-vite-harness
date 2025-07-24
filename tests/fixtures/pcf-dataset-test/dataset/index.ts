@@ -84,19 +84,8 @@ export class dataset implements ComponentFramework.StandardControl<IInputs, IOut
             displayName = record._entityReference._name
           } else if (record.getFormattedValue) {
             // Fallback to getFormattedValue
-            displayName = record.getFormattedValue('name') || record.getFormattedValue('fullname') || ''
-          }
-          
-          // Throw exception if we can't find a name
-          if (!displayName) {
-            const debugInfo = {
-              recordId: key,
-              hasEntityReference: !!record._entityReference,
-              entityReferenceName: record._entityReference?._name,
-              primaryFieldName: record._primaryFieldName,
-              recordKeys: Object.keys(record).slice(0, 10)
-            }
-            throw new Error(`Failed to get display name for record at index ${index}. Debug: ${JSON.stringify(debugInfo, null, 2)}`)
+            displayName =
+              record.getFormattedValue('name') || record.getFormattedValue('fullname') || ''
           }
 
           html += `
