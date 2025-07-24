@@ -7,7 +7,7 @@ import { dataset } from '../dataset/index'
 // Initialize the PCF harness with the standard container - this handles the PCF component
 console.log('🔧 Starting PCF harness initialization...')
 
-const harness = initializePCFHarness({
+initializePCFHarness({
   pcfClass: dataset,
   containerId: 'pcf-container',
   showDevPanel: true, // Enable DevTools panel

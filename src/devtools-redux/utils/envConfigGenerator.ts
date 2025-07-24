@@ -3,9 +3,6 @@
  * Generates .env configuration from current devtools state
  */
 
-import type { DiscoveredRelationship } from './dataset'
-import type { ParentEntity } from '../components/UnifiedDatasetTab'
-
 export interface EnvConfigData {
   pageEntity: string
   targetEntity: string
@@ -13,7 +10,7 @@ export interface EnvConfigData {
   parentEntityId?: string
   parentEntityName?: string
   viewId?: string
-  relationships?: DiscoveredRelationship[]
+  relationships?: any[]
   datasetKey?: string
 }
 
@@ -56,7 +53,9 @@ export class EnvConfigGenerator {
       lines.push('', '# Discovered Relationships (for reference)')
       lines.push('# Format: parentEntity|childEntity|lookupColumn|relationshipName')
       data.relationships.forEach((rel, index) => {
-        lines.push(`# VITE_PCF_RELATIONSHIP_${index}=${rel.parentEntity}|${rel.childEntity}|${rel.lookupColumn}|${rel.relationshipName || ''}`)
+        lines.push(
+          `# VITE_PCF_RELATIONSHIP_${index}=${rel.parentEntity}|${rel.childEntity}|${rel.lookupColumn}|${rel.relationshipName || ''}`
+        )
       })
     }
 
@@ -89,9 +88,9 @@ export class EnvConfigGenerator {
   /**
    * Parse relationships from environment variables
    */
-  static parseRelationshipsFromEnv(): DiscoveredRelationship[] {
-    const relationships: DiscoveredRelationship[] = []
-    
+  static parseRelationshipsFromEnv(): any[] {
+    const relationships: any[] = []
+
     // Look for relationship env vars
     for (let i = 0; i < 10; i++) {
       const relEnv = import.meta.env[`VITE_PCF_RELATIONSHIP_${i}`]
@@ -110,18 +109,20 @@ export class EnvConfigGenerator {
         }
       }
     }
-    
+
     return relationships
   }
 
   /**
    * Load parent entity from environment
    */
-  static loadParentEntityFromEnv(): ParentEntity | null {
+  static loadParentEntityFromEnv(): any | null {
     // Try the new PCF_PAGE_* variables first, then fall back to legacy PARENT_ENTITY_* variables
     const id = import.meta.env.VITE_PCF_PAGE_RECORD_ID || import.meta.env.VITE_PCF_PARENT_ENTITY_ID
-    const name = import.meta.env.VITE_PCF_PAGE_TABLE_NAME || import.meta.env.VITE_PCF_PARENT_ENTITY_NAME
-    const entityType = import.meta.env.VITE_PCF_PAGE_TABLE || import.meta.env.VITE_PCF_PARENT_ENTITY_TYPE
+    const name =
+      import.meta.env.VITE_PCF_PAGE_TABLE_NAME || import.meta.env.VITE_PCF_PARENT_ENTITY_NAME
+    const entityType =
+      import.meta.env.VITE_PCF_PAGE_TABLE || import.meta.env.VITE_PCF_PARENT_ENTITY_TYPE
 
     console.log('🔍 EnvConfigGenerator.loadParentEntityFromEnv:', {
       pageRecordId: import.meta.env.VITE_PCF_PAGE_RECORD_ID,
@@ -132,7 +133,7 @@ export class EnvConfigGenerator {
       legacyParentType: import.meta.env.VITE_PCF_PARENT_ENTITY_TYPE,
       resolvedId: id,
       resolvedName: name,
-      resolvedEntityType: entityType
+      resolvedEntityType: entityType,
     })
 
     if (id && entityType) {
@@ -153,7 +154,7 @@ export class EnvConfigGenerator {
       type: typeof value,
       result,
       stringComparison: value === 'true',
-      booleanComparison: value === true
+      booleanComparison: value === true,
     })
     return result
   }
@@ -162,7 +163,7 @@ export class EnvConfigGenerator {
    * Get auto-refresh delay
    */
   static getAutoRefreshDelay(): number {
-    const delay = parseInt(import.meta.env.VITE_PCF_AUTO_REFRESH_DELAY)
+    const delay = Number.parseInt(import.meta.env.VITE_PCF_AUTO_REFRESH_DELAY)
     return isNaN(delay) ? 1000 : delay
   }
 
