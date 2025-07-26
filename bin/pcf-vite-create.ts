@@ -10,6 +10,8 @@ import { glob } from 'glob'
 import inquirer from 'inquirer'
 import { createSpinner } from 'nanospinner'
 import packageInfo from '../package.json' with { type: 'json' }
+import { SimpleLogger, type LoggerOptions } from './utils/logger.js'
+import { validateDataverseUrl, validatePort, validateComponentName, validateNamespace } from './utils/validation.js'
 
 const execAsync = promisify(exec)
 
@@ -25,6 +27,12 @@ interface CreateProjectOptions {
 }
 
 class PCFViteCreator {
+  private logger: SimpleLogger
+
+  constructor(loggerOptions: LoggerOptions = {}) {
+    this.logger = new SimpleLogger(loggerOptions)
+  }
+
   async create(options: CreateProjectOptions): Promise<void> {
     const {
       namespace,
@@ -37,11 +45,11 @@ class PCFViteCreator {
       dataverseUrl
     } = options
 
-    console.log(`🚀 Creating PCF ${template} project with Vite harness...`)
-    console.log(`   Namespace: ${namespace}`)
-    console.log(`   Name: ${name}`)
-    console.log(`   Template: ${template}`)
-    console.log(`   Output: ${outputDirectory}`)
+    this.logger.info(`🚀 Creating PCF ${template} project with Vite harness...`)
+    this.logger.info(`   Namespace: ${namespace}`)
+    this.logger.info(`   Name: ${name}`)
+    this.logger.info(`   Template: ${template}`)
+    this.logger.info(`   Output: ${outputDirectory}`)
 
     try {
       // Check if pac command is available
@@ -53,28 +61,30 @@ class PCFViteCreator {
       // Set up Vite harness
       await this.setupViteHarness(outputDirectory, port, hmrPort, enableDataverse, dataverseUrl)
 
-      console.log(`\n🎉 PCF project created successfully!`)
-      console.log(`   Project directory: ${outputDirectory}`)
-      console.log(`\n📝 Next steps:`)
-      console.log(`   cd ${outputDirectory}`)
-      console.log(`   npm run dev:pcf`)
+      this.logger.success(`PCF project created successfully!`)
+      this.logger.info(`   Project directory: ${outputDirectory}`)
+      this.logger.info(`Next steps:`)
+      this.logger.info(`   cd ${outputDirectory}`)
+      this.logger.info(`   npm run dev:pcf`)
 
     } catch (error) {
-      console.error('❌ Project creation failed:', error instanceof Error ? error.message : 'Unknown error')
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      const hint = SimpleLogger.getActionableHint(errorMessage)
+      this.logger.error(`Project creation failed: ${errorMessage}`, hint)
       process.exit(1)
     }
   }
 
   private async checkPacCLI(): Promise<void> {
-    console.log('🔍 Checking Power Platform CLI availability...')
+    this.logger.info('🔍 Checking Power Platform CLI availability...')
     
     try {
       const { stdout: pacVersion } = await execAsync('pac help')
-      console.log('✅ Power Platform CLI found')
+      this.logger.success('Power Platform CLI found')
       
       const versionMatch = pacVersion.match(/Version: ([^\n]+)/)
       if (versionMatch && versionMatch[1]) {
-        console.log(`   Version: ${versionMatch[1].trim()}`)
+        this.logger.info(`   Version: ${versionMatch[1].trim()}`)
       }
     } catch (error) {
       throw new Error(
@@ -90,7 +100,7 @@ class PCFViteCreator {
     template: 'field' | 'dataset',
     outputDirectory: string
   ): Promise<void> {
-    console.log(`\n📦 Creating PCF ${template} project...`)
+    this.logger.info(`Creating PCF ${template} project...`)
     
     const spinner = createSpinner('Creating PCF project').start()
 
@@ -102,8 +112,8 @@ class PCFViteCreator {
       spinner.success('PCF project created')
       
       if (result.stdout) {
-        console.log('\n📄 PAC CLI output:')
-        console.log(result.stdout)
+        this.logger.info('PAC CLI output:')
+        this.logger.info(result.stdout)
       }
     } catch (error) {
       spinner.error('Failed to create PCF project')
@@ -118,7 +128,7 @@ class PCFViteCreator {
     enableDataverse: boolean,
     dataverseUrl?: string
   ): Promise<void> {
-    console.log('\n🔧 Setting up Vite harness...')
+    this.logger.info('Setting up Vite harness...')
     
     const spinner = createSpinner('Configuring Vite development environment').start()
 
@@ -312,7 +322,7 @@ initializePCFHarness({
     // Check if .env already exists
     try {
       await access(envPath)
-      console.log('⚠️  .env file already exists, skipping creation')
+      this.logger.warning('.env file already exists, skipping creation')
       return
     } catch {
       // File doesn't exist, create it
@@ -335,7 +345,7 @@ initializePCFHarness({
 `
 
     await writeFile(envPath, envContent, 'utf-8')
-    console.log('✅ Created .env file in project root')
+    this.logger.success('Created .env file in project root')
   }
 
   private async updatePackageJson(projectDir: string): Promise<void> {
@@ -436,7 +446,11 @@ export async function runCreate(options: any = {}) {
         type: 'input',
         name: 'namespace',
         message: 'Enter PCF component namespace:',
-        validate: (input: string) => input.trim() ? true : 'Namespace is required'
+        validate: (input: string) => {
+          if (!input.trim()) return 'Namespace is required'
+          const validation = validateNamespace(input.trim())
+          return validation.isValid ? true : validation.message || 'Invalid namespace'
+        }
       })
     }
     
@@ -445,7 +459,11 @@ export async function runCreate(options: any = {}) {
         type: 'input',
         name: 'name',
         message: 'Enter PCF component name:',
-        validate: (input: string) => input.trim() ? true : 'Component name is required'
+        validate: (input: string) => {
+          if (!input.trim()) return 'Component name is required'
+          const validation = validateComponentName(input.trim())
+          return validation.isValid ? true : validation.message || 'Invalid component name'
+        }
       })
     }
     
@@ -476,7 +494,10 @@ export async function runCreate(options: any = {}) {
         name: 'port',
         message: 'Development server port:',
         default: 3000,
-        validate: (input: number) => (input > 0 && input < 65536) ? true : 'Port must be between 1 and 65535'
+        validate: (input: number) => {
+          const validation = validatePort(input)
+          return validation.isValid ? true : validation.message || 'Invalid port'
+        }
       })
     }
     
@@ -486,7 +507,10 @@ export async function runCreate(options: any = {}) {
         name: 'hmrPort',
         message: 'HMR WebSocket port:',
         default: 3001,
-        validate: (input: number) => (input > 0 && input < 65536) ? true : 'Port must be between 1 and 65535'
+        validate: (input: number) => {
+          const validation = validatePort(input)
+          return validation.isValid ? true : validation.message || 'Invalid port'
+        }
       })
     }
     
@@ -509,12 +533,8 @@ export async function runCreate(options: any = {}) {
         message: 'Enter Dataverse URL (optional):',
         validate: (input: string) => {
           if (!input.trim()) return true // Optional
-          try {
-            new URL(input)
-            return true
-          } catch {
-            return 'Please enter a valid URL'
-          }
+          const validation = validateDataverseUrl(input)
+          return validation.isValid ? true : validation.message || 'Invalid Dataverse URL'
         }
       })
       answers.dataverseUrl = urlAnswer.dataverseUrl
@@ -542,6 +562,19 @@ export async function runCreate(options: any = {}) {
   
   if (!options.template) {
     console.error('❌ Template is required')
+    process.exit(1)
+  }
+
+  // Validate inputs
+  const namespaceValidation = validateNamespace(options.namespace)
+  if (!namespaceValidation.isValid) {
+    console.error(`❌ Invalid namespace: ${namespaceValidation.message}`)
+    process.exit(1)
+  }
+
+  const nameValidation = validateComponentName(options.name)
+  if (!nameValidation.isValid) {
+    console.error(`❌ Invalid component name: ${nameValidation.message}`)
     process.exit(1)
   }
 

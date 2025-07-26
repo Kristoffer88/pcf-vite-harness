@@ -10,6 +10,8 @@ import { glob } from 'glob'
 import inquirer from 'inquirer'
 import { createSpinner } from 'nanospinner'
 import packageInfo from '../package.json' with { type: 'json' }
+import { SimpleLogger, type LoggerOptions } from './utils/logger.js'
+import { validateDataverseUrl, validatePort } from './utils/validation.js'
 
 const execAsync = promisify(exec)
 
@@ -41,15 +43,17 @@ class PCFViteInitializer {
   private projectRoot: string
   private components: PCFComponent[] = []
   private options: CLIOptions
+  private logger: SimpleLogger
 
-  constructor() {
+  constructor(options: LoggerOptions = {}) {
     this.projectRoot = process.cwd()
     this.options = {}
+    this.logger = new SimpleLogger(options)
   }
 
   async init(options: CLIOptions = {}): Promise<void> {
     this.options = options
-    console.log('🚀 PCF Vite Harness Initializer\n')
+    this.logger.info('🚀 PCF Vite Harness Initializer')
 
     try {
       // Step 1: Validate environment
@@ -59,17 +63,17 @@ class PCFViteInitializer {
       await this.detectPCFComponents()
 
       if (this.components.length === 0) {
-        console.log('❌ No PCF components found in current directory.')
-        console.log("   Make sure you're in a PCF project root directory.")
-        console.log('   Looking for files named "ControlManifest*.xml"')
+        this.logger.error(
+          'No PCF components found in current directory.',
+          "Make sure you're in a PCF project root directory with ControlManifest*.xml files"
+        )
         process.exit(1)
       }
 
-      console.log(`✅ Found ${this.components.length} PCF component(s):`)
+      this.logger.success(`Found ${this.components.length} PCF component(s):`)
       this.components.forEach(comp => {
-        console.log(`   • ${comp.name} (${comp.relativePath})`)
+        this.logger.info(`   • ${comp.name} (${comp.relativePath})`)
       })
-      console.log('')
 
       // Step 3: Interactive configuration
       const config = await this.promptConfiguration()
@@ -83,17 +87,21 @@ class PCFViteInitializer {
       // Step 6: Install dependencies
       await this.installDependencies()
 
-      console.log('\n✅ PCF Vite Harness initialized successfully!')
-      console.log('\n📝 Next steps:')
-      console.log('   1. Start development server: npm run dev:pcf')
-      console.log(`   2. Open http://localhost:${config.port} in your browser`)
-      console.log('   3. Start developing with instant hot reload! 🚀')
+      this.logger.success('PCF Vite Harness initialized successfully!')
+      this.logger.info('Next steps:')
+      this.logger.info('   1. Start development server: npm run dev:pcf')
+      this.logger.info(`   2. Open http://localhost:${config.port} in your browser`)
+      this.logger.info('   3. Start developing with instant hot reload! 🚀')
     } catch (error) {
       if ((error as any).isTtyError) {
-        console.error('\n❌ This command requires an interactive terminal.')
-        console.error('   Please run this command in a proper terminal environment.')
+        this.logger.error(
+          'This command requires an interactive terminal.',
+          'Please run this command in a proper terminal environment.'
+        )
       } else {
-        console.error('\n❌ Initialization failed:', (error as Error).message)
+        const errorMessage = (error as Error).message
+        const hint = SimpleLogger.getActionableHint(errorMessage)
+        this.logger.error(`Initialization failed: ${errorMessage}`, hint)
         if (process.env.DEBUG) {
           console.error((error as Error).stack)
         }
@@ -175,12 +183,12 @@ class PCFViteInitializer {
         dataverseUrl: this.options.dataverseUrl
       }
       
-      console.log('🤖 Running in non-interactive mode with defaults:')
-      console.log(`   Component: ${config.selectedComponent.name}`)
-      console.log(`   Port: ${config.port}`)
-      console.log(`   HMR Port: ${config.hmrPort}`)
-      console.log(`   Dataverse: ${config.enableDataverse}`)
-      if (config.dataverseUrl) console.log(`   Dataverse URL: ${config.dataverseUrl}`)
+      this.logger.info('🤖 Running in non-interactive mode with defaults:')
+      this.logger.info(`   Component: ${config.selectedComponent.name}`)
+      this.logger.info(`   Port: ${config.port}`)
+      this.logger.info(`   HMR Port: ${config.hmrPort}`)
+      this.logger.info(`   Dataverse: ${config.enableDataverse}`)
+      if (config.dataverseUrl) this.logger.info(`   Dataverse URL: ${config.dataverseUrl}`)
       
       return config
     }
@@ -202,8 +210,8 @@ class PCFViteInitializer {
         message: 'Development server port:',
         default: 3000,
         validate: (input: string) => {
-          const port = Number.parseInt(input)
-          return port > 0 && port < 65536 ? true : 'Please enter a valid port number'
+          const validation = validatePort(input)
+          return validation.isValid ? true : validation.message || 'Invalid port'
         },
       },
       {
@@ -212,8 +220,8 @@ class PCFViteInitializer {
         message: 'HMR WebSocket port:',
         default: (answers: any) => Number.parseInt(answers.port as string) + 1,
         validate: (input: string) => {
-          const port = Number.parseInt(input)
-          return port > 0 && port < 65536 ? true : 'Please enter a valid port number'
+          const validation = validatePort(input)
+          return validation.isValid ? true : validation.message || 'Invalid port'
         },
       },
       {
@@ -229,12 +237,8 @@ class PCFViteInitializer {
         when: (answers: any) => answers.enableDataverse,
         validate: (input: string) => {
           if (!input) return true
-          try {
-            new URL(input)
-            return true
-          } catch {
-            return 'Please enter a valid URL'
-          }
+          const validation = validateDataverseUrl(input)
+          return validation.isValid ? true : validation.message || 'Invalid Dataverse URL'
         },
       },
     ]
@@ -285,7 +289,7 @@ class PCFViteInitializer {
       ])) as { overwrite: boolean }
 
       if (!overwrite) {
-        console.log('❌ Setup cancelled')
+        this.logger.warning('Setup cancelled by user')
         process.exit(0)
       }
     }
@@ -456,7 +460,7 @@ initializePCFHarness({
     // Check if .env already exists
     try {
       await access(envPath)
-      console.log('⚠️  .env file already exists, skipping creation')
+      this.logger.warning('.env file already exists, skipping creation')
       return
     } catch {
       // File doesn't exist, create it
@@ -480,7 +484,7 @@ initializePCFHarness({
 `
 
     await writeFile(envPath, envContent, 'utf-8')
-    console.log('✅ Created .env file in project root')
+    this.logger.success('Created .env file in project root')
   }
 
   private async updatePackageJson(): Promise<void> {
@@ -552,8 +556,8 @@ initializePCFHarness({
 
       if (isYarn || isPnpm) {
         spinner.warn('Non-npm package manager detected')
-        console.log(`\n⚠️  Detected ${isYarn ? 'Yarn' : 'pnpm'} - manual installation required:`)
-        console.log(`   Please run: ${isYarn ? 'yarn install' : 'pnpm install'}\n`)
+        this.logger.warning(`Detected ${isYarn ? 'Yarn' : 'pnpm'} - manual installation required:`)
+        this.logger.info(`   Please run: ${isYarn ? 'yarn install' : 'pnpm install'}`)
         return
       }
 
@@ -567,8 +571,8 @@ initializePCFHarness({
       spinner.success('Dependencies installed successfully')
     } catch (error) {
       spinner.error('Failed to install dependencies')
-      console.log('\n⚠️  Manual installation required:')
-      console.log('   Please run: npm install\n')
+      this.logger.warning('Manual installation required:')
+      this.logger.info('   Please run: npm install')
       // Don't throw error, let the process continue
     }
   }
@@ -610,7 +614,11 @@ program.on('--help', () => {
 
 // Export the main functionality for use by unified CLI
 export async function runInit(options: any = {}) {
-  const initializer = new PCFViteInitializer()
+  const loggerOptions = {
+    quiet: options.quiet,
+    verbose: options.verbose
+  }
+  const initializer = new PCFViteInitializer(loggerOptions)
   await initializer.init(options)
 }
 
