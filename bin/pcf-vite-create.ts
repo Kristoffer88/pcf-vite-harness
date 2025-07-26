@@ -12,6 +12,7 @@ import { createSpinner } from 'nanospinner'
 import packageInfo from '../package.json' with { type: 'json' }
 import { SimpleLogger, type LoggerOptions } from './utils/logger.js'
 import { validateDataverseUrl, validatePort, validateComponentName, validateNamespace } from './utils/validation.js'
+import { EnvironmentChecker } from './utils/environment-checker.js'
 
 const execAsync = promisify(exec)
 
@@ -28,9 +29,11 @@ interface CreateProjectOptions {
 
 class PCFViteCreator {
   private logger: SimpleLogger
+  private environmentChecker: EnvironmentChecker
 
   constructor(loggerOptions: LoggerOptions = {}) {
     this.logger = new SimpleLogger(loggerOptions)
+    this.environmentChecker = new EnvironmentChecker(this.logger)
   }
 
   async create(options: CreateProjectOptions): Promise<void> {
@@ -52,8 +55,8 @@ class PCFViteCreator {
     this.logger.info(`   Output: ${outputDirectory}`)
 
     try {
-      // Check if pac command is available
-      await this.checkPacCLI()
+      // Check comprehensive environment (Azure CLI, auth, PAC CLI)
+      await this.environmentChecker.checkEnvironment({ requireAuth: true })
 
       // Create PCF project
       await this.createPCFProject(namespace, name, template, outputDirectory)
@@ -75,24 +78,7 @@ class PCFViteCreator {
     }
   }
 
-  private async checkPacCLI(): Promise<void> {
-    this.logger.info('🔍 Checking Power Platform CLI availability...')
-    
-    try {
-      const { stdout: pacVersion } = await execAsync('pac help')
-      this.logger.success('Power Platform CLI found')
-      
-      const versionMatch = pacVersion.match(/Version: ([^\n]+)/)
-      if (versionMatch && versionMatch[1]) {
-        this.logger.info(`   Version: ${versionMatch[1].trim()}`)
-      }
-    } catch (error) {
-      throw new Error(
-        'Power Platform CLI (pac) not found. Please install it first:\n' +
-        '   https://docs.microsoft.com/en-us/power-platform/developer/cli/introduction'
-      )
-    }
-  }
+  // checkPacCLI method removed - now using comprehensive environment checker
 
   private async createPCFProject(
     namespace: string,

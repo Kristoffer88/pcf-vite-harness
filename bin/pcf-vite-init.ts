@@ -12,6 +12,7 @@ import { createSpinner } from 'nanospinner'
 import packageInfo from '../package.json' with { type: 'json' }
 import { SimpleLogger, type LoggerOptions } from './utils/logger.js'
 import { validateDataverseUrl, validatePort } from './utils/validation.js'
+import { EnvironmentChecker } from './utils/environment-checker.js'
 
 const execAsync = promisify(exec)
 
@@ -44,11 +45,13 @@ class PCFViteInitializer {
   private components: PCFComponent[] = []
   private options: CLIOptions
   private logger: SimpleLogger
+  private environmentChecker: EnvironmentChecker
 
   constructor(options: LoggerOptions = {}) {
     this.projectRoot = process.cwd()
     this.options = {}
     this.logger = new SimpleLogger(options)
+    this.environmentChecker = new EnvironmentChecker(this.logger)
   }
 
   async init(options: CLIOptions = {}): Promise<void> {
@@ -56,10 +59,13 @@ class PCFViteInitializer {
     this.logger.info('🚀 PCF Vite Harness Initializer')
 
     try {
-      // Step 1: Validate environment
-      await this.validateEnvironment()
+      // Step 1: Check basic environment (Node.js, Azure CLI, PAC CLI)
+      await this.environmentChecker.checkBasicEnvironment()
 
-      // Step 2: Detect PCF components
+      // Step 2: Validate project environment
+      await this.validateProjectEnvironment()
+
+      // Step 3: Detect PCF components
       await this.detectPCFComponents()
 
       if (this.components.length === 0) {
@@ -75,16 +81,16 @@ class PCFViteInitializer {
         this.logger.info(`   • ${comp.name} (${comp.relativePath})`)
       })
 
-      // Step 3: Interactive configuration
+      // Step 4: Interactive configuration
       const config = await this.promptConfiguration()
 
-      // Step 4: Generate development files
+      // Step 5: Generate development files
       await this.generateFiles(config)
 
-      // Step 5: Update package.json
+      // Step 6: Update package.json
       await this.updatePackageJson()
 
-      // Step 6: Install dependencies
+      // Step 7: Install dependencies
       await this.installDependencies()
 
       this.logger.success('PCF Vite Harness initialized successfully!')
@@ -110,21 +116,14 @@ class PCFViteInitializer {
     }
   }
 
-  private async validateEnvironment(): Promise<void> {
+  private async validateProjectEnvironment(): Promise<void> {
     // Check if we're in a directory that looks like a PCF project
     try {
       const packageJsonPath = join(this.projectRoot, 'package.json')
       await access(packageJsonPath)
     } catch {
-      console.log('⚠️  No package.json found - this may not be a Node.js project.')
-      console.log('   The CLI will create a basic package.json if needed.\n')
-    }
-
-    // Check Node.js version
-    const nodeVersion = process.version
-    const majorVersion = Number.parseInt(nodeVersion.slice(1).split('.')[0] ?? '0')
-    if (majorVersion < 18) {
-      throw new Error(`Node.js 18 or higher is required. Current version: ${nodeVersion}`)
+      this.logger.warning('No package.json found - this may not be a Node.js project.')
+      this.logger.info('   The CLI will create a basic package.json if needed.')
     }
   }
 

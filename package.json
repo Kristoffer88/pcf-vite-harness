@@ -1,6 +1,6 @@
 {
   "name": "pcf-vite-harness",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "Modern Vite-based development harness for PowerApps Component Framework (PCF) with hot module replacement, PowerApps-like environment simulation, and TanStack Query-inspired devtools for debugging",
   "type": "module",
   "engines": {
@@ -58,7 +58,8 @@
     "test:cli:setup": "node tests/cli/setup-test-projects.js",
     "test:cli:install": "node tests/cli/install-in-test-projects.js",
     "dev:dataset": "cd tests/fixtures/pcf-dataset-test && npm run dev:pcf",
-    "dev:field": "cd tests/fixtures/pcf-field-test && npm run dev:pcf"
+    "dev:field": "cd tests/fixtures/pcf-field-test && npm run dev:pcf",
+    "dev:pcf": "vite --config dev/vite.config.ts"
   },
   "keywords": [
     "pcf",
@@ -96,7 +97,9 @@
     "nanospinner": "^1.1.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
-    "zustand": "^5.0.6"
+    "zustand": "^5.0.6",
+    "pcf-vite-harness": "^1.5.0",
+    "vite": "^7.0.5"
   },
   "peerDependencies": {
     "vite": "^7.0.5"
