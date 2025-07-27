@@ -36,7 +36,7 @@ program
   .description('Create a new PCF project with Vite harness pre-configured')
   .option('-n, --namespace <namespace>', 'PCF component namespace')
   .option('-c, --name <name>', 'PCF component name')
-  .option('-t, --template <template>', 'PCF component template (field or dataset)')
+  .option('-t, --template <template>', 'PCF component template (dataset or field)')
   .option('-o, --output-directory <path>', 'Output directory for the project')
   .option('-p, --port <port>', 'Development server port', '3000')
   .option('--hmr-port <port>', 'HMR WebSocket port', '3001')

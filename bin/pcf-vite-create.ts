@@ -398,7 +398,7 @@ program
   .version(packageInfo.version)
   .option('-n, --namespace <namespace>', 'PCF component namespace')
   .option('-c, --name <name>', 'PCF component name')
-  .option('-t, --template <template>', 'PCF component template (field or dataset)')
+  .option('-t, --template <template>', 'PCF component template (dataset or field)')
   .option('-o, --output-directory <path>', 'Output directory for the project')
   .option('-p, --port <port>', 'Development server port', '3000')
   .option('--hmr-port <port>', 'HMR WebSocket port', '3001')
@@ -414,9 +414,9 @@ Interactive Mode (Default):
   $ pcf-vite-create -n MyCompany    # Pre-fill namespace, prompt for rest
 
 Non-Interactive Mode:
-  $ pcf-vite-create --non-interactive -n MyCompany -c MyFieldControl -t field
-  $ pcf-vite-create --non-interactive -n MyCompany -c MyDatasetControl -t dataset -o ./my-project
-  $ pcf-vite-create --non-interactive -n MyCompany -c MyControl -t field --dataverse-url https://myorg.crm.dynamics.com/
+  $ pcf-vite-create --non-interactive -n MyCompany -c MyDatasetControl -t dataset
+  $ pcf-vite-create --non-interactive -n MyCompany -c MyFieldControl -t field -o ./my-project
+  $ pcf-vite-create --non-interactive -n MyCompany -c MyControl -t dataset --dataverse-url https://myorg.crm.dynamics.com/
 `)
 
 // Export the main functionality for use by unified CLI
@@ -459,8 +459,8 @@ export async function runCreate(options: any = {}) {
         name: 'template',
         message: 'Select PCF component template:',
         choices: [
-          { name: 'Field Component', value: 'field' },
-          { name: 'Dataset Component', value: 'dataset' }
+          { name: 'Dataset Component', value: 'dataset' },
+          { name: 'Field Component', value: 'field' }
         ]
       })
     }
