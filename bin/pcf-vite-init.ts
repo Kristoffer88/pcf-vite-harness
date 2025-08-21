@@ -382,6 +382,23 @@ export default createPCFViteConfig({
       const hasDataSet = manifestContent.includes('<data-set')
       const componentType = hasDataSet ? 'dataset' : 'field'
 
+      // Parse dataset information if it's a dataset component
+      let datasetsInfo = ''
+      if (hasDataSet) {
+        const datasetMatches = manifestContent.matchAll(/<data-set\s+name="([^"]+)"(?:\s+display-name-key="([^"]+)")?[^>]*>/g)
+        const datasets = Array.from(datasetMatches).map(match => ({
+          name: match[1],
+          displayNameKey: match[2] || match[1]
+        }))
+        
+        if (datasets.length > 0) {
+          const datasetsArray = datasets.map(ds => 
+            `{ name: '${ds.name}', displayNameKey: '${ds.displayNameKey}' }`
+          ).join(', ')
+          datasetsInfo = `,\n    datasets: [${datasetsArray}]`
+        }
+      }
+
       componentClassName = controlMatch?.[1] ?? component.constructor ?? basename(component.path)
 
       if (namespaceMatch?.[1] && controlMatch?.[1] && versionMatch?.[1]) {
@@ -390,7 +407,7 @@ export default createPCFViteConfig({
     namespace: '${namespaceMatch[1]}',
     constructor: '${controlMatch[1]}',
     version: '${versionMatch[1]}',${displayNameMatch?.[1] ? `\n    displayName: '${displayNameMatch[1]}',` : ''}${descriptionMatch?.[1] ? `\n    description: '${descriptionMatch[1]}',` : ''}
-    componentType: '${componentType}',
+    componentType: '${componentType}'${datasetsInfo},
   },`
       }
     } catch {
@@ -430,6 +447,101 @@ initializePCFHarness({
 `
 
     await writeFile(join(devDir, 'main.ts'), content, 'utf-8')
+  }
+
+  private async regenerateMainFile(
+    devDir: string,
+    component: PCFComponent
+  ): Promise<void> {
+    const importPath = relative(join(this.projectRoot, 'dev'), join(component.path, 'index'))
+      .split(sep)
+      .join('/')
+
+    // Extract manifest information for auto-injection
+    let componentClassName: string
+    let manifestInfo: string = ''
+
+    try {
+      const manifestPath = resolve(this.projectRoot, component.manifestPath)
+      const manifestContent = await readFile(manifestPath, 'utf-8')
+
+      // Extract component details
+      const controlMatch = manifestContent.match(/constructor="([^"]+)"/)
+      const namespaceMatch = manifestContent.match(/namespace="([^"]+)"/)
+      const versionMatch = manifestContent.match(/version="([^"]+)"/)
+      const displayNameMatch = manifestContent.match(/display-name-key="([^"]+)"/)
+      const descriptionMatch = manifestContent.match(/description-key="([^"]+)"/)
+
+      // Detect component type from manifest content
+      const hasDataSet = manifestContent.includes('<data-set')
+      const componentType = hasDataSet ? 'dataset' : 'field'
+
+      // Parse dataset information if it's a dataset component
+      let datasetsInfo = ''
+      if (hasDataSet) {
+        const datasetMatches = manifestContent.matchAll(/<data-set\s+name="([^"]+)"(?:\s+display-name-key="([^"]+)")?[^>]*>/g)
+        const datasets = Array.from(datasetMatches).map(match => ({
+          name: match[1],
+          displayNameKey: match[2] || match[1]
+        }))
+        
+        if (datasets.length > 0) {
+          const datasetsArray = datasets.map(ds => 
+            `{ name: '${ds.name}', displayNameKey: '${ds.displayNameKey}' }`
+          ).join(', ')
+          datasetsInfo = `,\n    datasets: [${datasetsArray}]`
+        }
+      }
+
+      componentClassName = controlMatch?.[1] ?? component.constructor ?? basename(component.path)
+
+      if (namespaceMatch?.[1] && controlMatch?.[1] && versionMatch?.[1]) {
+        manifestInfo = `  // Auto-detected manifest info from ${component.manifestPath}
+  manifestInfo: {
+    namespace: '${namespaceMatch[1]}',
+    constructor: '${controlMatch[1]}',
+    version: '${versionMatch[1]}',${displayNameMatch?.[1] ? `\n    displayName: '${displayNameMatch[1]}',` : ''}${descriptionMatch?.[1] ? `\n    description: '${descriptionMatch[1]}',` : ''}
+    componentType: '${componentType}'${datasetsInfo},
+  },`
+      }
+    } catch {
+      componentClassName = component.constructor ?? basename(component.path)
+    }
+
+    const content = `import { initializePCFHarness } from 'pcf-vite-harness'
+import 'pcf-vite-harness/styles/powerapps.css'
+
+// Import your PCF component
+import { ${componentClassName} } from '${importPath.startsWith('.') ? importPath : './' + importPath}'
+
+// Initialize the PCF harness with auto-detected manifest info
+initializePCFHarness({
+  pcfClass: ${componentClassName},
+  containerId: 'pcf-container'${manifestInfo ? `,\n${manifestInfo}` : ''}
+})
+
+// For additional configuration options:
+/*
+initializePCFHarness({
+  pcfClass: ${componentClassName},
+  containerId: 'pcf-container',
+  contextOptions: {
+    displayName: 'Your Name',
+    userName: 'you@company.com',
+    // Override webAPI methods for custom testing
+    webAPI: {
+      retrieveMultipleRecords: async (entityLogicalName, options) => {
+        console.log(\`Mock data for \${entityLogicalName}\`)
+        return { entities: [] }
+      }
+    }
+  }
+})
+*/
+`
+
+    await writeFile(join(devDir, 'main.ts'), content, 'utf-8')
+    this.logger.info(`📝 Regenerated main.ts with manifest dataset info`)
   }
 
   private async generateIndexHtml(
@@ -616,6 +728,89 @@ interface ImportMeta {
       return false
     }
   }
+
+  async regenerateContext(nonInteractive = false): Promise<void> {
+    try {
+      // Check if dev directory exists
+      const devDir = join(this.projectRoot, 'dev')
+      try {
+        await access(devDir)
+      } catch {
+        this.logger.error('No dev directory found. Run initialization first with: npx pcf-vite-harness init')
+        process.exit(1)
+      }
+
+      // Check if .env file exists with required variables (skip in non-interactive mode)
+      if (!nonInteractive) {
+        const envPath = join(this.projectRoot, '.env')
+        try {
+          await access(envPath)
+          this.logger.info('✅ Found .env file with environment variables')
+        } catch {
+          this.logger.error('No .env file found. Complete the setup wizard first by running: npm run dev:pcf')
+          process.exit(1)
+        }
+      } else {
+        this.logger.info('🤖 Non-interactive mode: Skipping .env file checks')
+      }
+
+      // Detect PCF components for context regeneration
+      await this.detectPCFComponents()
+      
+      if (this.components.length === 0) {
+        this.logger.error('No PCF components found for context regeneration')
+        process.exit(1)
+      }
+
+      // Use the first component (or let user select if multiple)
+      let selectedComponent = this.components[0]!
+      if (this.components.length > 1 && !nonInteractive) {
+        const inquirer = await import('inquirer')
+        const answers = await inquirer.default.prompt([
+          {
+            type: 'list',
+            name: 'selectedComponent',
+            message: 'Select component for context regeneration:',
+            choices: this.components.map(comp => ({
+              name: `${comp.name} (${comp.relativePath})`,
+              value: comp,
+            })),
+          }
+        ])
+        selectedComponent = answers.selectedComponent
+      } else if (this.components.length > 1) {
+        this.logger.info(`🤖 Non-interactive mode: Using first component: ${selectedComponent.name}`)
+      }
+
+      // Read existing vite config to get port settings
+      const viteConfigPath = join(devDir, 'vite.config.ts')
+      let port = 3000
+      let hmrPort = 3001
+      
+      try {
+        const viteConfigContent = await readFile(viteConfigPath, 'utf-8')
+        const portMatch = viteConfigContent.match(/port:\s*(\d+)/)
+        const hmrPortMatch = viteConfigContent.match(/hmrPort:\s*(\d+)/)
+        
+        if (portMatch && portMatch[1]) port = parseInt(portMatch[1])
+        if (hmrPortMatch && hmrPortMatch[1]) hmrPort = parseInt(hmrPortMatch[1])
+        
+        this.logger.info(`📝 Using existing port settings: ${port} (HMR: ${hmrPort})`)
+      } catch {
+        this.logger.info(`📝 Using default port settings: ${port} (HMR: ${hmrPort})`)
+      }
+
+      // Regenerate main.ts with proper manifest info including datasets
+      await this.regenerateMainFile(devDir, selectedComponent)
+
+      this.logger.success('✅ Context regenerated successfully!')
+      this.logger.info('The main.ts file has been updated with proper dataset information from the manifest.')
+      this.logger.info('You can now restart your development server: npm run dev:pcf')
+    } catch (error) {
+      this.logger.error(`Context regeneration failed: ${(error as Error).message}`)
+      process.exit(1)
+    }
+  }
 }
 
 // Setup CLI with Commander.js
@@ -653,7 +848,153 @@ export async function runInit(options: any = {}) {
   await initializer.init(options)
 }
 
-// Only parse if this file is run directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Export generate context functionality for use by unified CLI
+export async function runGenerateContext(options: any = {}) {
+  const logger = new SimpleLogger()
+  const projectRoot = process.cwd()
+  const nonInteractive = options.nonInteractive || false
+
+  try {
+    logger.info('🔄 Regenerating PCF context...')
+    
+    // Check if dev directory exists
+    const devDir = join(projectRoot, 'dev')
+    try {
+      await access(devDir)
+    } catch {
+      logger.error('No dev directory found. Run initialization first with: npx pcf-vite-harness init')
+      process.exit(1)
+    }
+
+    // Check if .env file exists (skip in non-interactive mode)
+    if (!nonInteractive) {
+      const envPath = join(projectRoot, '.env')
+      try {
+        await access(envPath)
+        logger.info('✅ Found .env file with environment variables')
+      } catch {
+        logger.error('No .env file found. Complete the setup wizard first by running: npm run dev:pcf')
+        process.exit(1)
+      }
+    } else {
+      logger.info('🤖 Non-interactive mode: Skipping .env file checks')
+    }
+
+    // Find manifest files
+    const manifestFiles = await glob('**/ControlManifest*.xml', {
+      cwd: projectRoot,
+      ignore: ['node_modules/**', 'dev/**', 'dist/**', 'out/**', 'bin/**', 'obj/**'],
+    })
+
+    if (manifestFiles.length === 0) {
+      logger.error('No PCF components found for context regeneration')
+      process.exit(1)
+    }
+
+    // Use first manifest (or could add selection logic later)
+    const manifestPath = manifestFiles[0]!
+    const fullPath = resolve(projectRoot, manifestPath)
+    const manifestContent = await readFile(fullPath, 'utf-8')
+
+    // Extract component details
+    const namespaceMatch = manifestContent.match(/namespace="([^"]+)"/)
+    const constructorMatch = manifestContent.match(/constructor="([^"]+)"/)
+    const versionMatch = manifestContent.match(/version="([^"]+)"/)
+    const displayNameMatch = manifestContent.match(/display-name-key="([^"]+)"/)
+    const descriptionMatch = manifestContent.match(/description-key="([^"]+)"/)
+
+    if (!namespaceMatch || !constructorMatch) {
+      logger.error('Invalid manifest file - missing namespace or constructor')
+      process.exit(1)
+    }
+
+    const componentName = constructorMatch[1]
+    const componentDir = dirname(fullPath)
+    const relativePath = relative(projectRoot, componentDir)
+
+    // Build import path
+    const importPath = relative(join(projectRoot, 'dev'), join(componentDir, 'index'))
+      .split(sep)
+      .join('/')
+
+    // Detect component type and parse datasets
+    const hasDataSet = manifestContent.includes('<data-set')
+    const componentType = hasDataSet ? 'dataset' : 'field'
+
+    let datasetsInfo = ''
+    if (hasDataSet) {
+      const datasetMatches = manifestContent.matchAll(/<data-set\s+name="([^"]+)"(?:\s+display-name-key="([^"]+)")?[^>]*>/g)
+      const datasets = Array.from(datasetMatches).map(match => ({
+        name: match[1],
+        displayNameKey: match[2] || match[1]
+      }))
+      
+      if (datasets.length > 0) {
+        const datasetsArray = datasets.map(ds => 
+          `{ name: '${ds.name}', displayNameKey: '${ds.displayNameKey}' }`
+        ).join(', ')
+        datasetsInfo = `,\n    datasets: [${datasetsArray}]`
+        logger.info(`📋 Found ${datasets.length} dataset(s): ${datasets.map(d => d.name).join(', ')}`)
+      }
+    }
+
+    // Build manifestInfo
+    const manifestInfo = `  // Auto-detected manifest info from ${manifestPath}
+  manifestInfo: {
+    namespace: '${namespaceMatch[1]}',
+    constructor: '${constructorMatch[1]}',
+    version: '${versionMatch?.[1] || '1.0.0'}',${displayNameMatch?.[1] ? `\n    displayName: '${displayNameMatch[1]}',` : ''}${descriptionMatch?.[1] ? `\n    description: '${descriptionMatch[1]}',` : ''}
+    componentType: '${componentType}'${datasetsInfo},
+  },`
+
+    // Generate main.ts content
+    const content = `import { initializePCFHarness } from 'pcf-vite-harness'
+import 'pcf-vite-harness/styles/powerapps.css'
+
+// Import your PCF component
+import { ${componentName} } from '${importPath.startsWith('.') ? importPath : './' + importPath}'
+
+// Initialize the PCF harness with auto-detected manifest info
+initializePCFHarness({
+  pcfClass: ${componentName},
+  containerId: 'pcf-container',
+${manifestInfo}
+})
+
+// For additional configuration options:
+/*
+initializePCFHarness({
+  pcfClass: ${componentName},
+  containerId: 'pcf-container',
+  contextOptions: {
+    displayName: 'Your Name',
+    userName: 'you@company.com',
+    // Override webAPI methods for custom testing
+    webAPI: {
+      retrieveMultipleRecords: async (entityLogicalName, options) => {
+        console.log(\`Mock data for \${entityLogicalName}\`)
+        return { entities: [] }
+      }
+    }
+  }
+})
+*/
+`
+
+    // Write the file
+    await writeFile(join(devDir, 'main.ts'), content, 'utf-8')
+    
+    logger.success('✅ Context regenerated successfully!')
+    logger.info('The main.ts file has been updated with proper dataset information from the manifest.')
+    logger.info('You can now restart your development server: npm run dev:pcf')
+
+  } catch (error) {
+    logger.error(`Context regeneration failed: ${(error as Error).message}`)
+    process.exit(1)
+  }
+}
+
+// Only parse if this file is run directly (not imported by other CLI)
+if (import.meta.url === `file://${process.argv[1]}` && !process.argv[1]?.includes('pcf-vite-harness')) {
   program.parse(process.argv)
 }

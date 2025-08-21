@@ -30,6 +30,17 @@ program
     await runInit(options)
   })
 
+// Generate context command (regenerate context after setup wizard)
+program
+  .command('generate-context')
+  .description('Regenerate context with environment variables (run after completing setup wizard)')
+  .option('--non-interactive', 'Skip .env file checks (for testing)')
+  .action(async (options) => {
+    // Import and run the generate context functionality
+    const { runGenerateContext } = await import('./pcf-vite-init.js')
+    await runGenerateContext(options)
+  })
+
 // Create command (create new PCF project with harness)
 program
   .command('create')
@@ -49,13 +60,6 @@ program
     await runCreate(options)
   })
 
-// Default to init command for backward compatibility
-program
-  .action(async (options) => {
-    console.log('🚀 PCF Vite Harness - Adding to existing PCF project...\n')
-    const { runInit } = await import('./pcf-vite-init.js')
-    await runInit(options)
-  })
 
 // Add help examples
 program.addHelpText('after', `
@@ -63,6 +67,9 @@ Examples:
   # Add harness to existing PCF project (default)
   $ pcf-vite-harness
   $ pcf-vite-harness init
+  
+  # Regenerate context after setup wizard (run after completing browser setup)
+  $ pcf-vite-harness generate-context
   
   # Create new PCF project with harness
   $ pcf-vite-harness create
