@@ -105,7 +105,7 @@
     "vite": "^7.0.5"
   },
   "optionalDependencies": {
-    "dataverse-utilities": "^1.0.0"
+    "dataverse-utilities": "^1"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.1.2",
