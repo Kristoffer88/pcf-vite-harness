@@ -412,20 +412,24 @@ export function createMockContext<TInputs>(options?: {
   })
 
   // Create dataset dynamically based on manifest information
-  // Use first dataset from manifest, or fallback to sampleDataSet
-  let datasetName = 'sampleDataSet'
-  let datasetDisplayName = 'Dataset_Display_Key'
-  
-  if (manifestInfo?.datasets && manifestInfo.datasets.length > 0) {
-    const firstDataset = manifestInfo.datasets[0]
-    if (firstDataset) {
-      datasetName = firstDataset.name
-      datasetDisplayName = firstDataset.displayNameKey || firstDataset.name
-      console.log(`📋 Using dataset from manifest: "${datasetName}" (${datasetDisplayName})`)
-    }
-  } else {
-    console.log('📋 No manifest dataset info found, using fallback sampleDataSet')
+  if (!manifestInfo?.datasets || manifestInfo.datasets.length === 0) {
+    throw new Error(
+      '❌ No dataset found in manifest. Dataset components require a <data-set> element in ControlManifest.Input.xml.\n' +
+      '   Please check your manifest file or use a field component instead.'
+    )
   }
+  
+  const firstDataset = manifestInfo.datasets[0]
+  if (!firstDataset || !firstDataset.name) {
+    throw new Error(
+      '❌ Invalid dataset configuration in manifest. Dataset must have a name attribute.\n' +
+      '   Example: <data-set name="myDataset" display-name-key="Dataset_Display_Key" />'
+    )
+  }
+  
+  const datasetName = firstDataset.name
+  const datasetDisplayName = firstDataset.displayNameKey || firstDataset.name
+  console.log(`📋 Using dataset from manifest: "${datasetName}" (${datasetDisplayName})`)
   
   const dataset = createMockDataSet({
     name: datasetName,

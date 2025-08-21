@@ -265,7 +265,7 @@ class PCFViteInitializer {
     const component = config.selectedComponent
 
     // Check for existing files and prompt for overwrite
-    const filesToCreate = ['vite.config.ts', 'main.ts', 'index.html']
+    const filesToCreate = ['vite.config.ts', 'main.ts', 'index.html', 'vite-env.d.ts']
     const existingFiles: string[] = []
 
     for (const file of filesToCreate) {
@@ -304,6 +304,9 @@ class PCFViteInitializer {
 
       // Generate index.html
       await this.generateIndexHtml(devDir, component, config)
+
+      // Generate vite-env.d.ts
+      await this.generateViteEnvTypes(devDir)
 
       // Create .env.example in project root
       await this.createEnvExample()
@@ -451,6 +454,35 @@ initializePCFHarness({
 `
 
     await writeFile(join(devDir, 'index.html'), content, 'utf-8')
+  }
+
+  private async generateViteEnvTypes(devDir: string): Promise<void> {
+    const content = `/// <reference types="vite/client" />
+
+interface ImportMetaEnv {
+  // Dataverse Configuration
+  readonly VITE_DATAVERSE_URL?: string
+
+  // PCF Configuration - set by setup wizard
+  readonly VITE_PCF_PAGE_TABLE?: string
+  readonly VITE_PCF_PAGE_TABLE_NAME?: string
+  readonly VITE_PCF_PAGE_RECORD_ID?: string
+  readonly VITE_PCF_TARGET_TABLE?: string
+  readonly VITE_PCF_TARGET_TABLE_NAME?: string
+  readonly VITE_PCF_VIEW_ID?: string
+  readonly VITE_PCF_VIEW_NAME?: string
+  readonly VITE_PCF_RELATIONSHIP_SCHEMA_NAME?: string
+  readonly VITE_PCF_RELATIONSHIP_ATTRIBUTE?: string
+  readonly VITE_PCF_RELATIONSHIP_LOOKUP_FIELD?: string
+  readonly VITE_PCF_RELATIONSHIP_TYPE?: string
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv
+}
+`
+
+    await writeFile(join(devDir, 'vite-env.d.ts'), content, 'utf-8')
   }
 
   private async createEnvExample(): Promise<void> {
