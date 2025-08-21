@@ -3,6 +3,32 @@
  */
 
 /**
+ * Extract dataset information from manifest XML content
+ */
+export function extractDatasetsFromXml(xmlContent: string): Array<{
+  name: string
+  displayNameKey?: string
+}> {
+  try {
+    const datasets: Array<{ name: string; displayNameKey?: string }> = []
+    const datasetPattern = /<data-set\s+name=["']([^"']+)["'](?:\s+display-name-key=["']([^"']+)["'])?/g
+    
+    let match
+    while ((match = datasetPattern.exec(xmlContent)) !== null) {
+      datasets.push({
+        name: match[1]!,
+        displayNameKey: match[2],
+      })
+    }
+    
+    return datasets
+  } catch (error) {
+    console.error('Error parsing datasets from manifest XML:', error)
+    return []
+  }
+}
+
+/**
  * Extract manifest information from ControlManifest.Input.xml content
  */
 export function extractManifestFromXml(xmlContent: string): {
@@ -11,6 +37,7 @@ export function extractManifestFromXml(xmlContent: string): {
   version: string
   displayName?: string
   description?: string
+  datasets?: Array<{ name: string; displayNameKey?: string }>
 } | null {
   try {
     // Parse basic manifest attributes from XML
@@ -24,12 +51,16 @@ export function extractManifestFromXml(xmlContent: string): {
       return null
     }
 
+    // Extract datasets
+    const datasets = extractDatasetsFromXml(xmlContent)
+
     return {
       namespace: namespaceMatch[1]!,
       constructor: constructorMatch[1]!,
       version: versionMatch[1]!,
       displayName: displayNameMatch?.[1],
       description: descriptionMatch?.[1],
+      datasets: datasets.length > 0 ? datasets : undefined,
     }
   } catch (error) {
     console.error('Error parsing manifest XML:', error)
@@ -46,6 +77,7 @@ export function extractManifestFromBuiltXml(xmlContent: string): {
   version: string
   displayName?: string
   description?: string
+  datasets?: Array<{ name: string; displayNameKey?: string }>
 } | null {
   try {
     // Parse manifest attributes from built XML (slightly different format)
@@ -59,12 +91,16 @@ export function extractManifestFromBuiltXml(xmlContent: string): {
       return null
     }
 
+    // Extract datasets
+    const datasets = extractDatasetsFromXml(xmlContent)
+
     return {
       namespace: namespaceMatch[1]!,
       constructor: constructorMatch[1]!,
       version: versionMatch[1]!,
       displayName: displayNameMatch?.[1],
       description: descriptionMatch?.[1],
+      datasets: datasets.length > 0 ? datasets : undefined,
     }
   } catch (error) {
     console.error('Error parsing built manifest XML:', error)

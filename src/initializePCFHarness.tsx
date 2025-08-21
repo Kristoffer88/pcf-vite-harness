@@ -182,7 +182,10 @@ export function initializePCFHarness<TInputs, TOutputs>(
     }
   } else {
     // Render main PCF development interface
-    const context = customContext || createMockContext<TInputs>(contextOptions)
+    const context = customContext || createMockContext<TInputs>({
+      ...contextOptions,
+      manifestInfo: finalManifestInfo,
+    })
 
     root.render(
       React.createElement(PCFHarnessWrapper, {

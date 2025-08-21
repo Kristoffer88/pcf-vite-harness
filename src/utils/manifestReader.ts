@@ -14,6 +14,7 @@ export function readManifestFromFileSystem(): {
   displayName?: string
   description?: string
   componentType: 'dataset' | 'field'
+  datasets?: Array<{ name: string; displayNameKey?: string }>
 } | null {
   // This function only works in Node.js environments (build time, server-side)
   if (typeof window !== 'undefined') {
@@ -78,37 +79,57 @@ function parseManifestXml(xmlContent: string): {
   displayName?: string
   description?: string
   componentType: 'dataset' | 'field'
+  datasets?: Array<{ name: string; displayNameKey?: string }>
 } | null {
   try {
-    // Extract control element attributes
-    const controlMatch = xmlContent.match(/<control[^>]*>/i)
-    if (!controlMatch) return null
+    // Import the manifest extractor
+    const { extractManifestFromXml } = require('./manifestExtractor')
+    const manifest = extractManifestFromXml(xmlContent)
+    
+    if (!manifest) {
+      // Fallback to simple parsing if extraction fails
+      const controlMatch = xmlContent.match(/<control[^>]*>/i)
+      if (!controlMatch) return null
 
-    const controlElement = controlMatch[0]
+      const controlElement = controlMatch[0]
 
-    // Extract attributes using regex
-    const namespaceMatch = controlElement.match(/namespace=["']([^"']+)["']/i)
-    const constructorMatch = controlElement.match(/constructor=["']([^"']+)["']/i)
-    const versionMatch = controlElement.match(/version=["']([^"']+)["']/i)
-    const displayNameMatch = controlElement.match(/display-name-key=["']([^"']+)["']/i)
-    const descriptionMatch = controlElement.match(/description-key=["']([^"']+)["']/i)
+      // Extract attributes using regex
+      const namespaceMatch = controlElement.match(/namespace=["']([^"']+)["']/i)
+      const constructorMatch = controlElement.match(/constructor=["']([^"']+)["']/i)
+      const versionMatch = controlElement.match(/version=["']([^"']+)["']/i)
+      const displayNameMatch = controlElement.match(/display-name-key=["']([^"']+)["']/i)
+      const descriptionMatch = controlElement.match(/description-key=["']([^"']+)["']/i)
 
-    if (!namespaceMatch || !constructorMatch || !versionMatch) {
-      return null
+      if (!namespaceMatch || !constructorMatch || !versionMatch) {
+        return null
+      }
+
+      // Detect component type based on manifest content
+      const hasDataSet = xmlContent.includes('<data-set')
+      const componentType: 'dataset' | 'field' = hasDataSet ? 'dataset' : 'field'
+
+      return {
+        namespace: namespaceMatch[1]!,
+        constructor: constructorMatch[1]!,
+        version: versionMatch[1]!,
+        displayName: displayNameMatch?.[1],
+        description: descriptionMatch?.[1],
+        componentType,
+      }
     }
 
     // Detect component type based on manifest content
-    const hasDataSet = xmlContent.includes('<data-set')
-    const hasProperty = xmlContent.includes('<property')
+    const hasDataSet = manifest.datasets && manifest.datasets.length > 0
     const componentType: 'dataset' | 'field' = hasDataSet ? 'dataset' : 'field'
 
     return {
-      namespace: namespaceMatch[1]!,
-      constructor: constructorMatch[1]!,
-      version: versionMatch[1]!,
-      displayName: displayNameMatch?.[1],
-      description: descriptionMatch?.[1],
+      namespace: manifest.namespace,
+      constructor: manifest.constructor,
+      version: manifest.version,
+      displayName: manifest.displayName,
+      description: manifest.description,
       componentType,
+      datasets: manifest.datasets,
     }
   } catch (error) {
     console.error('Error parsing manifest XML:', error)
@@ -128,6 +149,7 @@ export function detectManifestInfo(
   displayName?: string
   description?: string
   componentType: 'dataset' | 'field'
+  datasets?: Array<{ name: string; displayNameKey?: string }>
 } {
   // Try file system first (works in Node.js environments)
   const fileSystemManifest = readManifestFromFileSystem()

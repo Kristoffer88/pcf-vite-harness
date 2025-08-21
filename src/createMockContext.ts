@@ -305,12 +305,12 @@ function createMockDataSet(
   } & Partial<ComponentFramework.PropertyTypes.DataSet>
 ): ComponentFramework.PropertyTypes.DataSet {
   // Use view ID from environment if available
-  const viewId = import.meta.env.VITE_PCF_DEFAULT_VIEW_ID || undefined
+  const viewId = import.meta.env.VITE_PCF_VIEW_ID || import.meta.env.VITE_PCF_DEFAULT_VIEW_ID || undefined
   
   if (viewId) {
-    console.log(`📋 Using VITE_PCF_DEFAULT_VIEW_ID from environment: ${viewId}`)
+    console.log(`📋 Using view ID from environment: ${viewId}`)
   } else {
-    console.log(`📊 No VITE_PCF_DEFAULT_VIEW_ID found, dataset will use default view`)
+    console.log(`📊 No view ID found in environment, dataset will use default view`)
   }
 
   const defaultColumns = [
@@ -351,7 +351,7 @@ function createMockDataSet(
 
 /**
  * Creates a mock PCF context with realistic PowerApps data
- * For datasets, we'll create a minimal dataset that can be configured dynamically
+ * For datasets, we'll create datasets based on manifest information
  */
 export function createMockContext<TInputs>(options?: {
   controlId?: string
@@ -362,6 +362,15 @@ export function createMockContext<TInputs>(options?: {
   datasetOptions?: Partial<ComponentFramework.PropertyTypes.DataSet>
   webAPI?: Partial<ComponentFramework.WebApi>
   entityType?: string
+  manifestInfo?: {
+    datasets?: Array<{ name: string; displayNameKey?: string }>
+    namespace?: string
+    constructor?: string
+    version?: string
+    displayName?: string
+    description?: string
+    componentType?: 'dataset' | 'field'
+  }
 }): ComponentFramework.Context<TInputs> {
   const {
     controlId = `id-${crypto.randomUUID()}`,
@@ -372,6 +381,7 @@ export function createMockContext<TInputs>(options?: {
     datasetOptions = {},
     webAPI: customWebAPI = {},
     entityType = 'unknown',
+    manifestInfo,
   } = options || {}
 
   console.log('🔧 Creating mock context...', { entityType })
@@ -401,21 +411,35 @@ export function createMockContext<TInputs>(options?: {
     VITE_PCF_VIEW_NAME: import.meta.env.VITE_PCF_VIEW_NAME
   })
 
-  // Create sampleDataSet with minimal configuration
-  // Use environment variable if available, otherwise will be updated when form is discovered
-  const sampleDataSet = createMockDataSet({
-    name: 'sampleDataSet',
-    displayName: 'Dataset_Display_Key',
+  // Create dataset dynamically based on manifest information
+  // Use first dataset from manifest, or fallback to sampleDataSet
+  let datasetName = 'sampleDataSet'
+  let datasetDisplayName = 'Dataset_Display_Key'
+  
+  if (manifestInfo?.datasets && manifestInfo.datasets.length > 0) {
+    const firstDataset = manifestInfo.datasets[0]
+    if (firstDataset) {
+      datasetName = firstDataset.name
+      datasetDisplayName = firstDataset.displayNameKey || firstDataset.name
+      console.log(`📋 Using dataset from manifest: "${datasetName}" (${datasetDisplayName})`)
+    }
+  } else {
+    console.log('📋 No manifest dataset info found, using fallback sampleDataSet')
+  }
+  
+  const dataset = createMockDataSet({
+    name: datasetName,
+    displayName: datasetDisplayName,
     entityLogicalName: envTargetTable !== 'unknown' ? envTargetTable : 'unknown',
     columns: [], // Will be populated based on discovered entity
     ...datasetOptions,
   })
   
   // Set the initial _targetEntityType
-  ;(sampleDataSet as any)._targetEntityType = envTargetTable !== 'unknown' ? envTargetTable : undefined
+  ;(dataset as any)._targetEntityType = envTargetTable !== 'unknown' ? envTargetTable : undefined
   
   // Make getTargetEntityType configurable
-  Object.defineProperty(sampleDataSet, 'getTargetEntityType', {
+  Object.defineProperty(dataset, 'getTargetEntityType', {
     value: function() {
       const envValue = import.meta.env.VITE_PCF_TARGET_TABLE as string
       if (envValue && envValue !== 'unknown') {
@@ -427,12 +451,12 @@ export function createMockContext<TInputs>(options?: {
     configurable: true
   })
 
-  console.log('🔧 Created sampleDataSet with structure:', {
+  console.log(`🔧 Created dataset "${datasetName}" with structure:`, {
     entityType: entityType,
-    hasRecords: 'records' in sampleDataSet,
-    hasColumns: 'columns' in sampleDataSet,
-    recordCount: Object.keys(sampleDataSet.records || {}).length,
-    columnCount: sampleDataSet.columns?.length || 0,
+    hasRecords: 'records' in dataset,
+    hasColumns: 'columns' in dataset,
+    recordCount: Object.keys(dataset.records || {}).length,
+    columnCount: dataset.columns?.length || 0,
   })
 
   return {
@@ -454,7 +478,7 @@ export function createMockContext<TInputs>(options?: {
       isVisible: true,
     } as any,
     parameters: {
-      sampleDataSet,
+      [datasetName]: dataset,
     } as any,
     factory: {
       requestRender: () => {},
