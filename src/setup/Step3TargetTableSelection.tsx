@@ -171,15 +171,24 @@ export const Step3TargetTableSelection: React.FC<Step3TargetTableSelectionProps>
           'The target table is the same as the page table. This is valid for field-based PCF components.'
         )
       } else if (data.pageTable && data.pageTable !== targetTable) {
-        setRelationshipWarning(
-          `The target table (${targetTable}) is different from the page table (${data.pageTable}). ` +
-            'Make sure there is a relationship between these tables for dataset-based PCF components.'
-        )
+        // Check if there's a relationship between the tables
+        const hasRelationship = relatedEntities.some(entity => entity.logicalName === targetTable)
+        
+        if (hasRelationship) {
+          setRelationshipWarning(
+            `✅ Relationship confirmed between ${data.pageTable} and ${targetTable}.`
+          )
+        } else {
+          setRelationshipWarning(
+            `The target table (${targetTable}) is different from the page table (${data.pageTable}). ` +
+              'Make sure there is a relationship between these tables for dataset-based PCF components.'
+          )
+        }
       } else {
         setRelationshipWarning(undefined)
       }
     },
-    [data.pageTable]
+    [data.pageTable, relatedEntities]
   )
 
   // Handle search input changes
@@ -388,7 +397,9 @@ export const Step3TargetTableSelection: React.FC<Step3TargetTableSelectionProps>
         {relationshipWarning && (
           <MessageBar
             messageBarType={
-              data.pageTable === data.targetTable ? MessageBarType.success : MessageBarType.warning
+              data.pageTable === data.targetTable || relationshipWarning.startsWith('✅') 
+                ? MessageBarType.success 
+                : MessageBarType.warning
             }
           >
             {relationshipWarning}
