@@ -1,7 +1,7 @@
 {
   "name": "pcf-vite-harness",
   "version": "1.8.0",
-  "description": "Modern Vite-based development harness for PowerApps Component Framework (PCF) with hot module replacement, PowerApps-like environment simulation, and TanStack Query-inspired devtools for debugging",
+  "description": "Modern Vite-based development harness for PowerApps Component Framework (PCF) with hot module replacement and PowerApps-like environment simulation",
   "type": "module",
   "engines": {
     "node": ">=18"

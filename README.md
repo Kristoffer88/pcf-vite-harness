@@ -118,6 +118,20 @@ The CLI will guide you through:
 - Project directory setup
 - Dataverse integration (optional)
 
+### `pcf-vite-harness generate-context` - Regenerate Context
+
+Regenerates the context configuration after completing the setup wizard:
+
+- **🔄 Context Regeneration**: Updates main.ts with proper dataset information from manifest
+- **📋 Dataset Detection**: Automatically detects dataset configurations from ControlManifest.xml
+- **⚙️ Environment Integration**: Works with .env variables set by the setup wizard
+
+```bash
+npx pcf-vite-harness generate-context
+```
+
+Use this command after completing the browser-based setup wizard to ensure your development context includes all the dataset configurations discovered during setup.
+
 ## 🔧 Advanced Configuration
 
 ### Custom Context Options
