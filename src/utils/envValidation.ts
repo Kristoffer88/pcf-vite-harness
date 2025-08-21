@@ -12,7 +12,7 @@ export interface RequiredEnvVars {
  * Check if required environment variables are present
  */
 export function checkRequiredEnvVars(): { isValid: boolean; missing: string[] } {
-  const required = ['VITE_PCF_PAGE_TABLE', 'VITE_PCF_TARGET_TABLE']
+  const required = ['VITE_PCF_TARGET_TABLE']
   const missing: string[] = []
 
   for (const varName of required) {
