@@ -60,6 +60,10 @@ export interface PCFHarnessOptions<TInputs, TOutputs> {
     displayName?: string
     description?: string
     componentType: 'dataset' | 'field'
+    datasets?: Array<{
+      name: string
+      displayNameKey?: string
+    }>
   }
 }
 
@@ -72,6 +76,10 @@ export interface PCFHarnessResult<TInputs> {
     displayName?: string
     description?: string
     componentType: 'dataset' | 'field'
+    datasets?: Array<{
+      name: string
+      displayNameKey?: string
+    }>
   }
   container: HTMLElement
 }
