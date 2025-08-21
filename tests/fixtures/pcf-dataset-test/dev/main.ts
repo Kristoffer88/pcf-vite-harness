@@ -15,6 +15,8 @@ initializePCFHarness({
     version: '1.0',
     displayName: 'dataset',
     description: 'dataset description',
+    componentType: 'dataset',
+    datasets: [{ name: 'sampleDataSetCustom', displayNameKey: 'Dataset_Display_Key' }],
   },
 })
 
