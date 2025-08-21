@@ -64,7 +64,6 @@ export async function createPCFViteConfig(options: PCFViteOptions = {}) {
       port = 3000,
       hmrPort = 3001,
       open = true,
-      enableDataverse = true,
       viteConfig = {},
     } = options
 
@@ -104,43 +103,34 @@ export async function createPCFViteConfig(options: PCFViteOptions = {}) {
       },
     }
 
-    // Add dataverse-utilities integration if enabled and available
-    if (enableDataverse) {
-      if (!dataverseUrl) {
-        throw new Error(
-          '❌ Dataverse integration is enabled but VITE_DATAVERSE_URL environment variable is not set.\n' +
-            '   Please set VITE_DATAVERSE_URL in your .env file or pass dataverseUrl in the config options.\n' +
-            '   Example: VITE_DATAVERSE_URL=https://yourorg.crm.dynamics.com/'
-        )
-      } else {
-        // Validate Dataverse token before proceeding
-        await validateDataverseToken(dataverseUrl)
+    // Add dataverse-utilities integration (always enabled)
+    if (!dataverseUrl) {
+      throw new Error(
+        '❌ VITE_DATAVERSE_URL environment variable is required.\n' +
+          '   Please set VITE_DATAVERSE_URL in your .env file or pass dataverseUrl in the config options.\n' +
+          '   Example: VITE_DATAVERSE_URL=https://yourorg.crm.dynamics.com/'
+      )
+    }
 
-        try {
-          const { createDataverseConfig } = require('dataverse-utilities/vite')
-          const dataverseConfig = createDataverseConfig({
-            dataverseUrl,
-          })
+    // Validate Dataverse token before proceeding
+    await validateDataverseToken(dataverseUrl)
 
-          baseConfig = {
-            ...dataverseConfig,
-            ...baseConfig,
-            plugins: [
-              ...(baseConfig.plugins || []),
-              ...(Array.isArray(dataverseConfig.plugins) ? dataverseConfig.plugins : []),
-            ],
-            server: {
-              ...baseConfig.server,
-              ...(dataverseConfig.server || {}),
-            },
-          }
-        } catch (error) {
-          console.warn(
-            'dataverse-utilities not found. Install it for Dataverse integration:',
-            (error as Error).message
-          )
-        }
-      }
+    const { createDataverseConfig } = require('dataverse-utilities/vite')
+    const dataverseConfig = createDataverseConfig({
+      dataverseUrl,
+    })
+
+    baseConfig = {
+      ...dataverseConfig,
+      ...baseConfig,
+      plugins: [
+        ...(baseConfig.plugins || []),
+        ...(Array.isArray(dataverseConfig.plugins) ? dataverseConfig.plugins : []),
+      ],
+      server: {
+        ...baseConfig.server,
+        ...(dataverseConfig.server || {}),
+      },
     }
 
     // Merge with user-provided config

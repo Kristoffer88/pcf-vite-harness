@@ -59,7 +59,7 @@ export class dataset implements ComponentFramework.StandardControl<IInputs, IOut
     this._context = context
 
     // Display dataset records if available
-    const sampleDataSet = context.parameters.sampleDataSet
+    const sampleDataSet = context.parameters.sampleDataSetCustom
     if (sampleDataSet && sampleDataSet.records) {
       const recordCount = Object.keys(sampleDataSet.records).length
       console.log(`📋 Dataset updated: ${recordCount} records available`)

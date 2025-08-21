@@ -4,7 +4,7 @@
 
 // Define IInputs and IOutputs Type. They should match with ControlManifest.
 export interface IInputs {
-    sampleDataSet: ComponentFramework.PropertyTypes.DataSet;
+    sampleDataSetCustom: ComponentFramework.PropertyTypes.DataSet;
 }
 export interface IOutputs {
 }

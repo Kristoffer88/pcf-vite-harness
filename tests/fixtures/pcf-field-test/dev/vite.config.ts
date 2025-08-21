@@ -10,9 +10,6 @@ export default createPCFViteConfig({
   // Open browser automatically
   open: true,
 
-  // Enable Dataverse integration
-  enableDataverse: true,
-
   // Additional Vite configuration
   viteConfig: {
     resolve: {

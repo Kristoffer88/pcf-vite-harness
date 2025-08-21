@@ -10,9 +10,6 @@ export default createPCFViteConfig({
   // Open browser automatically
   open: true,
 
-  // Enable Dataverse integration (requires dataverse-utilities)
-  enableDataverse: true,
-
   // Dataverse URL (can also be set via VITE_DATAVERSE_URL env var)
   // dataverseUrl: 'https://yourorg.crm.dynamics.com/',
 

@@ -1,6 +1,6 @@
 {
   "name": "pcf-vite-harness",
-  "version": "1.7.1",
+  "version": "1.8.0",
   "description": "Modern Vite-based development harness for PowerApps Component Framework (PCF) with hot module replacement, PowerApps-like environment simulation, and TanStack Query-inspired devtools for debugging",
   "type": "module",
   "engines": {
@@ -90,6 +90,7 @@
     "@redux-devtools/extension": "^3.3.0",
     "@vitejs/plugin-react": "^4.7.0",
     "commander": "^12.0.0",
+    "dataverse-utilities": "^1",
     "fast-xml-parser": "^5.2.5",
     "glob": "^11.0.0",
     "immer": "^10.1.1",
@@ -104,9 +105,7 @@
   "peerDependencies": {
     "vite": "^7.0.5"
   },
-  "optionalDependencies": {
-    "dataverse-utilities": "^1"
-  },
+  "optionalDependencies": {},
   "devDependencies": {
     "@biomejs/biome": "^2.1.2",
     "@types/node": "^20.19.9",

@@ -14,12 +14,13 @@
     "dev:pcf": "vite --config dev/vite.config.ts"
   },
   "dependencies": {
-    "pcf-vite-harness": "file:../../.."
+    "pcf-vite-harness": "file:../../..",
+    "vite": "^7.0.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.25.1",
     "@microsoft/eslint-plugin-power-apps": "^0.2.51",
-    "@types/node": "^18.19.86",
+    "@types/node": "^20.19.0",
     "@types/powerapps-component-framework": "^1.3.16",
     "eslint-plugin-promise": "^7.1.0",
     "globals": "^15.15.0",

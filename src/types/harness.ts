@@ -33,12 +33,6 @@ export interface PCFViteOptions {
   open?: boolean
   
   /**
-   * Whether to enable Dataverse authentication
-   * @default true
-   */
-  enableDataverse?: boolean
-  
-  /**
    * Additional Vite configuration to merge
    */
   viteConfig?: UserConfig
