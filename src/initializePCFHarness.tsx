@@ -102,10 +102,17 @@ export function initializePCFHarness<TInputs, TOutputs>(
   // Auto-detect manifest info to get component type
   const detectedManifestInfo = detectManifestInfo(pcfClass)
   
-  // Use provided manifest info or the detected info, but always use detected componentType
-  // since provided manifestInfo typically doesn't include componentType
+  // Use provided manifest info or the detected info
   const finalManifestInfo = manifestInfo || detectedManifestInfo
+  
+  // Use componentType from provided manifestInfo if available, otherwise from detected info
   const componentType = (manifestInfo as any)?.componentType || detectedManifestInfo.componentType
+  
+  // Ensure componentType is included in finalManifestInfo
+  const finalManifestInfoWithType = {
+    ...finalManifestInfo,
+    componentType
+  }
   
   // Environment check will be handled by the wrapper component
 
@@ -192,7 +199,7 @@ export function initializePCFHarness<TInputs, TOutputs>(
     // Render main PCF development interface
     const context = customContext || createMockContext<TInputs>({
       ...contextOptions,
-      manifestInfo: finalManifestInfo,
+      manifestInfo: finalManifestInfoWithType,
     })
 
     root.render(
@@ -200,18 +207,18 @@ export function initializePCFHarness<TInputs, TOutputs>(
         context,
         pcfClass,
         className,
-        manifestInfo: finalManifestInfo,
+        manifestInfo: finalManifestInfoWithType,
         componentType,
       })
     )
 
     console.log(`PCF harness initialized with ${pcfClass.name} component`)
-    console.log(`Using manifest:`, finalManifestInfo)
+    console.log(`Using manifest:`, finalManifestInfoWithType)
     console.log(`Context parameters:`, Object.keys(context.parameters || {}))
 
     return {
       context,
-      manifestInfo: finalManifestInfo,
+      manifestInfo: finalManifestInfoWithType,
       container: targetContainer,
     }
   }

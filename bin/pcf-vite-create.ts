@@ -235,6 +235,23 @@ export default createPCFViteConfig({
     const hasDataSet = manifestContent.includes('<data-set')
     const componentType = hasDataSet ? 'dataset' : 'field'
     
+    // Parse dataset information if it's a dataset component (using same logic as pcf-vite-init)
+    let datasetsInfo = ''
+    if (hasDataSet) {
+      const datasetMatches = manifestContent.matchAll(/<data-set\s+name="([^"]+)"(?:\s+display-name-key="([^"]+)")?[^>]*>/g)
+      const datasets = Array.from(datasetMatches).map(match => ({
+        name: match[1],
+        displayNameKey: match[2] || match[1]
+      }))
+      
+      if (datasets.length > 0) {
+        const datasetsArray = datasets.map(ds => 
+          `{ name: '${ds.name}', displayNameKey: '${ds.displayNameKey}' }`
+        ).join(', ')
+        datasetsInfo = `,\n    datasets: [${datasetsArray}]`
+      }
+    }
+    
     const componentClassName = controlMatch?.[1] ?? component.constructor
     const importPath = `../${component.relativePath}/index`
     
@@ -245,7 +262,7 @@ export default createPCFViteConfig({
     namespace: '${namespaceMatch[1]}',
     constructor: '${controlMatch[1]}',
     version: '${versionMatch[1]}',${displayNameMatch?.[1] ? `\n    displayName: '${displayNameMatch[1]}',` : ''}${descriptionMatch?.[1] ? `\n    description: '${descriptionMatch[1]}',` : ''}
-    componentType: '${componentType}',
+    componentType: '${componentType}'${datasetsInfo},
   },`
     }
 
