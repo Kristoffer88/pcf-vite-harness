@@ -1,6 +1,6 @@
 {
   "name": "pcf-vite-harness",
-  "version": "1.8.2",
+  "version": "1.8.3",
   "description": "Modern Vite-based development harness for PowerApps Component Framework (PCF) with hot module replacement and PowerApps-like environment simulation",
   "type": "module",
   "engines": {
@@ -86,36 +86,35 @@
   },
   "homepage": "https://github.com/kristoffer88/pcf-vite-harness#readme",
   "dependencies": {
-    "@fluentui/react": "^8.118.12",
+    "@fluentui/react": "^8.123.4",
     "@redux-devtools/extension": "^3.3.0",
     "@vitejs/plugin-react": "^4.7.0",
-    "commander": "^12.0.0",
+    "commander": "^12.1.0",
     "dataverse-utilities": "^1",
     "fast-xml-parser": "^5.2.5",
     "glob": "^11.0.0",
     "immer": "^10.1.1",
-    "inquirer": "^10.0.0",
+    "@inquirer/prompts": "^7.0.0",
     "nanospinner": "^1.1.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
-    "zustand": "^5.0.6",
-    "pcf-vite-harness": "^1.5.0",
-    "vite": "^7.0.5"
+    "zustand": "^5.0.8",
+    "vite": "^7.1.3"
   },
   "peerDependencies": {
-    "vite": "^7.0.5"
+    "vite": "^7.1.3"
   },
   "optionalDependencies": {},
   "devDependencies": {
-    "@biomejs/biome": "^2.1.2",
-    "@types/node": "^20.19.9",
+    "@biomejs/biome": "^2.2.2",
+    "@types/node": "^20.19.11",
     "@types/powerapps-component-framework": "^1.3.18",
-    "@types/react": "^18.3.23",
+    "@types/react": "^18.3.24",
     "@types/react-dom": "^18.3.7",
     "dotenv": "^16.4.5",
     "execa": "^9.6.0",
     "tsup": "^8.3.5",
-    "typescript": "^5.8.3",
-    "vitest": "^2.1.8"
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
   }
 }

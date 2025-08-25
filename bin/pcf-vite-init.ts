@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import { Command } from 'commander'
 import { glob } from 'glob'
-import inquirer from 'inquirer'
+import { input, confirm, select } from '@inquirer/prompts'
 import { createSpinner } from 'nanospinner'
 import packageInfo from '../package.json' with { type: 'json' }
 import { SimpleLogger, type LoggerOptions } from './utils/logger.js'
@@ -192,57 +192,56 @@ class PCFViteInitializer {
       return config
     }
 
-    const questions = [
-      {
-        type: 'list',
-        name: 'selectedComponent',
+    const answers: any = {}
+
+    // Component selection (only if multiple components)
+    if (this.components.length > 1) {
+      answers.selectedComponent = await select({
         message: 'Select PCF component to setup for development:',
         choices: this.components.map(comp => ({
           name: `${comp.name} (${comp.relativePath})`,
           value: comp,
         })),
-        when: () => this.components.length > 1,
+      })
+    }
+
+    // Port configuration
+    answers.port = await input({
+      message: 'Development server port:',
+      default: '3000',
+      validate: (input: string) => {
+        const validation = validatePort(input)
+        return validation.isValid ? true : validation.message || 'Invalid port'
       },
-      {
-        type: 'input',
-        name: 'port',
-        message: 'Development server port:',
-        default: 3000,
-        validate: (input: string) => {
-          const validation = validatePort(input)
-          return validation.isValid ? true : validation.message || 'Invalid port'
-        },
+    })
+
+    // HMR port configuration
+    answers.hmrPort = await input({
+      message: 'HMR WebSocket port:',
+      default: String(Number.parseInt(answers.port) + 1),
+      validate: (input: string) => {
+        const validation = validatePort(input)
+        return validation.isValid ? true : validation.message || 'Invalid port'
       },
-      {
-        type: 'input',
-        name: 'hmrPort',
-        message: 'HMR WebSocket port:',
-        default: (answers: any) => Number.parseInt(answers.port as string) + 1,
-        validate: (input: string) => {
-          const validation = validatePort(input)
-          return validation.isValid ? true : validation.message || 'Invalid port'
-        },
-      },
-      {
-        type: 'confirm',
-        name: 'enableDataverse',
-        message: 'Enable Dataverse integration?',
-        default: true,
-      },
-      {
-        type: 'input',
-        name: 'dataverseUrl',
+    })
+
+    // Dataverse integration
+    answers.enableDataverse = await confirm({
+      message: 'Enable Dataverse integration?',
+      default: true,
+    })
+
+    // Dataverse URL (only if enabling Dataverse)
+    if (answers.enableDataverse) {
+      answers.dataverseUrl = await input({
         message: 'Dataverse URL (optional):',
-        when: (answers: any) => answers.enableDataverse,
         validate: (input: string) => {
           if (!input) return true
           const validation = validateDataverseUrl(input)
           return validation.isValid ? true : validation.message || 'Invalid Dataverse URL'
         },
-      },
-    ]
-
-    const answers = await inquirer.prompt(questions as any)
+      })
+    }
 
     // If only one component, select it automatically
     if (this.components.length === 1) {
@@ -278,14 +277,10 @@ class PCFViteInitializer {
     }
 
     if (existingFiles.length > 0) {
-      const { overwrite } = (await inquirer.prompt([
-        {
-          type: 'confirm',
-          name: 'overwrite',
-          message: `Files already exist: ${existingFiles.join(', ')}. Overwrite?`,
-          default: false,
-        },
-      ])) as { overwrite: boolean }
+      const overwrite = await confirm({
+        message: `Files already exist: ${existingFiles.join(', ')}. Overwrite?`,
+        default: false,
+      })
 
       if (!overwrite) {
         this.logger.warning('Setup cancelled by user')
@@ -337,8 +332,7 @@ export default createPCFViteConfig({
   // Open browser automatically
   open: true,
 
-  // Enable Dataverse integration
-  enableDataverse: ${config.enableDataverse},${config.dataverseUrl ? `\n\n  // Dataverse URL\n  dataverseUrl: '${config.dataverseUrl}',` : ''}
+${config.dataverseUrl ? `  // Dataverse URL\n  dataverseUrl: '${config.dataverseUrl}',\n` : ''}
 
   // Additional Vite configuration
   viteConfig: {
@@ -765,19 +759,13 @@ interface ImportMeta {
       // Use the first component (or let user select if multiple)
       let selectedComponent = this.components[0]!
       if (this.components.length > 1 && !nonInteractive) {
-        const inquirer = await import('inquirer')
-        const answers = await inquirer.default.prompt([
-          {
-            type: 'list',
-            name: 'selectedComponent',
-            message: 'Select component for context regeneration:',
-            choices: this.components.map(comp => ({
-              name: `${comp.name} (${comp.relativePath})`,
-              value: comp,
-            })),
-          }
-        ])
-        selectedComponent = answers.selectedComponent
+        selectedComponent = await select({
+          message: 'Select component for context regeneration:',
+          choices: this.components.map(comp => ({
+            name: `${comp.name} (${comp.relativePath})`,
+            value: comp,
+          })),
+        })
       } else if (this.components.length > 1) {
         this.logger.info(`🤖 Non-interactive mode: Using first component: ${selectedComponent.name}`)
       }

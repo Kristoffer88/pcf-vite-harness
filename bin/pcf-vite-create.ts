@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import { Command } from 'commander'
 import { glob } from 'glob'
-import inquirer from 'inquirer'
+import { input, confirm, select } from '@inquirer/prompts'
 import { createSpinner } from 'nanospinner'
 import packageInfo from '../package.json' with { type: 'json' }
 import { SimpleLogger, type LoggerOptions } from './utils/logger.js'
@@ -136,6 +136,10 @@ class PCFViteCreator {
       await this.generateMainTs(devDir, component, projectDir)
       await this.generateIndexHtml(devDir, component)
       await this.createEnvFile(projectDir, dataverseUrl)
+      
+      // Enhance component with Dataverse connection demo
+      await this.enhanceComponentWithDataverseDemo(projectDir, component, enableDataverse)
+      
       await this.updatePackageJson(projectDir)
 
       spinner.success('Vite harness configured')
@@ -199,8 +203,6 @@ export default createPCFViteConfig({
   // Open browser automatically
   open: true,
 
-  // Enable Dataverse integration
-  enableDataverse: ${enableDataverse},
 
   // Additional Vite configuration
   viteConfig: {
@@ -349,6 +351,162 @@ initializePCFHarness({
 
     await writeFile(envPath, envContent, 'utf-8')
     this.logger.success('Created .env file in project root')
+  }
+
+  private async enhanceComponentWithDataverseDemo(
+    projectDir: string,
+    component: any,
+    enableDataverse: boolean
+  ): Promise<void> {
+    // Only enhance if Dataverse is enabled
+    if (!enableDataverse) {
+      return
+    }
+
+    this.logger.info('Enhancing component with Dataverse connection demo...')
+    
+    const indexPath = join(projectDir, component.relativePath, 'index.ts')
+    let content = await readFile(indexPath, 'utf-8')
+    
+    // Check if already enhanced to avoid duplicate enhancements
+    if (content.includes('SystemUserDemo')) {
+      return
+    }
+
+    // Add SystemUser interface after the imports
+    const systemUserInterface = `
+interface SystemUser {
+  systemuserid: string
+  fullname: string
+  domainname?: string
+  internalemailaddress?: string
+}
+`
+    
+    // Insert interface after all imports/type declarations
+    const lines = content.split('\n')
+    let insertIndex = 0
+    
+    // Find the last import or type declaration line
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]?.trim()
+      if (line && (line.startsWith('import ') || line.startsWith('type ') || line.includes(' = ComponentFramework.'))) {
+        insertIndex = i + 1
+      } else if (line && line.startsWith('export class ')) {
+        break
+      }
+    }
+    
+    // Insert the interface at the found position
+    lines.splice(insertIndex, 0, systemUserInterface.trim(), '')
+    content = lines.join('\n')
+
+    // Add private properties to the class
+    const classMatch = content.match(/export class \w+ implements ComponentFramework\.StandardControl<IInputs, IOutputs> \{/)
+    if (classMatch) {
+      const classIndex = content.indexOf(classMatch[0]) + classMatch[0].length
+      const privateProperties = `
+  private _context: ComponentFramework.Context<IInputs>
+  private _container: HTMLDivElement
+  private _systemUserContainer: HTMLDivElement
+  private _connectionStatus: HTMLDivElement`
+      
+      content = content.slice(0, classIndex) + privateProperties + content.slice(classIndex)
+    }
+
+    // Enhance the init method to add systemuser count display
+    const initMethodMatch = content.match(/public init\(([\s\S]*?)\): void \{\s*(.*?)(\n    \})/s)
+    if (initMethodMatch && initMethodMatch[1] && initMethodMatch[2] !== undefined) {
+      const initParams = initMethodMatch[1]
+      const existingContent = initMethodMatch[2].trim()
+      
+      const enhancedInitContent = `
+        ${existingContent ? existingContent + '\n' : ''}
+        // Store context and container references
+        this._context = context;
+        this._container = container;
+
+        // Add Dataverse connection demo
+        const demoSection = document.createElement('div')
+        demoSection.style.cssText = \`
+          margin-top: 16px; 
+          padding: 12px; 
+          background: #f8f9fa; 
+          border-radius: 6px;
+          border-left: 4px solid #0078d4;
+        \`
+        demoSection.innerHTML = \`
+          <h3 style="margin: 0 0 8px 0; color: #323130; font-size: 14px;">📊 Dataverse Connection</h3>
+          <div id="connection-status">Checking connection...</div>
+          <div id="systemuser-container" style="margin-top: 8px;"></div>
+        \`
+        container.appendChild(demoSection)
+
+        this._connectionStatus = container.querySelector('#connection-status') as HTMLDivElement
+        this._systemUserContainer = container.querySelector('#systemuser-container') as HTMLDivElement
+
+        // Load system user count
+        this.loadSystemUserCount()
+    `
+    
+      content = content.replace(initMethodMatch[0], `public init(${initParams}): void {${enhancedInitContent}\n    }`)
+    }
+
+    // Add the loadSystemUserCount method before the destroy method
+    const destroyMethodMatch = content.match(/public destroy\(\): void \{/)
+    if (destroyMethodMatch) {
+      const destroyIndex = content.indexOf(destroyMethodMatch[0])
+      const loadSystemUserMethod = `
+  private async loadSystemUserCount(): Promise<void> {
+    try {
+      this._connectionStatus.innerHTML = '<span style="color: #0078d4;">🔄 Loading system users...</span>'
+      
+      const response = await this._context.webAPI.retrieveMultipleRecords(
+        'systemuser',
+        '?$select=systemuserid,fullname&$top=5&$orderby=createdon desc'
+      )
+
+      const count = response.entities.length
+      const systemUsers = response.entities as SystemUser[]
+      
+      this._connectionStatus.innerHTML = \`<span style="color: #107c10;">✅ Connected! Found \${count} system users</span>\`
+      
+      let userListHtml = '<div style="font-size: 12px; color: #605e5c; margin-top: 4px;">Recent users:</div>'
+      userListHtml += '<div style="display: grid; gap: 4px; margin-top: 4px;">'
+      
+      systemUsers.forEach((user: SystemUser, index: number) => {
+        userListHtml += \`
+          <div style="
+            background: white; 
+            padding: 6px 8px; 
+            border-radius: 3px; 
+            font-size: 11px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+          ">
+            <span style="font-weight: 500;">\${user.fullname || 'Unknown'}</span>
+            <span style="color: #8a8886; font-family: monospace;">\${user.systemuserid?.substring(0, 8)}...</span>
+          </div>
+        \`
+      })
+      
+      userListHtml += '</div>'
+      this._systemUserContainer.innerHTML = userListHtml
+      
+    } catch (error) {
+      console.error('Error loading system users:', error)
+      this._connectionStatus.innerHTML = \`<span style="color: #d13438;">❌ Connection failed: \${error}</span>\`
+      this._systemUserContainer.innerHTML = '<div style="font-size: 11px; color: #8a8886; font-style: italic;">Unable to load users</div>'
+    }
+  }
+
+  `
+      content = content.slice(0, destroyIndex) + loadSystemUserMethod + content.slice(destroyIndex)
+    }
+
+    await writeFile(indexPath, content, 'utf-8')
+    this.logger.success('Component enhanced with Dataverse connection demo')
   }
 
   private async updatePackageJson(projectDir: string): Promise<void> {
@@ -526,13 +684,61 @@ export async function runCreate(options: any = {}) {
       })
     }
     
-    const answers = await inquirer.prompt(questions)
+    const answers: any = {}
+    
+    // Process each question individually
+    for (const question of questions) {
+      if (question.name === 'namespace') {
+        answers.namespace = await input({
+          message: question.message,
+          validate: question.validate,
+        })
+      } else if (question.name === 'name') {
+        answers.name = await input({
+          message: question.message,
+          validate: question.validate,
+        })
+      } else if (question.name === 'template') {
+        answers.template = await select({
+          message: question.message,
+          choices: question.choices,
+        })
+      } else if (question.name === 'outputDirectory') {
+        const result = await input({
+          message: question.message,
+        })
+        answers.outputDirectory = result.trim() || undefined
+      } else if (question.name === 'port') {
+        answers.port = await input({
+          message: question.message,
+          default: '3000',
+          validate: (input: string) => {
+            const validation = validatePort(input)
+            return validation.isValid ? true : validation.message || 'Invalid port'
+          },
+        })
+        answers.port = Number.parseInt(answers.port)
+      } else if (question.name === 'hmrPort') {
+        answers.hmrPort = await input({
+          message: question.message,
+          default: '3001',
+          validate: (input: string) => {
+            const validation = validatePort(input)
+            return validation.isValid ? true : validation.message || 'Invalid port'
+          },
+        })
+        answers.hmrPort = Number.parseInt(answers.hmrPort)
+      } else if (question.name === 'enableDataverse') {
+        answers.enableDataverse = await confirm({
+          message: question.message,
+          default: true,
+        })
+      }
+    }
     
     // Ask for Dataverse URL if needed
     if ((answers.enableDataverse || (options.dataverse !== false && answers.enableDataverse === undefined)) && !options.dataverseUrl) {
-      const urlAnswer = await inquirer.prompt({
-        type: 'input',
-        name: 'dataverseUrl',
+      answers.dataverseUrl = await input({
         message: 'Enter Dataverse URL (optional):',
         validate: (input: string) => {
           if (!input.trim()) return true // Optional
@@ -540,7 +746,6 @@ export async function runCreate(options: any = {}) {
           return validation.isValid ? true : validation.message || 'Invalid Dataverse URL'
         }
       })
-      answers.dataverseUrl = urlAnswer.dataverseUrl
     }
     
     // Merge prompted answers with provided options
