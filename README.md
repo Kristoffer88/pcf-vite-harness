@@ -20,7 +20,7 @@ A modern Vite-based development harness for PowerApps Component Framework (PCF) 
 
 - 🚀 **Fast Development**: Vite-powered with instant hot module replacement (HMR)
 - 🎯 **PowerApps Environment**: Accurate replication of PowerApps container structure and styling
-- 🔗 **Dataverse Integration**: Optional integration with `dataverse-utilities` for real data testing
+- 🔗 **Dataverse Integration**: Built-in integration with `dataverse-utilities` for real data testing
 - 📱 **Responsive**: Works across different screen sizes like PowerApps
 - 🛠️ **TypeScript Support**: Full TypeScript support with type definitions
 - ⚡ **Modern Tooling**: Built on modern web technologies (Vite, React, TypeScript)
@@ -154,25 +154,21 @@ initializePCFHarness({
 
 ### Dataverse Integration
 
-1. Install `dataverse-utilities`:
-   ```bash
-   npm install dataverse-utilities --save-dev
-   ```
+The `dataverse-utilities` package is automatically included and configured. To enable Dataverse integration:
 
-2. Set your Dataverse URL in `.env`:
+1. Set your Dataverse URL in `.env`:
    ```
    VITE_DATAVERSE_URL=https://yourorg.crm.dynamics.com/
    ```
 
-3. Enable in config:
+2. Configure Dataverse URL:
    ```typescript
    export default createPCFViteConfig({
-       enableDataverse: true,
        dataverseUrl: process.env.VITE_DATAVERSE_URL
    });
    ```
 
-4. Use Dataverse Web API in your component:
+3. Use Dataverse Web API in your component:
    ```typescript
    // Your component can now make calls to /api/data/v9.2/...
    const response = await fetch('/api/data/v9.2/accounts?$top=10');
@@ -281,8 +277,9 @@ Creates optimized Vite configuration for PCF development.
 
 **Parameters:**
 - `options.port?`: Development server port
-- `options.enableDataverse?`: Enable Dataverse integration
-- `options.dataverseUrl?`: Dataverse URL for proxy
+- `options.dataverseUrl?`: Dataverse URL (enables integration when provided)
+- `options.hmrPort?`: HMR WebSocket port
+- `options.open?`: Whether to open browser on server start
 - `options.viteConfig?`: Additional Vite configuration
 
 ### Types
