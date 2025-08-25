@@ -310,6 +310,26 @@ initializePCFHarness({
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${component.name} Development</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body, html {
+            height: 100%;
+            font-family: "Segoe UI", "Segoe UI Web (West European)", "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", sans-serif;
+            background-color: #f3f2f1;
+            overflow: hidden;
+        }
+        
+        #pcf-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+    </style>
 </head>
 <body>
     <div id="pcf-container"></div>
