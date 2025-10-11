@@ -1,17 +1,18 @@
 # PCF Vite Harness
 
-> **⚠️ DISCLAIMER: PROOF OF CONCEPT**
-> 
-> This project is a **proof of concept** and should not be used in production environments. It is intended for experimentation and demonstration purposes only. The code has not been thoroughly tested or validated for production use cases.
-
-> **⚠️ CAUTION: AI-Generated Code**
-> 
-> This project was developed using AI assistance (Claude Code). Users should evaluate the code thoroughly before production use.
-
-> **⚠️ IMPORTANT: Bundler Compatibility Limitations**
-> 
-> This tool uses **Vite bundler** for development while PCF uses **webpack** for production builds. These have fundamental compatibility differences that may cause issues. Code that works in this harness may fail when built with PCF's webpack bundler.
-> 
+> **⚠️ DISCLAIMER: FOR INSPIRATION ONLY**  
+>  
+> This project is provided **for educational and inspirational purposes only**. It is **not intended for production use**.  
+> It serves as a **proof of concept** and should be treated as a **reference or learning example**, not a production-ready implementation.  
+> The code has not been thoroughly tested or validated for production use cases.  
+>  
+> **⚠️ CAUTION: AI-Generated Code**  
+> Portions of this project were developed using AI assistance (Claude Code). Always review and validate the code before adapting it for your own use.  
+>  
+> **⚠️ IMPORTANT: Bundler Compatibility Limitations**  
+> This tool uses **Vite bundler** for development while PCF uses **webpack** for production builds. These have fundamental compatibility differences that may cause issues.  
+> Code that works in this harness may fail when built with PCF's webpack bundler.  
+>  
 > **📖 [Read the full technical details in BUNDLER-COMPATIBILITY.md](./BUNDLER-COMPATIBILITY.md)**
 
 A modern Vite-based development harness for PowerApps Component Framework (PCF) components with hot module replacement and PowerApps-like environment simulation.
@@ -60,7 +61,6 @@ Create a complete new PCF project with Vite harness pre-configured:
 ```bash
 npx pcf-vite-harness create
 ```
-
 
 Your PCF component will open at `http://localhost:3000` with full HMR support!
 
